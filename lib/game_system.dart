@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'game_models.dart';
+import 'models/player.dart';
 
 // 試合結果クラス
 class GameResult {
@@ -342,7 +343,7 @@ class GameSimulator {
       // 得点確率
       final runChance = contactRate * powerRate;
       if (random.nextDouble() < runChance) {
-        totalRuns += 1 + (powerRate * 2).round();
+        totalRuns += 1 + (powerRate * 2).round().toInt();
       }
     }
     

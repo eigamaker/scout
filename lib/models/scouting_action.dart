@@ -283,4 +283,87 @@ final List<ScoutingAction> availableActions = [
     baseSuccessRate: 1.0,
     skillModifiers: {'negotiation': 0.2},
   ),
-]; 
+];
+
+// 選択されたアクションを管理するクラス
+class SelectedAction {
+  final ScoutingAction action;
+  final ScoutingTarget target;
+  final DateTime selectedAt;
+  
+  SelectedAction({
+    required this.action,
+    required this.target,
+    required this.selectedAt,
+  });
+  
+  Map<String, dynamic> toJson() => {
+    'action': action.toJson(),
+    'target': target.toJson(),
+    'selectedAt': selectedAt.toIso8601String(),
+  };
+  
+  factory SelectedAction.fromJson(Map<String, dynamic> json) => SelectedAction(
+    action: ScoutingAction.fromJson(json['action']),
+    target: ScoutingTarget.fromJson(json['target']),
+    selectedAt: DateTime.parse(json['selectedAt']),
+  );
+}
+
+// 選択されたアクションの管理クラス
+class SelectedActionManager {
+  final List<SelectedAction> _selectedActions = [];
+  
+  // デフォルトコンストラクタ
+  SelectedActionManager();
+  
+  // アクションを追加
+  void addAction(ScoutingAction action, ScoutingTarget target) {
+    _selectedActions.add(SelectedAction(
+      action: action,
+      target: target,
+      selectedAt: DateTime.now(),
+    ));
+  }
+  
+  // アクションを削除
+  void removeAction(int index) {
+    if (index >= 0 && index < _selectedActions.length) {
+      _selectedActions.removeAt(index);
+    }
+  }
+  
+  // 全てのアクションをクリア
+  void clearAll() {
+    _selectedActions.clear();
+  }
+  
+  // 選択されたアクションのリストを取得
+  List<SelectedAction> get selectedActions => List.unmodifiable(_selectedActions);
+  
+  // 選択されたアクションの数を取得
+  int get count => _selectedActions.length;
+  
+  // 合計APコストを計算
+  int get totalApCost {
+    return _selectedActions.fold(0, (sum, selectedAction) => sum + selectedAction.action.apCost);
+  }
+  
+  // 合計予算コストを計算
+  int get totalBudgetCost {
+    return _selectedActions.fold(0, (sum, selectedAction) => sum + selectedAction.action.budgetCost);
+  }
+  
+  Map<String, dynamic> toJson() => {
+    'selectedActions': _selectedActions.map((action) => action.toJson()).toList(),
+  };
+  
+  factory SelectedActionManager.fromJson(Map<String, dynamic> json) {
+    final manager = SelectedActionManager();
+    final actions = (json['selectedActions'] as List?)
+        ?.map((action) => SelectedAction.fromJson(action))
+        .toList() ?? [];
+    manager._selectedActions.addAll(actions);
+    return manager;
+  }
+} 

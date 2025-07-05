@@ -2,386 +2,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'game_system.dart';
-
-// 球種クラス
-class Pitch {
-  final String type; // '直球', 'カーブ', 'スライダー', 'フォーク', 'チェンジアップ'
-  final int breakAmount; // 現在の変化量 0-100
-  final int breakPot; // 潜在変化量 0-100
-  final bool unlocked; // 習得済みかどうか
-  
-  Pitch({
-    required this.type,
-    required this.breakAmount,
-    required this.breakPot,
-    required this.unlocked,
-  });
-  
-  Map<String, dynamic> toJson() => {
-    'type': type,
-    'breakAmount': breakAmount,
-    'breakPot': breakPot,
-    'unlocked': unlocked,
-  };
-  
-  factory Pitch.fromJson(Map<String, dynamic> json) => Pitch(
-    type: json['type'],
-    breakAmount: json['breakAmount'],
-    breakPot: json['breakPot'],
-    unlocked: json['unlocked'],
-  );
-}
-
-// 選手クラス
-class Player {
-  final String name;
-  final String school;
-  int grade; // 1年生、2年生、3年生
-  final String position;
-  final String personality;
-  final int trustLevel; // 信頼度 0-100
-  int fame; // 知名度 0-100
-  bool isWatched; // スカウトが注目しているかどうか
-  
-  // 投手能力値（投手のみ）
-  int? fastballVelo; // 球速 110-170 km/h
-  int? control; // 制球 0-100
-  int? stamina; // スタミナ 0-100
-  int? breakAvg; // 変化 0-100
-  List<Pitch>? pitches; // 球種
-  
-  // 野手能力値（野手のみ）
-  int? batPower; // パワー 0-100
-  int? batControl; // バットコントロール 0-100
-  int? run; // 走力 0-100
-  int? field; // 守備 0-100
-  int? arm; // 肩 0-100
-  
-  // 隠し能力値
-  final double mentalGrit; // 精神力 -0.15〜+0.15
-  final double growthRate; // 成長スピード 0.85-1.15
-  final int peakAbility; // ポテンシャル 80-150
-  final Map<String, int> positionFit; // ポジション適性
-  
-  // スカウトの評価（個人評価）
-  String? scoutEvaluation; // スカウトの個人評価
-  String? scoutNotes; // スカウトのメモ
-  
-  Player({
-    required this.name,
-    required this.school,
-    required this.grade,
-    required this.position,
-    required this.personality,
-    this.trustLevel = 0,
-    this.fame = 0,
-    this.isWatched = false,
-    this.fastballVelo,
-    this.control,
-    this.stamina,
-    this.breakAvg,
-    this.pitches,
-    this.batPower,
-    this.batControl,
-    this.run,
-    this.field,
-    this.arm,
-    required this.mentalGrit,
-    required this.growthRate,
-    required this.peakAbility,
-    required this.positionFit,
-    this.scoutEvaluation,
-    this.scoutNotes,
-  });
-  
-  // 投手かどうか
-  bool get isPitcher => position == '投手';
-  
-  // 投手の球速スコア（0-100に換算）
-  int get veloScore {
-    if (!isPitcher || fastballVelo == null) return 0;
-    return ((fastballVelo! - 110) * 1.6).round().clamp(0, 100);
-  }
-  
-  // 真の総合能力値を計算（0-100）
-  int get _trueTotalAbility {
-    if (isPitcher) {
-      final veloScore = this.veloScore;
-      final controlScore = control ?? 0;
-      final staminaScore = stamina ?? 0;
-      final breakScore = breakAvg ?? 0;
-      return ((veloScore + controlScore + staminaScore + breakScore) / 4).round();
-    } else {
-      final powerScore = batPower ?? 0;
-      final controlScore = batControl ?? 0;
-      final runScore = run ?? 0;
-      final fieldScore = field ?? 0;
-      final armScore = arm ?? 0;
-      return ((powerScore + controlScore + runScore + fieldScore + armScore) / 5).round();
-    }
-  }
-  
-  // スカウトスキルに基づく能力値の表示範囲を取得
-  int _getVisibleAbilityRange(int scoutSkill) {
-    // スカウトスキルが高いほど正確な能力値が見える
-    if (scoutSkill >= 80) return 5; // ±5の誤差
-    if (scoutSkill >= 60) return 10; // ±10の誤差
-    if (scoutSkill >= 40) return 20; // ±20の誤差
-    if (scoutSkill >= 20) return 30; // ±30の誤差
-    return 50; // ±50の誤差（ほぼ見えない）
-  }
-  
-  // スカウトスキルに基づく表示能力値を取得
-  int getVisibleAbility(int scoutSkill) {
-    final trueAbility = _trueTotalAbility;
-    final range = _getVisibleAbilityRange(scoutSkill);
-    final random = Random();
-    
-    // スカウトスキルが低いほどランダム要素が強くなる
-    final accuracy = scoutSkill / 100.0;
-    final randomFactor = (1.0 - accuracy) * range;
-    
-    final visibleAbility = trueAbility + (random.nextDouble() - 0.5) * randomFactor * 2;
-    return visibleAbility.round().clamp(0, 100);
-  }
-  
-  // 一般的な評価（世間の評価）- 現時点の能力値から自動算出、確率的ブレあり
-  String getGeneralEvaluation() {
-    final ability = _trueTotalAbility;
-    final random = Random();
-    
-    // 評価のブレ（±10%の確率的変動）
-    final evaluationVariance = (random.nextDouble() - 0.5) * 0.2; // -10%〜+10%
-    final adjustedAbility = ability * (1.0 + evaluationVariance);
-    
-    if (adjustedAbility > 85) return 'S';
-    if (adjustedAbility > 70) return 'A';
-    if (adjustedAbility > 55) return 'B';
-    if (adjustedAbility > 40) return 'C';
-    return 'D';
-  }
-  
-  // ポテンシャル評価（スカウトの目利きが活きる）
-  String getPotentialEvaluation(int scoutSkill) {
-    final currentAbility = _trueTotalAbility;
-    final potential = peakAbility;
-    final random = Random();
-    
-    // スカウトスキルが高いほど正確なポテンシャルが見える
-    final skillAccuracy = scoutSkill / 100.0;
-    
-    // 現在の能力値とポテンシャルの関係を分析
-    final growthPotential = potential - currentAbility;
-    final growthRate = growthPotential / 100.0; // 成長余地の割合
-    
-    // スカウトスキルに基づくポテンシャル推定
-    final estimatedPotential = currentAbility + (growthPotential * skillAccuracy);
-    
-    // ランダム要素（スカウトの勘）
-    final randomFactor = (random.nextDouble() - 0.5) * (1.0 - skillAccuracy) * 30;
-    final finalEstimate = estimatedPotential + randomFactor;
-    
-    // ポテンシャル評価の基準
-    if (finalEstimate > 120) return '超一流級の可能性';
-    if (finalEstimate > 110) return '一流級の可能性';
-    if (finalEstimate > 100) return '有望な可能性';
-    if (finalEstimate > 90) return '成長の可能性あり';
-    if (finalEstimate > 80) return 'やや期待できる';
-    return '限定的な可能性';
-  }
-  
-  // ポテンシャルの曖昧な表現（従来のメソッドを更新）
-  String getPotentialDescription() {
-    // スカウトスキル50をデフォルトとして使用
-    return getPotentialEvaluation(50);
-  }
-  
-  // スカウトの個人評価を設定
-  void setScoutEvaluation(String evaluation, String notes) {
-    scoutEvaluation = evaluation;
-    scoutNotes = notes;
-  }
-  
-  // 投手の総合評価（一般的評価）
-  String getPitcherEvaluation() {
-    if (!isPitcher) return 'N/A';
-    return getGeneralEvaluation();
-  }
-  
-  // 野手の総合評価（一般的評価）
-  String getBatterEvaluation() {
-    if (isPitcher) return 'N/A';
-    return getGeneralEvaluation();
-  }
-  
-  // 入学時の知名度を計算（学校の知名度と個人能力の組み合わせ）
-  void calculateInitialFame() {
-    final ability = _trueTotalAbility;
-    final evaluation = getGeneralEvaluation();
-    
-    // 学校の知名度を考慮（有名校ほど基本知名度が高い）
-    final schoolFame = _getSchoolFame();
-    
-    // 能力値に基づく個人知名度
-    int personalFame = 0;
-    if (evaluation == 'S') personalFame = 60;
-    else if (evaluation == 'A') personalFame = 40;
-    else if (evaluation == 'B') personalFame = 20;
-    else if (evaluation == 'C') personalFame = 10;
-    else personalFame = 5;
-    
-    // 学年による調整（上級生ほど注目される）
-    final gradeBonus = (grade - 1) * 5;
-    
-    // 投手の球速による追加知名度
-    int veloBonus = 0;
-    if (isPitcher && fastballVelo != null) {
-      if (fastballVelo! >= 150) veloBonus = 15;
-      else if (fastballVelo! >= 145) veloBonus = 10;
-      else if (fastballVelo! >= 140) veloBonus = 5;
-    }
-    
-    // ランダム要素（無名校から優秀な選手が現れる可能性）
-    final random = Random();
-    final randomFactor = random.nextDouble() * 20 - 10; // -10〜+10
-    
-    // 学校の知名度と個人能力を組み合わせ
-    final baseFame = (schoolFame * 0.6 + personalFame * 0.4).round();
-    fame = (baseFame + gradeBonus + veloBonus + randomFactor.round()).clamp(0, 100);
-  }
-  
-  // 学校の知名度を取得
-  int _getSchoolFame() {
-    // 実際の実装では学校クラスに知名度フィールドを追加する
-    // ここでは学校名から簡易的に計算
-    final schoolNames = ['甲子園高校', '野球名門校', '強豪校', '中堅校', '弱小校'];
-    final schoolFameMap = {
-      '甲子園高校': 90,
-      '野球名門校': 70,
-      '強豪校': 50,
-      '中堅校': 30,
-      '弱小校': 10,
-    };
-    
-    // 学校名に含まれるキーワードで判定
-    for (final key in schoolFameMap.keys) {
-      if (school.contains(key)) {
-        return schoolFameMap[key]!;
-      }
-    }
-    
-    // デフォルトは中堅校レベル
-    return 30;
-  }
-  
-  // 選手の成長
-  void grow() {
-    final growthChance = (mentalGrit + 0.15) * growthRate * 0.1;
-    
-    if (Random().nextDouble() < growthChance) {
-      if (isPitcher) {
-        _growPitcher();
-      } else {
-        _growBatter();
-      }
-      
-      // 成長に伴う知名度上昇
-      if (fame < 100) {
-        fame = (fame + Random().nextInt(3) + 1).clamp(0, 100);
-      }
-    }
-  }
-  
-  void _growPitcher() {
-    if (control != null && control! < peakAbility) {
-      control = (control! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    if (stamina != null && stamina! < peakAbility) {
-      stamina = (stamina! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    if (breakAvg != null && breakAvg! < peakAbility) {
-      breakAvg = (breakAvg! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    // 球速は高校生では成長しにくい
-    if (fastballVelo != null && Random().nextDouble() < 0.1) {
-      fastballVelo = (fastballVelo! + Random().nextInt(2) + 1).clamp(110, 155);
-    }
-  }
-  
-  void _growBatter() {
-    if (batPower != null && batPower! < peakAbility) {
-      batPower = (batPower! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    if (batControl != null && batControl! < peakAbility) {
-      batControl = (batControl! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    if (run != null && run! < peakAbility) {
-      run = (run! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    if (field != null && field! < peakAbility) {
-      field = (field! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    if (arm != null && arm! < peakAbility) {
-      arm = (arm! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-  }
-
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    'school': school,
-    'grade': grade,
-    'position': position,
-    'personality': personality,
-    'trustLevel': trustLevel,
-    'fame': fame,
-    'isWatched': isWatched,
-    'fastballVelo': fastballVelo,
-    'control': control,
-    'stamina': stamina,
-    'breakAvg': breakAvg,
-    'pitches': pitches?.map((p) => p.toJson()).toList(),
-    'batPower': batPower,
-    'batControl': batControl,
-    'run': run,
-    'field': field,
-    'arm': arm,
-    'mentalGrit': mentalGrit,
-    'growthRate': growthRate,
-    'peakAbility': peakAbility,
-    'positionFit': positionFit,
-    'scoutEvaluation': scoutEvaluation,
-    'scoutNotes': scoutNotes,
-  };
-
-  factory Player.fromJson(Map<String, dynamic> json) => Player(
-    name: json['name'],
-    school: json['school'],
-    grade: json['grade'],
-    position: json['position'],
-    personality: json['personality'],
-    trustLevel: json['trustLevel'] ?? 0,
-    fame: json['fame'] ?? 0,
-    isWatched: json['isWatched'] ?? false,
-    fastballVelo: json['fastballVelo'],
-    control: json['control'],
-    stamina: json['stamina'],
-    breakAvg: json['breakAvg'],
-    pitches: json['pitches'] != null 
-      ? (json['pitches'] as List).map((p) => Pitch.fromJson(p)).toList()
-      : null,
-    batPower: json['batPower'],
-    batControl: json['batControl'],
-    run: json['run'],
-    field: json['field'],
-    arm: json['arm'],
-    mentalGrit: (json['mentalGrit'] as num).toDouble(),
-    growthRate: (json['growthRate'] as num).toDouble(),
-    peakAbility: json['peakAbility'],
-    positionFit: Map<String, int>.from(json['positionFit']),
-    scoutEvaluation: json['scoutEvaluation'],
-    scoutNotes: json['scoutNotes'],
-  );
-}
+import 'models/scouting_action.dart';
+import 'models/scout_skills.dart';
+import 'models/player.dart';
+import 'models/pitch.dart';
+import 'models/scout_report.dart';
 
 // 高校クラス
 class School {
@@ -466,7 +91,7 @@ class School {
         control: control,
         stamina: stamina,
         breakAvg: breakAvg,
-        pitches: pitches,
+        pitches: pitches.isEmpty ? null : pitches,
         mentalGrit: mentalGrit,
         growthRate: growthRate,
         peakAbility: peakAbility,
@@ -519,166 +144,6 @@ class School {
     players: (json['players'] as List).map((p) => Player.fromJson(p)).toList(),
     coachTrust: json['coachTrust'],
     coachName: json['coachName'],
-  );
-}
-
-// スカウトの能力クラス
-class ScoutSkills {
-  int exploration; // 探索 (0-100)
-  int observation; // 観察 (0-100)
-  int analysis; // 分析 (0-100)
-  int insight; // 洞察 (0-100)
-  int communication; // コミュニケーション (0-100)
-  int negotiation; // 交渉 (0-100)
-  int stamina; // 体力 (0-100)
-  
-  ScoutSkills({
-    this.exploration = 50,
-    this.observation = 50,
-    this.analysis = 50,
-    this.insight = 50,
-    this.communication = 50,
-    this.negotiation = 50,
-    this.stamina = 50,
-  });
-  
-  // スキルを取得
-  int getSkill(String skillName) {
-    switch (skillName) {
-      case 'exploration': return exploration;
-      case 'observation': return observation;
-      case 'analysis': return analysis;
-      case 'insight': return insight;
-      case 'communication': return communication;
-      case 'negotiation': return negotiation;
-      case 'stamina': return stamina;
-      default: return 50;
-    }
-  }
-  
-  // スキルを設定
-  void setSkill(String skillName, int value) {
-    final clampedValue = value.clamp(0, 100);
-    switch (skillName) {
-      case 'exploration': exploration = clampedValue; break;
-      case 'observation': observation = clampedValue; break;
-      case 'analysis': analysis = clampedValue; break;
-      case 'insight': insight = clampedValue; break;
-      case 'communication': communication = clampedValue; break;
-      case 'negotiation': negotiation = clampedValue; break;
-      case 'stamina': stamina = clampedValue; break;
-    }
-  }
-  
-  // スキルを上昇
-  void improveSkill(String skillName, int amount) {
-    final currentSkill = getSkill(skillName);
-    setSkill(skillName, currentSkill + amount);
-  }
-  
-  Map<String, dynamic> toJson() => {
-    'exploration': exploration,
-    'observation': observation,
-    'analysis': analysis,
-    'insight': insight,
-    'communication': communication,
-    'negotiation': negotiation,
-    'stamina': stamina,
-  };
-  
-  factory ScoutSkills.fromJson(Map<String, dynamic> json) => ScoutSkills(
-    exploration: json['exploration'] ?? 50,
-    observation: json['observation'] ?? 50,
-    analysis: json['analysis'] ?? 50,
-    insight: json['insight'] ?? 50,
-    communication: json['communication'] ?? 50,
-    negotiation: json['negotiation'] ?? 50,
-    stamina: json['stamina'] ?? 50,
-  );
-}
-
-// スカウトアクションクラス
-class ScoutingAction {
-  final String id;
-  final String name;
-  final int apCost;
-  final int budgetCost;
-  final String description;
-  final String category;
-  final List<String> requiredSkills; // 必要なスキル
-  final List<String> primarySkills; // 主に使用するスキル
-  final double baseSuccessRate; // 基本成功率
-  final Map<String, double> skillModifiers; // スキル補正
-  
-  ScoutingAction({
-    required this.id,
-    required this.name,
-    required this.apCost,
-    required this.budgetCost,
-    required this.description,
-    required this.category,
-    required this.requiredSkills,
-    required this.primarySkills,
-    required this.baseSuccessRate,
-    required this.skillModifiers,
-  });
-  
-  // 成功判定を計算
-  bool calculateSuccess(ScoutSkills skills) {
-    final random = Random();
-    double successRate = baseSuccessRate;
-    
-    // スキル補正を適用
-    for (final skillName in skillModifiers.keys) {
-      final skillValue = skills.getSkill(skillName);
-      final modifier = skillModifiers[skillName]!;
-      successRate += (skillValue / 100.0) * modifier;
-    }
-    
-    // 体力による疲労ペナルティ
-    final staminaPenalty = (100 - skills.stamina) * 0.001; // 体力が低いほど成功率が下がる
-    successRate -= staminaPenalty;
-    
-    return random.nextDouble() < successRate;
-  }
-  
-  // アクションが実行可能かチェック
-  bool canExecute(ScoutSkills skills, int currentAp, int currentBudget) {
-    if (currentAp < apCost) return false;
-    if (currentBudget < budgetCost) return false;
-    
-    // 必要なスキルをチェック（最低20に緩和）
-    for (final skillName in requiredSkills) {
-      if (skills.getSkill(skillName) < 20) return false; // 最低20は必要
-    }
-    
-    return true;
-  }
-  
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'apCost': apCost,
-    'budgetCost': budgetCost,
-    'description': description,
-    'category': category,
-    'requiredSkills': requiredSkills,
-    'primarySkills': primarySkills,
-    'baseSuccessRate': baseSuccessRate,
-    'skillModifiers': skillModifiers,
-  };
-  
-  factory ScoutingAction.fromJson(Map<String, dynamic> json) => ScoutingAction(
-    id: json['id'],
-    name: json['name'],
-    apCost: json['apCost'],
-    budgetCost: json['budgetCost'],
-    description: json['description'],
-    category: json['category'],
-    requiredSkills: List<String>.from(json['requiredSkills']),
-    primarySkills: List<String>.from(json['primarySkills']),
-    baseSuccessRate: json['baseSuccessRate'].toDouble(),
-    skillModifiers: Map<String, double>.from(json['skillModifiers']),
   );
 }
 
@@ -751,84 +216,6 @@ class NewsItem {
   );
 }
 
-// スカウトアクションの結果クラス
-class ActionResult {
-  final String actionName;
-  final String result;
-  final String school;
-  final String? player;
-  final int apUsed;
-  final int budgetUsed;
-  final DateTime timestamp;
-  final bool success;
-  final Map<String, dynamic>? additionalData; // 追加データ（発見した選手、得た情報など）
-  
-  ActionResult({
-    required this.actionName,
-    required this.result,
-    required this.school,
-    this.player,
-    required this.apUsed,
-    required this.budgetUsed,
-    required this.timestamp,
-    required this.success,
-    this.additionalData,
-  });
-  
-  Map<String, dynamic> toJson() => {
-    'actionName': actionName,
-    'result': result,
-    'school': school,
-    'player': player,
-    'apUsed': apUsed,
-    'budgetUsed': budgetUsed,
-    'timestamp': timestamp.toIso8601String(),
-    'success': success,
-    'additionalData': additionalData,
-  };
-  
-  factory ActionResult.fromJson(Map<String, dynamic> json) => ActionResult(
-    actionName: json['actionName'],
-    result: json['result'],
-    school: json['school'],
-    player: json['player'],
-    apUsed: json['apUsed'],
-    budgetUsed: json['budgetUsed'],
-    timestamp: DateTime.parse(json['timestamp']),
-    success: json['success'],
-    additionalData: json['additionalData'] != null ? Map<String, dynamic>.from(json['additionalData']) : null,
-  );
-}
-
-// スカウトアクションの対象クラス
-class ScoutingTarget {
-  final String type; // 'school', 'player', 'region', 'team'
-  final String name;
-  final String? description;
-  final Map<String, dynamic>? metadata;
-  
-  ScoutingTarget({
-    required this.type,
-    required this.name,
-    this.description,
-    this.metadata,
-  });
-  
-  Map<String, dynamic> toJson() => {
-    'type': type,
-    'name': name,
-    'description': description,
-    'metadata': metadata,
-  };
-  
-  factory ScoutingTarget.fromJson(Map<String, dynamic> json) => ScoutingTarget(
-    type: json['type'],
-    name: json['name'],
-    description: json['description'],
-    metadata: json['metadata'] != null ? Map<String, dynamic>.from(json['metadata']) : null,
-  );
-}
-
 // 今週の予定クラス
 class ScheduleItem {
   final String title;
@@ -876,14 +263,6 @@ class ScheduleItem {
   );
 }
 
-// アクション結果クラス
-class ActionResultData {
-  final String message;
-  final Map<String, dynamic>? additionalData;
-  
-  ActionResultData(this.message, [this.additionalData]);
-}
-
 // ゲーム状態クラス
 class GameState {
   int currentWeek;
@@ -898,6 +277,8 @@ class GameState {
   List<ScheduleItem> thisWeekSchedule; // 今週の予定
   List<GameResult> gameResults; // 試合結果
   ScoutSkills scoutSkills; // スカウトの能力
+  SelectedActionManager selectedActionManager; // 選択されたアクション管理
+  ScoutReportManager scoutReportManager; // スカウトレポート管理
   
   GameState({
     this.currentWeek = 1,
@@ -912,6 +293,8 @@ class GameState {
     List<ScheduleItem>? thisWeekSchedule,
     List<GameResult>? gameResults,
     ScoutSkills? scoutSkills,
+    SelectedActionManager? selectedActionManager,
+    ScoutReportManager? scoutReportManager,
   }) : 
     schools = schools ?? [],
     discoveredPlayers = discoveredPlayers ?? [],
@@ -919,7 +302,9 @@ class GameState {
     lastWeekActions = lastWeekActions ?? [],
     thisWeekSchedule = thisWeekSchedule ?? [],
     gameResults = gameResults ?? [],
-    scoutSkills = scoutSkills ?? ScoutSkills() {
+    scoutSkills = scoutSkills ?? ScoutSkills(),
+    selectedActionManager = selectedActionManager ?? SelectedActionManager(),
+    scoutReportManager = scoutReportManager ?? ScoutReportManager() {
     
     // 既存選手の知名度を計算
     for (final school in this.schools) {
@@ -973,6 +358,12 @@ class GameState {
     // 先週のアクション結果を保存
     _saveLastWeekActions();
     
+    // 選択されたアクションをクリア
+    selectedActionManager.clearAll();
+    
+    // 前週のアクション結果をクリア（新しい週の開始時）
+    lastWeekActions.clear();
+    
     // 3月1週目で卒業処理
     if (currentWeek == 49) { // 3月1週目（4+4+5+4+4+5+5+4+4+4+4+1 = 49週目）
       _processGraduation();
@@ -1003,9 +394,8 @@ class GameState {
   
   // 先週のアクション結果を保存
   void _saveLastWeekActions() {
-    // 実際のアクション結果は、プレイヤーがアクションを実行した際に追加される
-    // ここでは空のリストにリセット
-    lastWeekActions.clear();
+    // 先週のアクション結果は保持する（クリアしない）
+    // 新しい週が始まる際に、前週の結果を表示するために必要
   }
   
   // 今週の予定を生成
@@ -1086,6 +476,87 @@ class GameState {
   // アクション結果を追加
   void addActionResult(ActionResult result) {
     lastWeekActions.add(result);
+    
+    // スカウトレポートを生成
+    _generateScoutReport(result);
+  }
+  
+  // スカウトレポートを生成
+  void _generateScoutReport(ActionResult result) {
+    final random = Random();
+    final reportId = 'report_${DateTime.now().millisecondsSinceEpoch}_${random.nextInt(1000)}';
+    
+    ReportUpdateType reportType;
+    String title;
+    String description;
+    
+    switch (result.actionName) {
+      case '練習視察':
+        reportType = ReportUpdateType.schoolVisited;
+        title = '${result.school}練習視察レポート';
+        description = result.success 
+          ? '${result.school}の練習を視察し、選手の基本能力を確認しました。'
+          : '${result.school}の練習視察は失敗しました。';
+        break;
+        
+      case 'インタビュー':
+        reportType = ReportUpdateType.interviewConducted;
+        title = '${result.player ?? result.school}インタビューレポート';
+        description = result.success 
+          ? '${result.player ?? result.school}へのインタビューが成功し、選手の性格や考え方を把握しました。'
+          : '${result.player ?? result.school}へのインタビューは失敗しました。';
+        break;
+        
+      case 'ビデオ分析':
+        reportType = ReportUpdateType.videoAnalyzed;
+        title = '${result.player ?? result.school}ビデオ分析レポート';
+        description = result.success 
+          ? '${result.player ?? result.school}の動画分析が完了し、詳細な技術分析ができました。'
+          : '${result.player ?? result.school}の動画分析は失敗しました。';
+        break;
+        
+      case '球団訪問':
+        reportType = ReportUpdateType.teamVisited;
+        title = 'プロ野球球団訪問レポート';
+        description = result.success 
+          ? 'プロ野球球団への訪問が成功し、球団関係者との関係が深まりました。'
+          : 'プロ野球球団への訪問は失敗しました。';
+        break;
+        
+      case '情報交換':
+        reportType = ReportUpdateType.infoExchanged;
+        title = '${result.school}地域情報交換レポート';
+        description = result.success 
+          ? '${result.school}地域のスカウトとの情報交換が成功し、新しい情報を得ました。'
+          : '${result.school}地域のスカウトとの情報交換は失敗しました。';
+        break;
+        
+      case 'ニュース確認':
+        reportType = ReportUpdateType.infoExchanged;
+        title = '最新ニュース確認レポート';
+        description = result.success 
+          ? '最新ニュースの確認が完了し、重要な情報を得ました。'
+          : '最新ニュースの確認は失敗しました。';
+        break;
+        
+      default:
+        reportType = ReportUpdateType.schoolVisited;
+        title = '${result.actionName}レポート';
+        description = result.result;
+    }
+    
+    final report = ScoutReportUpdate(
+      id: reportId,
+      type: reportType,
+      title: title,
+      description: description,
+      schoolName: result.school != '不明' ? result.school : null,
+      playerName: result.player,
+      timestamp: result.timestamp,
+      additionalData: result.additionalData,
+    );
+    
+    scoutReportManager.addReport(report);
   }
   
   // 卒業処理（3月1週目）
@@ -1555,6 +1026,7 @@ class GameState {
     'thisWeekSchedule': thisWeekSchedule.map((s) => s.toJson()).toList(),
     'gameResults': gameResults.map((g) => g.toJson()).toList(),
     'scoutSkills': scoutSkills.toJson(),
+    'scoutReportManager': scoutReportManager.toJson(),
   };
 
   factory GameState.fromJson(Map<String, dynamic> json) => GameState(
@@ -1570,6 +1042,9 @@ class GameState {
     thisWeekSchedule: (json['thisWeekSchedule'] as List?)?.map((s) => ScheduleItem.fromJson(s)).toList() ?? [],
     gameResults: (json['gameResults'] as List?)?.map((g) => GameResult.fromJson(g)).toList() ?? [],
     scoutSkills: ScoutSkills.fromJson(json['scoutSkills']),
+    scoutReportManager: json['scoutReportManager'] != null 
+      ? ScoutReportManager.fromJson(json['scoutReportManager']) 
+      : null,
   );
 
   // スカウトアクションを実行
@@ -1881,118 +1356,6 @@ class GameState {
     );
   }
 }
-
-// 利用可能なスカウトアクション
-final List<ScoutingAction> availableActions = [
-  ScoutingAction(
-    id: 'PRAC_WATCH',
-    name: '練習視察',
-    apCost: 2,
-    budgetCost: 20000,
-    description: '地元校の練習を見学し、選手の基本能力を確認',
-    category: '視察',
-    requiredSkills: ['observation'],
-    primarySkills: ['observation', 'exploration'],
-    baseSuccessRate: 0.60,
-    skillModifiers: {'observation': 0.3},
-  ),
-  ScoutingAction(
-    id: 'TEAM_VISIT',
-    name: '球団訪問',
-    apCost: 1,
-    budgetCost: 0,
-    description: '球団を訪問し、ニーズと指名候補を確認',
-    category: '交渉',
-    requiredSkills: ['negotiation'],
-    primarySkills: ['negotiation', 'communication'],
-    baseSuccessRate: 0.90,
-    skillModifiers: {'negotiation': 0.1},
-  ),
-  ScoutingAction(
-    id: 'INFO_SWAP',
-    name: '情報交換',
-    apCost: 1,
-    budgetCost: 0,
-    description: '他地域のスカウトと情報交換',
-    category: '情報収集',
-    requiredSkills: ['communication'],
-    primarySkills: ['communication', 'insight'],
-    baseSuccessRate: 0.70,
-    skillModifiers: {'insight': 0.2},
-  ),
-  ScoutingAction(
-    id: 'NEWS_CHECK',
-    name: 'ニュース確認',
-    apCost: 0,
-    budgetCost: 0,
-    description: '最新のニュースを確認',
-    category: '情報収集',
-    requiredSkills: [],
-    primarySkills: ['exploration'],
-    baseSuccessRate: 1.0,
-    skillModifiers: {},
-  ),
-  ScoutingAction(
-    id: 'GAME_WATCH',
-    name: '試合観戦',
-    apCost: 3,
-    budgetCost: 50000,
-    description: '強豪校の試合を観戦し、詳細なパフォーマンスを確認',
-    category: '視察',
-    requiredSkills: ['observation'],
-    primarySkills: ['observation', 'analysis'],
-    baseSuccessRate: 0.55,
-    skillModifiers: {'observation': 0.4},
-  ),
-  ScoutingAction(
-    id: 'SCRIMMAGE',
-    name: '練習試合観戦',
-    apCost: 2,
-    budgetCost: 30000,
-    description: '練習試合を観戦し、実戦での傾向を確認',
-    category: '視察',
-    requiredSkills: ['observation'],
-    primarySkills: ['observation', 'analysis'],
-    baseSuccessRate: 0.50,
-    skillModifiers: {'observation': 0.4},
-  ),
-  ScoutingAction(
-    id: 'INTERVIEW',
-    name: 'インタビュー',
-    apCost: 1,
-    budgetCost: 10000,
-    description: '選手にインタビューし、性格と動機を確認',
-    category: '面談',
-    requiredSkills: ['communication'],
-    primarySkills: ['communication', 'insight'],
-    baseSuccessRate: 0.65,
-    skillModifiers: {'communication': 0.4},
-  ),
-  ScoutingAction(
-    id: 'VIDEO_ANALYZE',
-    name: 'ビデオ分析',
-    apCost: 2,
-    budgetCost: 0,
-    description: '映像を分析し、技術的なメカニクスを確認',
-    category: '分析',
-    requiredSkills: ['analysis'],
-    primarySkills: ['analysis', 'insight'],
-    baseSuccessRate: 0.70,
-    skillModifiers: {'analysis': 0.3},
-  ),
-  ScoutingAction(
-    id: 'REPORT_WRITE',
-    name: 'レポート作成',
-    apCost: 2,
-    budgetCost: 0,
-    description: '球団提出用の詳細レポートを作成',
-    category: '報告',
-    requiredSkills: ['analysis'],
-    primarySkills: ['analysis', 'negotiation'],
-    baseSuccessRate: 1.0,
-    skillModifiers: {'negotiation': 0.2},
-  ),
-];
 
 // 選手の通算成績クラス
 class PlayerStats {

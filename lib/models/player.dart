@@ -2,16 +2,33 @@
 import 'dart:math';
 import 'pitch.dart';
 
+// 選手の種類
+enum PlayerType { highSchool, college, social }
+
 // 選手クラス
 class Player {
   final String name;
   final String school;
-  int grade; // 1年生、2年生、3年生
+  int grade; // 1年生、2年生、3年生（高校生の場合）
   final String position;
   final String personality;
   final int trustLevel; // 信頼度 0-100
   int fame; // 知名度 0-100
   bool isWatched; // スカウトが注目しているかどうか
+  
+  // 発掘状態管理
+  bool isDiscovered; // 発掘済みかどうか
+  bool isPubliclyKnown; // 世間から注目されているかどうか
+  bool isScoutFavorite; // 自分が気に入っている選手かどうか
+  DateTime? discoveredAt; // 発掘日時
+  String? discoveredBy; // 発掘したスカウト（将来的に複数スカウト対応）
+  
+  // 能力値の把握度（0-100、100で完全把握）
+  Map<String, int> abilityKnowledge; // 各能力値の把握度
+  
+  // 選手の種類と卒業後の年数
+  PlayerType type;
+  int yearsAfterGraduation; // 卒業後の年数（大学生・社会人用）
   
   // 投手能力値（投手のみ）
   int? fastballVelo; // 球速 110-170 km/h
@@ -46,6 +63,13 @@ class Player {
     this.trustLevel = 0,
     this.fame = 0,
     this.isWatched = false,
+    this.isDiscovered = false,
+    this.isPubliclyKnown = false,
+    this.isScoutFavorite = false,
+    this.discoveredAt,
+    this.discoveredBy,
+    this.type = PlayerType.highSchool,
+    this.yearsAfterGraduation = 0,
     this.fastballVelo,
     this.control,
     this.stamina,
@@ -62,10 +86,50 @@ class Player {
     required this.positionFit,
     this.scoutEvaluation,
     this.scoutNotes,
-  });
+    Map<String, int>? abilityKnowledge,
+  }) : abilityKnowledge = abilityKnowledge ?? _initializeAbilityKnowledge();
+  
+  // 能力値把握度の初期化
+  static Map<String, int> _initializeAbilityKnowledge() {
+    return {
+      'fastballVelo': 0,
+      'control': 0,
+      'stamina': 0,
+      'breakAvg': 0,
+      'batPower': 0,
+      'batControl': 0,
+      'run': 0,
+      'field': 0,
+      'arm': 0,
+      'mentalGrit': 0,
+      'growthRate': 0,
+      'peakAbility': 0,
+    };
+  }
   
   // 投手かどうか
   bool get isPitcher => position == '投手';
+  
+  // 高校生かどうか
+  bool get isHighSchoolStudent => type == PlayerType.highSchool;
+  
+  // 大学生かどうか
+  bool get isCollegeStudent => type == PlayerType.college;
+  
+  // 社会人かどうか
+  bool get isSocialPlayer => type == PlayerType.social;
+  
+  // ドラフト対象かどうか
+  bool get isDraftEligible {
+    if (isHighSchoolStudent) {
+      return grade == 3; // 高校3年生
+    } else if (isCollegeStudent) {
+      return yearsAfterGraduation == 3; // 大学4年生相当
+    } else if (isSocialPlayer) {
+      return yearsAfterGraduation >= 1; // 社会人2年目以降
+    }
+    return false;
+  }
   
   // 投手の球速スコア（0-100に換算）
   int get veloScore {
@@ -164,6 +228,130 @@ class Player {
   String getPotentialDescription() {
     // スカウトスキル50をデフォルトとして使用
     return getPotentialEvaluation(50);
+  }
+  
+  // 選手を発掘する
+  void discover(String scoutName) {
+    if (!isDiscovered) {
+      isDiscovered = true;
+      discoveredAt = DateTime.now();
+      discoveredBy = scoutName;
+      
+      // 発掘時に基本的な能力値を少し把握
+      _improveBasicKnowledge();
+    }
+  }
+  
+  // 世間の注目を集める
+  void makePubliclyKnown() {
+    isPubliclyKnown = true;
+    fame = (fame + 30).clamp(0, 100); // 知名度を上げる
+  }
+  
+  // スカウトのお気に入りに設定
+  void setAsFavorite() {
+    isScoutFavorite = true;
+  }
+  
+  // お気に入りを解除
+  void removeFromFavorites() {
+    isScoutFavorite = false;
+  }
+  
+  // 能力値の把握度を向上させる
+  void improveKnowledge(String abilityName, int improvement) {
+    if (abilityKnowledge.containsKey(abilityName)) {
+      abilityKnowledge[abilityName] = (abilityKnowledge[abilityName]! + improvement).clamp(0, 100);
+    }
+  }
+  
+  // 発掘時に基本的な能力値を少し把握
+  void _improveBasicKnowledge() {
+    if (isPitcher) {
+      improveKnowledge('fastballVelo', 20);
+      improveKnowledge('control', 15);
+      improveKnowledge('stamina', 15);
+      improveKnowledge('breakAvg', 15);
+    } else {
+      improveKnowledge('batPower', 15);
+      improveKnowledge('batControl', 15);
+      improveKnowledge('run', 20);
+      improveKnowledge('field', 15);
+      improveKnowledge('arm', 15);
+    }
+    improveKnowledge('mentalGrit', 10);
+    improveKnowledge('growthRate', 10);
+    improveKnowledge('peakAbility', 5);
+  }
+  
+  // 把握度に基づく表示能力値を取得
+  int getDisplayAbility(String abilityName, int trueValue) {
+    final knowledge = abilityKnowledge[abilityName] ?? 0;
+    final random = Random();
+    
+    if (knowledge >= 100) return trueValue; // 完全把握
+    
+    // 把握度に応じて誤差を計算
+    final accuracy = knowledge / 100.0;
+    final maxError = (1.0 - accuracy) * 30; // 最大±30の誤差
+    
+    final error = (random.nextDouble() - 0.5) * maxError * 2;
+    return (trueValue + error).round().clamp(0, 100);
+  }
+  
+  // 投手の表示能力値を取得
+  int? getDisplayFastballVelo() {
+    if (fastballVelo == null) return null;
+    return getDisplayAbility('fastballVelo', fastballVelo!);
+  }
+  
+  int? getDisplayControl() {
+    if (control == null) return null;
+    return getDisplayAbility('control', control!);
+  }
+  
+  int? getDisplayStamina() {
+    if (stamina == null) return null;
+    return getDisplayAbility('stamina', stamina!);
+  }
+  
+  int? getDisplayBreakAvg() {
+    if (breakAvg == null) return null;
+    return getDisplayAbility('breakAvg', breakAvg!);
+  }
+  
+  // 野手の表示能力値を取得
+  int? getDisplayBatPower() {
+    if (batPower == null) return null;
+    return getDisplayAbility('batPower', batPower!);
+  }
+  
+  int? getDisplayBatControl() {
+    if (batControl == null) return null;
+    return getDisplayAbility('batControl', batControl!);
+  }
+  
+  int? getDisplayRun() {
+    if (run == null) return null;
+    return getDisplayAbility('run', run!);
+  }
+  
+  int? getDisplayField() {
+    if (field == null) return null;
+    return getDisplayAbility('field', field!);
+  }
+  
+  int? getDisplayArm() {
+    if (arm == null) return null;
+    return getDisplayAbility('arm', arm!);
+  }
+  
+  // 選手の状態を取得
+  String getDiscoveryStatus() {
+    if (isPubliclyKnown) return '世間注目';
+    if (isScoutFavorite) return 'お気に入り';
+    if (isDiscovered) return '発掘済み';
+    return '未発掘';
   }
   
   // スカウトの個人評価を設定
@@ -305,6 +493,14 @@ class Player {
     'trustLevel': trustLevel,
     'fame': fame,
     'isWatched': isWatched,
+    'isDiscovered': isDiscovered,
+    'isPubliclyKnown': isPubliclyKnown,
+    'isScoutFavorite': isScoutFavorite,
+    'discoveredAt': discoveredAt?.toIso8601String(),
+    'discoveredBy': discoveredBy,
+    'abilityKnowledge': abilityKnowledge,
+    'type': type.index,
+    'yearsAfterGraduation': yearsAfterGraduation,
     'fastballVelo': fastballVelo,
     'control': control,
     'stamina': stamina,
@@ -332,6 +528,16 @@ class Player {
     trustLevel: json['trustLevel'] ?? 0,
     fame: json['fame'] ?? 0,
     isWatched: json['isWatched'] ?? false,
+    isDiscovered: json['isDiscovered'] ?? false,
+    isPubliclyKnown: json['isPubliclyKnown'] ?? false,
+    isScoutFavorite: json['isScoutFavorite'] ?? false,
+    discoveredAt: json['discoveredAt'] != null ? DateTime.parse(json['discoveredAt']) : null,
+    discoveredBy: json['discoveredBy'],
+    abilityKnowledge: json['abilityKnowledge'] != null 
+      ? Map<String, int>.from(json['abilityKnowledge'])
+      : null,
+    type: PlayerType.values[json['type'] ?? 0],
+    yearsAfterGraduation: json['yearsAfterGraduation'] ?? 0,
     fastballVelo: json['fastballVelo'],
     control: json['control'],
     stamina: json['stamina'],

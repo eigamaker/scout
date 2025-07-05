@@ -9,6 +9,11 @@ import 'game_models.dart';
 import 'game_system.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'models/scouting_action.dart';
+import 'models/scout_skills.dart';
+import 'models/player.dart' show Player;
+import 'models/pitch.dart' show Pitch;
+import 'models/scout_report.dart';
 
 void main() {
   runApp(const ScoutGameApp());
@@ -440,14 +445,23 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ],
       ),
-      body: GameWidget(
-        game: _game,
-        overlayBuilderMap: {
-          'button_overlay': (context, game) => ButtonOverlay(
-            game: game as ScoutGame,
-            onAdvanceWeek: () => _autoSave(),
+      body: Column(
+        children: [
+          // メインコンテンツ
+          Expanded(
+            child: GameWidget(
+              game: _game,
+              overlayBuilderMap: {
+                'button_overlay': (context, game) => ButtonOverlay(
+                  game: game as ScoutGame,
+                  onAdvanceWeek: () => _autoSave(),
+                ),
+              },
+            ),
           ),
-        },
+          // 選択されたアクションリスト
+          _buildSelectedActionsList(),
+        ],
       ),
     );
   }
@@ -455,6 +469,741 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _autoSave() async {
     await _saveGameState(0); // 自動セーブは常にスロット0
   }
+  
+  // 選択されたアクションを実行
+  void _executeSelectedActions(BuildContext context) {
+    final selectedActions = _game.gameState.selectedActionManager.selectedActions;
+    
+    if (selectedActions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('実行するアクションがありません'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    
+    // APと予算の確認
+    final totalApCost = _game.gameState.selectedActionManager.totalApCost;
+    final totalBudgetCost = _game.gameState.selectedActionManager.totalBudgetCost;
+    
+    if (totalApCost > _game.gameState.actionPoints) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('APが不足しています'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    
+    if (totalBudgetCost > _game.gameState.budget) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('予算が不足しています'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    
+    // アクションを実行
+    final results = <ActionResult>[];
+    for (final selectedAction in selectedActions) {
+      final result = _executeSingleAction(selectedAction.action, selectedAction.target);
+      results.add(result);
+      
+      // スキル成長
+      _game.gameState.scoutSkills.growFromAction(selectedAction.action.id, result.success);
+      
+      // 結果を保存
+      _game.gameState.addActionResult(result);
+    }
+    
+    // コストを消費
+    _game.gameState.actionPoints -= totalApCost;
+    _game.gameState.budget -= totalBudgetCost;
+    
+    // アクションリストをクリア
+    _game.gameState.selectedActionManager.clearAll();
+    
+    // 結果表示ダイアログ
+    _showActionResultsDialog(context, results);
+    
+    // UIを更新
+    setState(() {});
+  }
+  
+  // 単一アクションの実行
+  ActionResult _executeSingleAction(ScoutingAction action, ScoutingTarget target) {
+    final random = Random();
+    final successRate = _calculateSuccessRate(action, target);
+    final success = random.nextDouble() < successRate;
+    
+    String resultText = '';
+    Map<String, dynamic>? additionalData;
+    
+    switch (action.id) {
+      case 'PRAC_WATCH':
+        if (target.type == 'school') {
+          // 学校全体の練習視察
+          resultText = _executeSchoolPracticeWatch(target.name, success);
+        } else if (target.type == 'player') {
+          // 特定選手の練習視察
+          resultText = _executePlayerPracticeWatch(target.name, success);
+        }
+        break;
+        
+      case 'INTERVIEW':
+        resultText = success 
+          ? '${target.name}へのインタビューが成功しました。選手の性格や考え方が分かりました。'
+          : '${target.name}へのインタビューは失敗しました。話を聞けませんでした。';
+        break;
+        
+      case 'VIDEO_ANALYZE':
+        resultText = success 
+          ? '${target.name}の動画分析が完了しました。詳細な技術分析ができました。'
+          : '${target.name}の動画分析は失敗しました。質の良い映像がありませんでした。';
+        break;
+        
+      case 'TEAM_VISIT':
+        resultText = success 
+          ? 'プロ野球球団への訪問が成功しました。球団関係者との関係が深まりました。'
+          : 'プロ野球球団への訪問は失敗しました。関係者に会えませんでした。';
+        break;
+        
+      case 'INFO_SWAP':
+        resultText = success 
+          ? '${target.name}地域のスカウトとの情報交換が成功しました。新しい情報を得ました。'
+          : '${target.name}地域のスカウトとの情報交換は失敗しました。有用な情報がありませんでした。';
+        break;
+        
+      case 'NEWS_CHECK':
+        resultText = success 
+          ? '最新ニュースの確認が完了しました。重要な情報を得ました。'
+          : '最新ニュースの確認は失敗しました。新しい情報はありませんでした。';
+        break;
+    }
+    
+    return ActionResult(
+      actionName: action.name,
+      result: resultText,
+      school: target.type == 'school' ? target.name : '不明',
+      player: target.type == 'player' ? target.name : null,
+      apUsed: action.apCost,
+      budgetUsed: action.budgetCost,
+      timestamp: DateTime.now(),
+      success: success,
+      additionalData: additionalData,
+    );
+  }
+  
+  // 成功率の計算
+  double _calculateSuccessRate(ScoutingAction action, ScoutingTarget target) {
+    double baseRate = 0.7; // 基本成功率70%
+    
+    // アクションタイプによる調整
+    switch (action.id) {
+      case 'PRAC_WATCH':
+        baseRate = 0.8;
+        break;
+      case 'INTERVIEW':
+        baseRate = 0.6;
+        break;
+      case 'VIDEO_ANALYZE':
+        baseRate = 0.75;
+        break;
+      case 'TEAM_VISIT':
+        baseRate = 0.5;
+        break;
+      case 'INFO_SWAP':
+        baseRate = 0.65;
+        break;
+      case 'NEWS_CHECK':
+        baseRate = 0.9;
+        break;
+    }
+    
+    // ランダム要素を追加
+    final random = Random();
+    final variation = (random.nextDouble() - 0.5) * 0.2; // ±10%
+    
+    return (baseRate + variation).clamp(0.1, 0.95);
+  }
+  
+  // アクション結果表示ダイアログ
+  void _showActionResultsDialog(BuildContext context, List<ActionResult> results) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('アクション実行結果'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: results.map((result) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: Icon(
+                    result.success ? Icons.check_circle : Icons.error,
+                    color: result.success ? Colors.green : Colors.red,
+                  ),
+                  title: Text('${result.actionName} - ${result.school}'),
+                  subtitle: Text(result.result),
+                  onTap: () => _showActionResultDetails(context, result),
+                ),
+              )).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('閉じる'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+  // 学校全体の練習視察を実行
+  String _executeSchoolPracticeWatch(String schoolName, bool success) {
+    if (!success) {
+      return '${schoolName}の練習視察は失敗しました。情報が得られませんでした。';
+    }
+    
+    // 学校を探す
+    final school = _game.gameState.schools.firstWhere(
+      (s) => s.name == schoolName,
+      orElse: () => throw Exception('学校が見つかりません: $schoolName'),
+    );
+    
+    final discoveredPlayers = <String>[];
+    final improvedPlayers = <String>[];
+    final playerComments = <String>[];
+    
+    // 学校の選手をランダムに選んで処理
+    final random = Random();
+    final players = List<Player>.from(school.players);
+    players.shuffle(random);
+    
+    // 最大5人まで処理
+    final maxPlayers = players.length > 5 ? 5 : players.length;
+    
+    for (int i = 0; i < maxPlayers; i++) {
+      final player = players[i];
+      
+      if (!player.isDiscovered) {
+        // 未発掘選手を発掘
+        player.discover('あなた');
+        discoveredPlayers.add(player.name);
+        
+        // 発掘時に基本的な能力値を把握
+        _improvePlayerKnowledge(player, 10, 15);
+        
+        // 選手の特徴的なコメントを生成
+        playerComments.add(_generatePlayerDiscoveryComment(player));
+      } else {
+        // 発掘済み選手の能力値を少し向上
+        _improvePlayerKnowledge(player, 5, 10);
+        improvedPlayers.add(player.name);
+      }
+    }
+    
+    // 結果テキストを生成
+    String resultText = '${schoolName}の練習を視察しました。\n';
+    
+    if (discoveredPlayers.isNotEmpty) {
+      resultText += '新たに発掘した選手: ${discoveredPlayers.join(', ')}\n';
+      if (playerComments.isNotEmpty) {
+        resultText += '${playerComments.first}'; // 最初の選手のコメントを表示
+      }
+    }
+    
+    if (improvedPlayers.isNotEmpty) {
+      resultText += '能力を再確認した選手: ${improvedPlayers.join(', ')}';
+    }
+    
+    return resultText;
+  }
+  
+  // 選手発見時のコメントを生成
+  String _generatePlayerDiscoveryComment(Player player) {
+    final random = Random();
+    final comments = <String>[];
+    
+    if (player.isPitcher) {
+      final velo = player.getDisplayFastballVelo() ?? 0;
+      if (velo >= 145) {
+        comments.add('${player.name}君は球速がかなり速い！');
+      } else if (velo >= 140) {
+        comments.add('${player.name}君の球速はまずまずのレベル');
+      }
+      
+      final control = player.getDisplayControl() ?? 0;
+      if (control >= 80) {
+        comments.add('${player.name}君の制球力が印象的');
+      }
+    } else {
+      final run = player.getDisplayRun() ?? 0;
+      if (run >= 80) {
+        comments.add('${player.name}君は足がかなり速い！');
+      } else if (run >= 70) {
+        comments.add('${player.name}君の走力は良好');
+      }
+      
+      final batPower = player.getDisplayBatPower() ?? 0;
+      if (batPower >= 80) {
+        comments.add('${player.name}君の打撃力が目立つ');
+      }
+    }
+    
+    // 性格によるコメント
+    switch (player.personality) {
+      case '真面目':
+        comments.add('${player.name}君は真面目な性格で練習熱心');
+        break;
+      case '明るい':
+        comments.add('${player.name}君は明るい性格でチームの雰囲気を良くしている');
+        break;
+      case 'クール':
+        comments.add('${player.name}君はクールな性格で試合での冷静さが期待できる');
+        break;
+      case 'リーダー':
+        comments.add('${player.name}君はリーダーシップがあり、チームを引っ張っている');
+        break;
+      case '努力家':
+        comments.add('${player.name}君は努力家で、地道な練習を積んでいる');
+        break;
+    }
+    
+    // ランダムに1つのコメントを選択
+    if (comments.isNotEmpty) {
+      return comments[random.nextInt(comments.length)];
+    }
+    
+    return '${player.name}君が気になりました';
+  }
+  
+  // 特定選手の練習視察を実行
+  String _executePlayerPracticeWatch(String playerName, bool success) {
+    if (!success) {
+      return '${playerName}の練習視察は失敗しました。情報が得られませんでした。';
+    }
+    
+    // 選手を探す
+    Player? targetPlayer;
+    for (final school in _game.gameState.schools) {
+      try {
+        targetPlayer = school.players.firstWhere(
+          (p) => p.name == playerName,
+        );
+        break;
+      } catch (e) {
+        // 選手が見つからない場合は次の学校をチェック
+        continue;
+      }
+    }
+    
+    if (targetPlayer == null) {
+      return '選手が見つかりませんでした: $playerName';
+    }
+    
+    // 選手を発掘（未発掘の場合）
+    if (!targetPlayer.isDiscovered) {
+      targetPlayer.discover('あなた');
+    }
+    
+    // 能力値の把握度を大幅に向上
+    _improvePlayerKnowledge(targetPlayer, 20, 30);
+    
+    // 詳細なコメントを生成
+    final comment = _generateDetailedPlayerComment(targetPlayer);
+    
+    return '${playerName}の練習を詳細に視察しました。\n$comment';
+  }
+  
+  // 選手の詳細コメントを生成
+  String _generateDetailedPlayerComment(Player player) {
+    final comments = <String>[];
+    
+    if (player.isPitcher) {
+      final velo = player.getDisplayFastballVelo() ?? 0;
+      if (velo >= 150) {
+        comments.add('球速は${velo}km/hと非常に速い！');
+      } else if (velo >= 145) {
+        comments.add('球速は${velo}km/hとかなり速い');
+      } else if (velo >= 140) {
+        comments.add('球速は${velo}km/hでまずまずのレベル');
+      }
+      
+      final control = player.getDisplayControl() ?? 0;
+      if (control >= 85) {
+        comments.add('制球力が非常に優秀');
+      } else if (control >= 75) {
+        comments.add('制球力は良好');
+      }
+      
+      final stamina = player.getDisplayStamina() ?? 0;
+      if (stamina >= 80) {
+        comments.add('スタミナが豊富で長いイニングを投げられる');
+      }
+    } else {
+      final run = player.getDisplayRun() ?? 0;
+      if (run >= 85) {
+        comments.add('足が非常に速い！盗塁の期待ができる');
+      } else if (run >= 75) {
+        comments.add('走力は良好で、機動力がある');
+      }
+      
+      final batPower = player.getDisplayBatPower() ?? 0;
+      if (batPower >= 85) {
+        comments.add('打撃力が非常に優秀で、長打力がある');
+      } else if (batPower >= 75) {
+        comments.add('打撃力は良好');
+      }
+      
+      final field = player.getDisplayField() ?? 0;
+      if (field >= 80) {
+        comments.add('守備力が優秀で、安定した守備が期待できる');
+      }
+    }
+    
+    // 性格によるコメント
+    switch (player.personality) {
+      case '真面目':
+        comments.add('真面目な性格で、練習への取り組みが素晴らしい');
+        break;
+      case '明るい':
+        comments.add('明るい性格で、チームの雰囲気を良くしている');
+        break;
+      case 'クール':
+        comments.add('クールな性格で、試合での冷静さが期待できる');
+        break;
+      case 'リーダー':
+        comments.add('リーダーシップがあり、チームを引っ張っている');
+        break;
+      case '努力家':
+        comments.add('努力家で、地道な練習を積んでいる');
+        break;
+    }
+    
+    // 複数のコメントを組み合わせて返す
+    if (comments.length >= 2) {
+      return '${comments[0]}\n${comments[1]}';
+    } else if (comments.isNotEmpty) {
+      return comments[0];
+    }
+    
+    return '選手の能力を深く把握できました';
+  }
+  
+  // 選手の能力値把握度を向上させる
+  void _improvePlayerKnowledge(Player player, int basicImprovement, int focusedImprovement) {
+    final random = Random();
+    
+    if (player.isPitcher) {
+      // 投手の場合
+      final abilities = ['fastballVelo', 'control', 'stamina', 'breakAvg'];
+      abilities.shuffle(random);
+      
+      // 1つの能力値を重点的に向上
+      player.improveKnowledge(abilities[0], focusedImprovement);
+      
+      // 他の能力値を少し向上
+      for (int i = 1; i < abilities.length; i++) {
+        player.improveKnowledge(abilities[i], basicImprovement);
+      }
+    } else {
+      // 野手の場合
+      final abilities = ['batPower', 'batControl', 'run', 'field', 'arm'];
+      abilities.shuffle(random);
+      
+      // 1つの能力値を重点的に向上
+      player.improveKnowledge(abilities[0], focusedImprovement);
+      
+      // 他の能力値を少し向上
+      for (int i = 1; i < abilities.length; i++) {
+        player.improveKnowledge(abilities[i], basicImprovement);
+      }
+    }
+    
+    // 隠し能力値も少し向上
+    player.improveKnowledge('mentalGrit', basicImprovement ~/ 2);
+    player.improveKnowledge('growthRate', basicImprovement ~/ 2);
+    player.improveKnowledge('peakAbility', basicImprovement ~/ 4);
+  }
+  
+  // アクション結果の詳細表示
+  void _showActionResultDetails(BuildContext context, ActionResult result) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('${result.actionName}の結果'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(result.result),
+                if (result.additionalData != null) ...[
+                  const SizedBox(height: 16),
+                  const Text('詳細情報:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...result.additionalData!.entries.map((entry) => 
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text('${entry.key}: ${entry.value}'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('閉じる'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+    // 選択されたアクションリストを表示
+  Widget _buildSelectedActionsList() {
+    // 毎回最新の状態を取得
+    final selectedActions = _game.gameState.selectedActionManager.selectedActions;
+    final totalApCost = _game.gameState.selectedActionManager.totalApCost;
+    final totalBudgetCost = _game.gameState.selectedActionManager.totalBudgetCost;
+    
+    return GestureDetector(
+      onTap: () => _showSelectedActionsDialog(context),
+      child: Container(
+        height: selectedActions.isEmpty ? 60 : 120,
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.7),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(12),
+            topRight: Radius.circular(12),
+          ),
+        ),
+        child: selectedActions.isEmpty 
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.8),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.playlist_add_check, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '選択されたアクション (0)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'AP: 0/${_game.gameState.actionPoints}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '¥0k',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.expand_less, color: Colors.white, size: 20),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                // ヘッダー
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.8),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.playlist_add_check, color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        '選択されたアクション (${selectedActions.length})',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'AP: $totalApCost/${_game.gameState.actionPoints}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '¥${(totalBudgetCost / 1000).toStringAsFixed(0)}k',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => _executeSelectedActions(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        ),
+                        child: const Text('実行', style: TextStyle(fontSize: 12)),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: () {
+                          _game.gameState.selectedActionManager.clearAll();
+                          setState(() {});
+                        },
+                        icon: const Icon(Icons.clear, color: Colors.white, size: 20),
+                        tooltip: '全てクリア',
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.expand_less, color: Colors.white, size: 20),
+                    ],
+                  ),
+                ),
+                // アクションリスト
+                Expanded(
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    itemCount: selectedActions.length,
+                    itemBuilder: (context, index) {
+                      final selectedAction = selectedActions[index];
+                      return Container(
+                        width: 200,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                        ),
+                        child: ListTile(
+                          dense: true,
+                          title: Text(
+                            selectedAction.action.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                selectedAction.target.name,
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                              Text(
+                                'AP: ${selectedAction.action.apCost} | ¥${(selectedAction.action.budgetCost / 1000).toStringAsFixed(0)}k',
+                                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                          trailing: IconButton(
+                            onPressed: () {
+                              _game.gameState.selectedActionManager.removeAction(index);
+                              setState(() {});
+                            },
+                            icon: const Icon(Icons.remove_circle, color: Colors.red, size: 16),
+                            tooltip: '削除',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+      ),
+    );
+  }
+
+  // アクションリスト拡大ダイアログ
+  void _showSelectedActionsDialog(BuildContext context) {
+    final selectedActions = _game.gameState.selectedActionManager.selectedActions;
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('選択中のアクション一覧'),
+          content: SizedBox(
+            width: 400,
+            child: selectedActions.isEmpty
+                ? const Text('現在アクションは選択されていません。')
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: selectedActions.length,
+                    itemBuilder: (context, index) {
+                      final action = selectedActions[index];
+                      return ListTile(
+                        leading: const Icon(Icons.check_circle, color: Colors.blue),
+                        title: Text(action.action.name),
+                        subtitle: Text('対象: ${action.target.name}\nAP: ${action.action.apCost} | ¥${(action.action.budgetCost / 1000).toStringAsFixed(0)}k'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.remove_circle, color: Colors.red),
+                          onPressed: () {
+                            _game.gameState.selectedActionManager.removeAction(index);
+                            setState(() {});
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('閉じる'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
 }
 
 class ButtonOverlay extends StatelessWidget {
@@ -571,7 +1320,7 @@ class ButtonOverlay extends StatelessWidget {
                           child: TabBarView(
                             children: [
                               _buildOverviewTab(context),
-                              _buildScoutingTab(),
+                              _buildScoutingTab(context),
                               _buildSchoolsTab(context),
                               _buildPlayersTab(context),
                             ],
@@ -589,6 +1338,45 @@ class ButtonOverlay extends StatelessWidget {
     );
   }
   
+  Widget _buildScoutingTab(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '利用可能なスカウトアクション',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          ...availableActions.map((action) => Card(
+            child: ListTile(
+              title: Text(action.name),
+              subtitle: Text(action.description),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('AP: ${action.apCost}'),
+                      Text('¥${(action.budgetCost / 1000).toStringAsFixed(0)}k'),
+                    ],
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => _showActionTargetDialog(context, action, null),
+                    child: const Text('追加'),
+                  ),
+                ],
+              ),
+            ),
+          )).toList(),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOverviewTab(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -998,7 +1786,30 @@ class ButtonOverlay extends StatelessWidget {
           const SizedBox(height: 16),
           ...game.gameState.schools.map((school) => Card(
             child: ListTile(
-              title: Text(school.name),
+              leading: game.gameState.scoutReportManager.isSchoolUpdated(school.name)
+                ? const Icon(Icons.new_releases, color: Colors.orange, size: 20)
+                : null,
+              title: Row(
+                children: [
+                  Expanded(child: Text(school.name)),
+                  if (game.gameState.scoutReportManager.isSchoolUpdated(school.name))
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'NEW',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               subtitle: Text('選手: ${school.players.length}名'),
               trailing: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1007,7 +1818,11 @@ class ButtonOverlay extends StatelessWidget {
                   Text('信頼度: ${school.coachTrust}'),
                 ],
               ),
-              onTap: () => _showSchoolDetails(context, school),
+              onTap: () {
+                // 更新マークをクリア
+                game.gameState.scoutReportManager.clearSchoolUpdate(school.name);
+                _showSchoolDetails(context, school);
+              },
             ),
           )).toList(),
         ],
@@ -1017,14 +1832,13 @@ class ButtonOverlay extends StatelessWidget {
 
   Widget _buildPlayersTab(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Column(
         children: [
           const TabBar(
             tabs: [
               Tab(text: '注目選手'),
               Tab(text: '人気選手'),
-              Tab(text: '全選手'),
             ],
           ),
           Expanded(
@@ -1032,7 +1846,6 @@ class ButtonOverlay extends StatelessWidget {
               children: [
                 _buildWatchedPlayersTab(context),
                 _buildFamousPlayersTab(context),
-                _buildAllPlayersTab(context),
               ],
             ),
           ),
@@ -1097,34 +1910,13 @@ class ButtonOverlay extends StatelessWidget {
     );
   }
 
-  Widget _buildAllPlayersTab(BuildContext context) {
-    final allPlayers = game.gameState.schools
-        .expand((school) => school.players)
-        .toList();
-    
-    // 学校・学年・名前でソート
-    allPlayers.sort((a, b) {
-      if (a.school != b.school) return a.school.compareTo(b.school);
-      if (a.grade != b.grade) return b.grade.compareTo(a.grade); // 上級生優先
-      return a.name.compareTo(b.name);
-    });
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: allPlayers.length,
-      itemBuilder: (context, index) {
-        final player = allPlayers[index];
-        return _buildPlayerCard(context, player, false);
-      },
-    );
-  }
+
 
   Widget _buildPlayerCard(BuildContext context, Player player, bool isWatched) {
     // スカウトスキルをゲーム状態から取得
     final scoutSkill = game.gameState.scoutSkills.observation; // 観察スキルを使用
     final visibleAbility = player.getVisibleAbility(scoutSkill);
     final generalEvaluation = player.getGeneralEvaluation();
-    final potentialEvaluation = player.getPotentialEvaluation(scoutSkill);
     final evaluationColor = _getEvaluationColor(generalEvaluation);
     
     return Card(
@@ -1145,28 +1937,39 @@ class ButtonOverlay extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: _getStatusColor(player.getDiscoveryStatus()),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                player.getDiscoveryStatus(),
+                style: const TextStyle(fontSize: 10, color: Colors.white),
+              ),
+            ),
+            if (game.gameState.scoutReportManager.isPlayerUpdated(player.name))
+              Container(
+                margin: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'UPD',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             if (isWatched)
               const Icon(Icons.visibility, color: Colors.blue, size: 20),
           ],
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${player.school} - ${player.position}'),
-            Row(
-              children: [
-                Icon(Icons.star, size: 16, color: Colors.amber),
-                Text('知名度: ${player.fame}'),
-                const SizedBox(width: 16),
-                Text('性格: ${player.personality}'),
-              ],
-            ),
-            Text(
-              'ポテンシャル: $potentialEvaluation',
-              style: const TextStyle(fontSize: 12, color: Colors.green),
-            ),
-          ],
-        ),
+        subtitle: Text('${player.school} - ${player.position}'),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1181,14 +1984,13 @@ class ButtonOverlay extends StatelessWidget {
               '能力: $visibleAbility',
               style: const TextStyle(fontSize: 12),
             ),
-            if (player.scoutEvaluation != null)
-              Text(
-                '個人評価: ${player.scoutEvaluation}',
-                style: const TextStyle(fontSize: 10, color: Colors.blue),
-              ),
           ],
         ),
-        onTap: () => _showPlayerDetails(context, player),
+        onTap: () {
+          // 更新マークをクリア
+          game.gameState.scoutReportManager.clearPlayerUpdate(player.name);
+          _showPlayerDetails(context, player);
+        },
         onLongPress: () => _showPlayerActionMenu(context, player),
       ),
     );
@@ -1201,6 +2003,16 @@ class ButtonOverlay extends StatelessWidget {
       case 'B': return Colors.orange;
       case 'C': return Colors.yellow.shade700;
       case 'D': return Colors.grey;
+      default: return Colors.grey;
+    }
+  }
+  
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case '世間注目': return Colors.red;
+      case 'お気に入り': return Colors.purple;
+      case '発掘済み': return Colors.blue;
+      case '未発掘': return Colors.grey;
       default: return Colors.grey;
     }
   }
@@ -1251,23 +2063,164 @@ class ButtonOverlay extends StatelessWidget {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(school.name),
-          content: SingleChildScrollView(
+          title: Row(
+            children: [
+              Expanded(child: Text(school.name)),
+              if (game.gameState.scoutReportManager.isSchoolUpdated(school.name))
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'NEW',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          content: SizedBox(
+            width: 600,
+            height: 500,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Text('監督: ${school.coachName}'),
-                Text('監督信頼度: ${school.coachTrust}'),
-                Text('選手数: ${school.players.length}名'),
+                // 学校基本情報
+                Card(
+                  color: Colors.blue.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '学校情報',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                        ),
+                        const SizedBox(height: 8),
+                        Text('監督: ${school.coachName}'),
+                        Text('監督信頼度: ${school.coachTrust}'),
+                        Text('選手数: ${school.players.length}名'),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
-                const Text('選手一覧:', style: TextStyle(fontWeight: FontWeight.bold)),
-                ...school.players.take(5).map((player) => 
-                  ListTile(
-                    title: Text('${player.name} (${player.grade}年)'),
-                    subtitle: Text('${player.position} - 評価: ${player.isPitcher ? player.getPitcherEvaluation() : player.getBatterEvaluation()}'),
-                    dense: true,
-                  )
+                
+                // 選手リスト
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            '選手一覧 (${school.players.length}名)',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () {
+                              _showSchoolScoutActionsDialog(context, school);
+                            },
+                            child: const Text('学校視察'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: school.players.length,
+                          itemBuilder: (context, index) {
+                            final player = school.players[index];
+                            final scoutSkill = game.gameState.scoutSkills.observation;
+                            final visibleAbility = player.getVisibleAbility(scoutSkill);
+                            final generalEvaluation = player.getGeneralEvaluation();
+                            final evaluationColor = _getEvaluationColor(generalEvaluation);
+                            
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 4),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: evaluationColor,
+                                  child: Text(
+                                    generalEvaluation,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ),
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '${player.name} (${player.grade}年)',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    if (game.gameState.scoutReportManager.isPlayerUpdated(player.name))
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green,
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: const Text(
+                                          'UPD',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    if (player.isWatched)
+                                      const Icon(Icons.visibility, color: Colors.blue, size: 20),
+                                  ],
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('${player.position} - 能力: $visibleAbility'),
+                                    Text('性格: ${player.personality}'),
+                                  ],
+                                ),
+                                trailing: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '評価: $generalEvaluation',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: evaluationColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
+                                      '知名度: ${player.fame}',
+                                      style: const TextStyle(fontSize: 10),
+                                    ),
+                                  ],
+                                ),
+                                onTap: () {
+                                  // 更新マークをクリア
+                                  game.gameState.scoutReportManager.clearPlayerUpdate(player.name);
+                                  Navigator.of(context).pop();
+                                  _showPlayerDetails(context, player);
+                                },
+                                onLongPress: () {
+                                  Navigator.of(context).pop();
+                                  _showPlayerActionMenu(context, player);
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1284,6 +2237,12 @@ class ButtonOverlay extends StatelessWidget {
   }
 
   void _showPlayerDetails(BuildContext context, Player player) {
+    final scoutSkill = game.gameState.scoutSkills.observation;
+    final visibleAbility = player.getVisibleAbility(scoutSkill);
+    final generalEvaluation = player.getGeneralEvaluation();
+    final potentialEvaluation = player.getPotentialEvaluation(scoutSkill);
+    final evaluationColor = _getEvaluationColor(generalEvaluation);
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1300,19 +2259,95 @@ class ButtonOverlay extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('学校: ${player.school}'),
-                Text('ポジション: ${player.position}'),
-                Text('評価: ${player.isPitcher ? player.getPitcherEvaluation() : player.getBatterEvaluation()}'),
-                Text('総合能力: ${player.getVisibleAbility(game.gameState.scoutSkills.observation)}'),
-                Text('知名度: ${player.fame}'),
-                Text('性格: ${player.personality}'),
-                Text('ポテンシャル: ${player.getPotentialEvaluation(game.gameState.scoutSkills.observation)}'),
+                // 基本情報
+                Card(
+                  color: Colors.blue.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '基本情報',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                        ),
+                        const SizedBox(height: 8),
+                        Text('学校: ${player.school}'),
+                        Text('ポジション: ${player.position}'),
+                        Text('性格: ${player.personality}'),
+                        Row(
+                          children: [
+                            Icon(Icons.star, size: 16, color: Colors.amber),
+                            Text('知名度: ${player.fame}'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // 評価・能力情報
+                Card(
+                  color: Colors.green.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '評価・能力',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text('評価: '),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: evaluationColor,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                generalEvaluation,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text('総合能力: $visibleAbility'),
+                        Text(
+                          'ポテンシャル: $potentialEvaluation',
+                          style: const TextStyle(color: Colors.green),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // スカウト評価（設定されている場合のみ表示）
                 if (player.scoutEvaluation != null) ...[
-                  const SizedBox(height: 8),
-                  const Text('スカウト評価:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text('評価: ${player.scoutEvaluation}'),
-                  if (player.scoutNotes != null)
-                    Text('メモ: ${player.scoutNotes}'),
+                  const SizedBox(height: 16),
+                  Card(
+                    color: Colors.orange.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'スカウト評価',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade800),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('評価: ${player.scoutEvaluation}'),
+                          if (player.scoutNotes != null)
+                            Text('メモ: ${player.scoutNotes}'),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -1867,18 +2902,32 @@ class ButtonOverlay extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'スカウトスキル',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                        Row(
+                          children: [
+                            Text(
+                              'スカウトスキル',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '平均: ${scoutSkills.averageSkill.toStringAsFixed(1)}',
+                              style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () => _showSkillsDetailsDialog(context),
+                              child: const Text('詳細', style: TextStyle(fontSize: 12)),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
-                        Text('探索: ${scoutSkills.exploration}'),
-                        Text('観察: ${scoutSkills.observation}'),
-                        Text('分析: ${scoutSkills.analysis}'),
-                        Text('洞察: ${scoutSkills.insight}'),
-                        Text('コミュニケーション: ${scoutSkills.communication}'),
-                        Text('交渉: ${scoutSkills.negotiation}'),
-                        Text('体力: ${scoutSkills.stamina}'),
+                        _buildSkillBar('探索', scoutSkills.exploration, scoutSkills.getSkillLevel('exploration')),
+                        _buildSkillBar('観察', scoutSkills.observation, scoutSkills.getSkillLevel('observation')),
+                        _buildSkillBar('分析', scoutSkills.analysis, scoutSkills.getSkillLevel('analysis')),
+                        _buildSkillBar('洞察', scoutSkills.insight, scoutSkills.getSkillLevel('insight')),
+                        _buildSkillBar('コミュニケーション', scoutSkills.communication, scoutSkills.getSkillLevel('communication')),
+                        _buildSkillBar('交渉', scoutSkills.negotiation, scoutSkills.getSkillLevel('negotiation')),
+                        _buildSkillBar('体力', scoutSkills.stamina, scoutSkills.getSkillLevel('stamina')),
                       ],
                     ),
                   ),
@@ -1979,8 +3028,10 @@ class ButtonOverlay extends StatelessWidget {
   }
   
   // アクションの対象選択ダイアログ
-  void _showActionTargetDialog(BuildContext context, ScoutingAction action, Player player) {
-    Navigator.of(context).pop(); // 前のダイアログを閉じる
+  void _showActionTargetDialog(BuildContext context, ScoutingAction action, Player? player) {
+    if (player != null) {
+      Navigator.of(context).pop(); // 前のダイアログを閉じる
+    }
     
     showDialog(
       context: context,
@@ -1994,30 +3045,50 @@ class ButtonOverlay extends StatelessWidget {
               const SizedBox(height: 16),
               // 対象選択ボタン
               if (action.id == 'PRAC_WATCH' || action.id == 'INTERVIEW' || action.id == 'VIDEO_ANALYZE') ...[
-                // 選手個人に対するアクション
-                ElevatedButton(
-                  onPressed: () {
-                    final target = ScoutingTarget(
-                      type: 'player',
-                      name: player.name,
-                      description: '${player.school}の${player.name}',
-                    );
-                    _executeActionWithTarget(context, action, target);
-                  },
-                  child: Text('${player.name}（個人）'),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    final target = ScoutingTarget(
-                      type: 'school',
-                      name: player.school,
-                      description: '${player.school}全体',
-                    );
-                    _executeActionWithTarget(context, action, target);
-                  },
-                  child: Text('${player.school}（学校全体）'),
-                ),
+                if (player != null) ...[
+                  // 選手個人に対するアクション
+                  ElevatedButton(
+                    onPressed: () {
+                      final target = ScoutingTarget(
+                        type: 'player',
+                        name: player.name,
+                        description: '${player.school}の${player.name}',
+                      );
+                      _executeActionWithTarget(context, action, target);
+                    },
+                    child: Text('${player.name}（個人）'),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      final target = ScoutingTarget(
+                        type: 'school',
+                        name: player.school,
+                        description: '${player.school}全体',
+                      );
+                      _executeActionWithTarget(context, action, target);
+                    },
+                    child: Text('${player.school}（学校全体）'),
+                  ),
+                ] else ...[
+                  // 選手が指定されていない場合、学校を選択
+                  ...game.gameState.schools.map((school) => 
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final target = ScoutingTarget(
+                            type: 'school',
+                            name: school.name,
+                            description: '${school.name}全体',
+                          );
+                          _executeActionWithTarget(context, action, target);
+                        },
+                        child: Text('${school.name}'),
+                      ),
+                    ),
+                  ),
+                ],
               ] else if (action.id == 'TEAM_VISIT') ...[
                 // 球団訪問
                 ElevatedButton(
@@ -2080,23 +3151,27 @@ class ButtonOverlay extends StatelessWidget {
   void _executeActionWithTarget(BuildContext context, ScoutingAction action, ScoutingTarget target) {
     Navigator.of(context).pop(); // 対象選択ダイアログを閉じる
     
-    final result = game.gameState.executeAction(action, target);
+    // 選択されたアクションリストに追加
+    game.gameState.selectedActionManager.addAction(action, target);
     
+    // UIを更新
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result.success ? 'アクション成功: ${result.result}' : 'アクション失敗: ${result.result}'),
-          backgroundColor: result.success ? Colors.green : Colors.red,
-          duration: const Duration(seconds: 3),
+          content: Text('${action.name}を${target.name}に追加しました'),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 2),
         ),
       );
       
-      // 成功時は詳細結果を表示
-      if (result.success && result.additionalData != null) {
-        _showActionResultDetails(context, result);
+      // 親ウィジェットのsetStateを呼び出してUIを更新
+      if (context.findAncestorStateOfType<_GameScreenState>() != null) {
+        context.findAncestorStateOfType<_GameScreenState>()!.setState(() {});
       }
     }
   }
+  
+
   
   // アクション結果の詳細表示
   void _showActionResultDetails(BuildContext context, ActionResult result) {
@@ -2133,6 +3208,251 @@ class ButtonOverlay extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  void _showSchoolScoutActionsDialog(BuildContext context, School school) {
+    final scoutSkills = game.gameState.scoutSkills;
+    final availableActions = [
+      ScoutingAction(
+        id: 'PRAC_WATCH',
+        name: '練習視察',
+        apCost: 2,
+        budgetCost: 20000,
+        description: '学校全体の練習を視察し、選手を発掘・能力を把握',
+        category: '視察',
+        requiredSkills: ['observation'],
+        primarySkills: ['observation', 'exploration'],
+        baseSuccessRate: 0.60,
+        skillModifiers: {'observation': 0.3},
+      ),
+    ];
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('${school.name}の視察アクション'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: availableActions.map((action) {
+              final canExecute = action.canExecute(
+                scoutSkills,
+                game.gameState.actionPoints,
+                game.gameState.budget,
+              );
+              return ListTile(
+                title: Text(action.name),
+                subtitle: Text(action.description),
+                trailing: canExecute ? null : const Icon(Icons.lock, color: Colors.grey),
+                enabled: canExecute,
+                onTap: canExecute
+                    ? () {
+                        final target = ScoutingTarget(type: 'school', name: school.name);
+                        Navigator.of(context).pop();
+                        game.gameState.selectedActionManager.addAction(action, target);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${action.name}を${target.name}に追加しました'),
+                            backgroundColor: Colors.blue,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    : null,
+              );
+            }).toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('閉じる'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSkillBar(String skillName, int skillValue, String skillLevel) {
+    final percentage = skillValue / 100.0;
+    Color barColor;
+    
+    if (skillValue >= 80) {
+      barColor = Colors.green;
+    } else if (skillValue >= 60) {
+      barColor = Colors.blue;
+    } else if (skillValue >= 40) {
+      barColor = Colors.orange;
+    } else {
+      barColor = Colors.red;
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              skillName,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                Container(
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                Container(
+                  height: 16,
+                  width: 120 * percentage,
+                  decoration: BoxDecoration(
+                    color: barColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 30,
+            child: Text(
+              '$skillValue',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ),
+          SizedBox(
+            width: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: barColor,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                skillLevel,
+                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSkillsDetailsDialog(BuildContext context) {
+    final scoutSkills = game.gameState.scoutSkills;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('スカウトスキル詳細'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildDetailedSkillInfo('探索', scoutSkills.exploration, '未登録校・選手を発見する能力'),
+                _buildDetailedSkillInfo('観察', scoutSkills.observation, '実パフォーマンス計測の精度'),
+                _buildDetailedSkillInfo('分析', scoutSkills.analysis, 'データ統合と将来予測の能力'),
+                _buildDetailedSkillInfo('洞察', scoutSkills.insight, '潜在才能・怪我リスクを察知する能力'),
+                _buildDetailedSkillInfo('コミュニケーション', scoutSkills.communication, '面談・信頼構築の能力'),
+                _buildDetailedSkillInfo('交渉', scoutSkills.negotiation, '利害調整・提案採用率'),
+                _buildDetailedSkillInfo('体力', scoutSkills.stamina, '遠征疲労耐性'),
+                const SizedBox(height: 16),
+                Card(
+                  color: Colors.green.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'スキル成長について',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '• アクションを実行すると、関連するスキルが成長します\n'
+                          '• 成功したアクションではより多くの経験値を得られます\n'
+                          '• 体力は全アクションで少しずつ成長します',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('閉じる'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+  Widget _buildDetailedSkillInfo(String skillName, int skillValue, String description) {
+    final skillLevel = game.gameState.scoutSkills.getSkillLevel(skillName.toLowerCase());
+    Color levelColor;
+    
+    if (skillValue >= 80) {
+      levelColor = Colors.green;
+    } else if (skillValue >= 60) {
+      levelColor = Colors.blue;
+    } else if (skillValue >= 40) {
+      levelColor = Colors.orange;
+    } else {
+      levelColor = Colors.red;
+    }
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  skillName,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: levelColor,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '$skillValue ($skillLevel)',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2304,7 +3624,7 @@ class ScoutGame extends FlameGame {
         ),
       ),
     );
-    scheduleTitle.position = Vector2(100, 160);
+    scheduleTitle.position = Vector2(100, 220);
     scheduleTitle.anchor = Anchor.center;
     add(scheduleTitle);
     
@@ -2320,7 +3640,7 @@ class ScoutGame extends FlameGame {
           ),
         ),
       );
-      scheduleText.position = Vector2(100, 180);
+      scheduleText.position = Vector2(100, 280);
       scheduleText.anchor = Anchor.center;
       add(scheduleText);
     } else {
@@ -2333,16 +3653,16 @@ class ScoutGame extends FlameGame {
           ),
         ),
       );
-      scheduleText.position = Vector2(100, 180);
+      scheduleText.position = Vector2(100, 280);
       scheduleText.anchor = Anchor.center;
       add(scheduleText);
     }
   }
   
   void _createActionResultsDisplay() {
-    // 先週のアクション結果タイトル
-    final resultsTitle = TextComponent(
-      text: '📋 先週の結果',
+    // スカウトレポートタイトル
+    final reportsTitle = TextComponent(
+      text: '📊 スカウトレポート',
       textRenderer: TextPaint(
         style: const TextStyle(
           fontSize: 14,
@@ -2351,28 +3671,79 @@ class ScoutGame extends FlameGame {
         ),
       ),
     );
-    resultsTitle.position = Vector2(300, 160);
-    resultsTitle.anchor = Anchor.center;
-    add(resultsTitle);
+    reportsTitle.position = Vector2(300, 120);
+    reportsTitle.anchor = Anchor.center;
+    add(reportsTitle);
     
-    // 先週のアクション結果内容
-    if (gameState.lastWeekActions.isNotEmpty) {
-      final result = gameState.lastWeekActions.first;
-      final resultText = TextComponent(
-        text: '${result.actionName}: ${result.success ? "成功" : "失敗"}',
+    // 最新のレポートを表示
+    final recentReports = gameState.scoutReportManager.getAllReports();
+    if (recentReports.isNotEmpty) {
+      int yOffset = 140;
+      // 最新の3件を表示
+      final displayReports = recentReports.take(3).toList();
+      
+      for (final report in displayReports) {
+        // レポートタイトル
+        final titleText = TextComponent(
+          text: report.title,
+          textRenderer: TextPaint(
+            style: TextStyle(
+              fontSize: 11,
+              color: report.getColor(),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+        titleText.position = Vector2(300, yOffset.toDouble());
+        titleText.anchor = Anchor.center;
+        add(titleText);
+        
+        // レポートの説明（1行のみ）
+        final descText = TextComponent(
+          text: report.description.length > 25 
+            ? '${report.description.substring(0, 25)}...' 
+            : report.description,
+          textRenderer: TextPaint(
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.white70,
+            ),
+          ),
+        );
+        descText.position = Vector2(300, (yOffset + 15).toDouble());
+        descText.anchor = Anchor.center;
+        add(descText);
+        
+        yOffset += 40; // 行間を広げる
+      }
+      
+      // レポート詳細ボタン
+      final detailButton = ButtonComponent(
+        button: RectangleComponent(
+          size: Vector2(120, 25),
+          paint: Paint()..color = Colors.blue.withOpacity(0.8),
+        ),
+        onPressed: () => _showScoutReportsDialog(),
+      );
+      detailButton.position = Vector2(300, (yOffset + 10).toDouble());
+      detailButton.anchor = Anchor.center;
+      add(detailButton);
+      
+      final detailText = TextComponent(
+        text: '詳細を見る',
         textRenderer: TextPaint(
-          style: TextStyle(
-            fontSize: 12,
-            color: result.success ? Colors.lightGreen : Colors.red,
+          style: const TextStyle(
+            fontSize: 10,
+            color: Colors.white,
           ),
         ),
       );
-      resultText.position = Vector2(300, 180);
-      resultText.anchor = Anchor.center;
-      add(resultText);
+      detailText.position = Vector2(300, (yOffset + 10).toDouble());
+      detailText.anchor = Anchor.center;
+      add(detailText);
     } else {
-      final resultText = TextComponent(
-        text: 'アクションなし',
+      final noReportsText = TextComponent(
+        text: 'レポートなし',
         textRenderer: TextPaint(
           style: const TextStyle(
             fontSize: 12,
@@ -2380,9 +3751,128 @@ class ScoutGame extends FlameGame {
           ),
         ),
       );
-      resultText.position = Vector2(300, 180);
-      resultText.anchor = Anchor.center;
-      add(resultText);
+      noReportsText.position = Vector2(300, 140);
+      noReportsText.anchor = Anchor.center;
+      add(noReportsText);
+    }
+  }
+  
+  // アクション結果から詳細な報告テキストを生成
+  String _generateActionResultText(ActionResult result) {
+    if (!result.success) {
+      return '${result.actionName}: 失敗 - 情報が得られませんでした';
+    }
+    
+    switch (result.actionName) {
+      case '練習視察':
+        return _generatePracticeWatchText(result);
+      case 'インタビュー':
+        return _generateInterviewText(result);
+      case '試合観戦':
+        return _generateGameWatchText(result);
+      case 'ビデオ分析':
+        return _generateVideoAnalyzeText(result);
+      default:
+        return '${result.actionName}: 成功';
+    }
+  }
+  
+  // 練習視察の結果テキストを生成
+  String _generatePracticeWatchText(ActionResult result) {
+    final school = result.school;
+    final player = result.player;
+    
+    if (player != null) {
+      // 特定選手の視察結果
+      final playerObj = _findPlayer(player);
+      if (playerObj != null) {
+        if (!playerObj.isDiscovered) {
+          return '${school}の${player}君を発見！\n${_generatePlayerComment(playerObj)}';
+        } else {
+          return '${player}君の能力を再確認\n${_generatePlayerComment(playerObj)}';
+        }
+      }
+    } else {
+      // 学校全体の視察結果
+      final schoolObj = _findSchool(school);
+      if (schoolObj != null) {
+        final discoveredPlayers = schoolObj.players.where((p) => p.isDiscovered).length;
+        final totalPlayers = schoolObj.players.length;
+        return '${school}を視察\n発掘済み: ${discoveredPlayers}/${totalPlayers}名';
+      }
+    }
+    
+    return '${school}の練習を視察しました';
+  }
+  
+  // インタビューの結果テキストを生成
+  String _generateInterviewText(ActionResult result) {
+    final player = result.player;
+    if (player != null) {
+      final playerObj = _findPlayer(player);
+      if (playerObj != null) {
+        return '${player}君と面談\n性格: ${playerObj.personality}';
+      }
+    }
+    return 'インタビューを実施しました';
+  }
+  
+  // 試合観戦の結果テキストを生成
+  String _generateGameWatchText(ActionResult result) {
+    final school = result.school;
+    return '${school}の試合を観戦\n実戦での活躍を確認';
+  }
+  
+  // ビデオ分析の結果テキストを生成
+  String _generateVideoAnalyzeText(ActionResult result) {
+    final player = result.player;
+    if (player != null) {
+      return '${player}君の映像分析\n技術的な詳細を把握';
+    }
+    return 'ビデオ分析を実施しました';
+  }
+  
+  // 選手の能力に基づくコメントを生成
+  String _generatePlayerComment(Player player) {
+    if (player.isPitcher) {
+      final velo = player.getDisplayFastballVelo() ?? 0;
+      if (velo >= 145) return '球速がかなり速い！';
+      if (velo >= 140) return '球速はまずまず';
+      return '制球力に期待';
+    } else {
+      final run = player.getDisplayRun() ?? 0;
+      if (run >= 80) return '足がかなり速い！';
+      if (run >= 70) return '走力は良好';
+      return '打撃に期待';
+    }
+  }
+  
+  // スカウトレポート詳細ダイアログを表示
+  void _showScoutReportsDialog() {
+    final reports = gameState.scoutReportManager.getAllReports();
+    
+    // FlameのOverlayシステムを使用してダイアログを表示
+    overlays.add('scoutReports');
+  }
+
+  // 選手を名前で検索
+  Player? _findPlayer(String playerName) {
+    for (final school in gameState.schools) {
+      try {
+        return school.players.firstWhere((p) => p.name == playerName);
+      } catch (e) {
+        continue;
+      }
+    }
+    return null;
+  }
+  
+  // 学校を名前で検索
+  School? _findSchool(String schoolName) {
+    try {
+      return gameState.schools.firstWhere((s) => s.name == schoolName);
+    } catch (e) {
+      return null;
     }
   }
   
@@ -2513,31 +4003,4 @@ class ScoutGame extends FlameGame {
   }
 }
 
-Widget _buildScoutingTab() {
-  return SingleChildScrollView(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '利用可能なスカウトアクション',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        ...availableActions.map((action) => Card(
-          child: ListTile(
-            title: Text(action.name),
-            subtitle: Text(action.description),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('AP: ${action.apCost}'),
-                Text('¥${(action.budgetCost / 1000).toStringAsFixed(0)}k'),
-              ],
-            ),
-          ),
-        )).toList(),
-      ],
-    ),
-  );
-}
+
