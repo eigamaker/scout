@@ -25,7 +25,7 @@ class ScoutGameApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Scout - フリーランススカウト',
+      title: 'Scout',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -66,15 +66,6 @@ class MainMenuScreen extends StatelessWidget {
                       color: Colors.black26,
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'フリーランススカウト',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 80),
@@ -427,7 +418,7 @@ class _GameScreenState extends State<GameScreen> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scout - フリーランススカウト'),
+        title: const Text('Scout'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
@@ -559,15 +550,11 @@ class _GameScreenState extends State<GameScreen> {
         break;
         
       case 'INTERVIEW':
-        resultText = success 
-          ? '${target.name}へのインタビューが成功しました。選手の性格や考え方が分かりました。'
-          : '${target.name}へのインタビューは失敗しました。話を聞けませんでした。';
+        resultText = _executeInterview(target.name, success);
         break;
         
       case 'VIDEO_ANALYZE':
-        resultText = success 
-          ? '${target.name}の動画分析が完了しました。詳細な技術分析ができました。'
-          : '${target.name}の動画分析は失敗しました。質の良い映像がありませんでした。';
+        resultText = _executeVideoAnalyze(target.name, success);
         break;
         
       case 'TEAM_VISIT':
@@ -670,6 +657,8 @@ class _GameScreenState extends State<GameScreen> {
       },
     );
   }
+
+
   
   // 学校全体の練習視察を実行
   String _executeSchoolPracticeWatch(String schoolName, bool success) {
@@ -683,9 +672,9 @@ class _GameScreenState extends State<GameScreen> {
       orElse: () => throw Exception('学校が見つかりません: $schoolName'),
     );
     
-    final discoveredPlayers = <String>[];
-    final improvedPlayers = <String>[];
-    final playerComments = <String>[];
+    final discoveredPlayers = <Player>[];
+    final improvedPlayers = <Player>[];
+    final playerDetails = <String>[];
     
     // 学校の選手をランダムに選んで処理
     final random = Random();
@@ -701,32 +690,41 @@ class _GameScreenState extends State<GameScreen> {
       if (!player.isDiscovered) {
         // 未発掘選手を発掘
         player.discover('あなた');
-        discoveredPlayers.add(player.name);
+        discoveredPlayers.add(player);
         
         // 発掘時に基本的な能力値を把握
-        _improvePlayerKnowledge(player, 10, 15);
+        _improvePlayerKnowledge(player, 15, 20);
         
-        // 選手の特徴的なコメントを生成
-        playerComments.add(_generatePlayerDiscoveryComment(player));
+        // 選手の詳細情報を生成
+        playerDetails.add(_generatePlayerDetailInfo(player));
       } else {
         // 発掘済み選手の能力値を少し向上
-        _improvePlayerKnowledge(player, 5, 10);
-        improvedPlayers.add(player.name);
+        _improvePlayerKnowledge(player, 8, 12);
+        improvedPlayers.add(player);
       }
     }
     
     // 結果テキストを生成
-    String resultText = '${schoolName}の練習を視察しました。\n';
+    String resultText = '${schoolName}の練習を視察しました。\n\n';
     
     if (discoveredPlayers.isNotEmpty) {
-      resultText += '新たに発掘した選手: ${discoveredPlayers.join(', ')}\n';
-      if (playerComments.isNotEmpty) {
-        resultText += '${playerComments.first}'; // 最初の選手のコメントを表示
+      resultText += '【新たに発掘した選手】\n';
+      for (final player in discoveredPlayers) {
+        resultText += '• ${player.name}君（${player.position}）\n';
+        resultText += '  ${_generatePlayerDiscoveryComment(player)}\n\n';
       }
     }
     
     if (improvedPlayers.isNotEmpty) {
-      resultText += '能力を再確認した選手: ${improvedPlayers.join(', ')}';
+      resultText += '【能力を再確認した選手】\n';
+      for (final player in improvedPlayers) {
+        resultText += '• ${player.name}君（${player.position}）\n';
+        resultText += '  ${_generatePlayerImprovementComment(player)}\n\n';
+      }
+    }
+    
+    if (discoveredPlayers.isEmpty && improvedPlayers.isEmpty) {
+      resultText += '特に目立った選手は見当たりませんでした。';
     }
     
     return resultText;
@@ -740,54 +738,152 @@ class _GameScreenState extends State<GameScreen> {
     if (player.isPitcher) {
       final velo = player.getDisplayFastballVelo() ?? 0;
       if (velo >= 145) {
-        comments.add('${player.name}君は球速がかなり速い！');
+        comments.add('球速${velo}km/hと非常に速い！');
       } else if (velo >= 140) {
-        comments.add('${player.name}君の球速はまずまずのレベル');
+        comments.add('球速${velo}km/hとかなり速い');
+      } else if (velo >= 135) {
+        comments.add('球速${velo}km/hでまずまずのレベル');
       }
       
       final control = player.getDisplayControl() ?? 0;
       if (control >= 80) {
-        comments.add('${player.name}君の制球力が印象的');
+        comments.add('制球力が印象的');
+      } else if (control >= 70) {
+        comments.add('制球力は良好');
       }
     } else {
       final run = player.getDisplayRun() ?? 0;
       if (run >= 80) {
-        comments.add('${player.name}君は足がかなり速い！');
+        comments.add('足が非常に速い！');
       } else if (run >= 70) {
-        comments.add('${player.name}君の走力は良好');
+        comments.add('走力は良好');
       }
       
       final batPower = player.getDisplayBatPower() ?? 0;
       if (batPower >= 80) {
-        comments.add('${player.name}君の打撃力が目立つ');
+        comments.add('打撃力が目立つ');
+      } else if (batPower >= 70) {
+        comments.add('打撃力は良好');
       }
     }
     
     // 性格によるコメント
     switch (player.personality) {
       case '真面目':
-        comments.add('${player.name}君は真面目な性格で練習熱心');
+        comments.add('真面目な性格で練習熱心');
         break;
       case '明るい':
-        comments.add('${player.name}君は明るい性格でチームの雰囲気を良くしている');
+        comments.add('明るい性格でチームの雰囲気を良くしている');
         break;
       case 'クール':
-        comments.add('${player.name}君はクールな性格で試合での冷静さが期待できる');
+        comments.add('クールな性格で試合での冷静さが期待できる');
         break;
       case 'リーダー':
-        comments.add('${player.name}君はリーダーシップがあり、チームを引っ張っている');
+        comments.add('リーダーシップがあり、チームを引っ張っている');
         break;
       case '努力家':
-        comments.add('${player.name}君は努力家で、地道な練習を積んでいる');
+        comments.add('努力家で、地道な練習を積んでいる');
         break;
     }
     
-    // ランダムに1つのコメントを選択
-    if (comments.isNotEmpty) {
-      return comments[random.nextInt(comments.length)];
+    // 複数のコメントを組み合わせて返す
+    if (comments.length >= 2) {
+      return '${comments[0]}。${comments[1]}。';
+    } else if (comments.isNotEmpty) {
+      return comments[0];
     }
     
-    return '${player.name}君が気になりました';
+    return '気になる選手です';
+  }
+
+  // 選手の詳細情報を生成
+  String _generatePlayerDetailInfo(Player player) {
+    final details = <String>[];
+    
+    if (player.isPitcher) {
+      final velo = player.getDisplayFastballVelo();
+      if (velo != null) {
+        details.add('球速: ${velo}km/h');
+      }
+      final control = player.getDisplayControl();
+      if (control != null) {
+        details.add('制球力: $control');
+      }
+    } else {
+      final run = player.getDisplayRun();
+      if (run != null) {
+        details.add('走力: $run');
+      }
+      final batPower = player.getDisplayBatPower();
+      if (batPower != null) {
+        details.add('打撃力: $batPower');
+      }
+    }
+    
+    return details.join(', ');
+  }
+
+  // 選手の能力向上コメントを生成
+  String _generatePlayerImprovementComment(Player player) {
+    final comments = <String>[];
+    
+    if (player.isPitcher) {
+      final velo = player.getDisplayFastballVelo() ?? 0;
+      if (velo >= 145) {
+        comments.add('球速${velo}km/hの速球が印象的');
+      } else if (velo >= 140) {
+        comments.add('球速${velo}km/hと安定した投球');
+      }
+      
+      final control = player.getDisplayControl() ?? 0;
+      if (control >= 80) {
+        comments.add('制球力が優秀');
+      } else if (control >= 70) {
+        comments.add('制球力は良好');
+      }
+    } else {
+      final run = player.getDisplayRun() ?? 0;
+      if (run >= 80) {
+        comments.add('走力が優秀で機動力がある');
+      } else if (run >= 70) {
+        comments.add('走力は良好');
+      }
+      
+      final batPower = player.getDisplayBatPower() ?? 0;
+      if (batPower >= 80) {
+        comments.add('打撃力が優秀');
+      } else if (batPower >= 70) {
+        comments.add('打撃力は良好');
+      }
+    }
+    
+    // 性格によるコメント
+    switch (player.personality) {
+      case '真面目':
+        comments.add('真面目な性格で練習への取り組みが素晴らしい');
+        break;
+      case '明るい':
+        comments.add('明るい性格でチームの雰囲気を良くしている');
+        break;
+      case 'クール':
+        comments.add('クールな性格で試合での冷静さが期待できる');
+        break;
+      case 'リーダー':
+        comments.add('リーダーシップがあり、チームを引っ張っている');
+        break;
+      case '努力家':
+        comments.add('努力家で、地道な練習を積んでいる');
+        break;
+    }
+    
+    // 複数のコメントを組み合わせて返す
+    if (comments.length >= 2) {
+      return '${comments[0]}。${comments[1]}。';
+    } else if (comments.isNotEmpty) {
+      return comments[0];
+    }
+    
+    return '能力を再確認できました';
   }
   
   // 特定選手の練習視察を実行
@@ -820,12 +916,12 @@ class _GameScreenState extends State<GameScreen> {
     }
     
     // 能力値の把握度を大幅に向上
-    _improvePlayerKnowledge(targetPlayer, 20, 30);
+    _improvePlayerKnowledge(targetPlayer, 25, 35);
     
     // 詳細なコメントを生成
     final comment = _generateDetailedPlayerComment(targetPlayer);
     
-    return '${playerName}の練習を詳細に視察しました。\n$comment';
+    return '${playerName}君（${targetPlayer.position}）の練習を詳細に視察しました。\n\n$comment';
   }
   
   // 選手の詳細コメントを生成
@@ -903,6 +999,189 @@ class _GameScreenState extends State<GameScreen> {
     return '選手の能力を深く把握できました';
   }
   
+  // インタビューを実行
+  String _executeInterview(String playerName, bool success) {
+    if (!success) {
+      return '${playerName}へのインタビューは失敗しました。話を聞けませんでした。';
+    }
+    
+    // 選手を探す
+    Player? targetPlayer;
+    for (final school in _game.gameState.schools) {
+      try {
+        targetPlayer = school.players.firstWhere(
+          (p) => p.name == playerName,
+        );
+        break;
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    if (targetPlayer == null) {
+      return '選手が見つかりませんでした: $playerName';
+    }
+    
+    // 選手を発掘（未発掘の場合）
+    if (!targetPlayer.isDiscovered) {
+      targetPlayer.discover('あなた');
+    }
+    
+    // 能力値の把握度を向上（特にメンタル面）
+    _improvePlayerKnowledge(targetPlayer, 15, 20);
+    
+    // インタビュー結果を生成
+    final comment = _generateInterviewComment(targetPlayer);
+    
+    return '${playerName}君（${targetPlayer.position}）とインタビューしました。\n\n$comment';
+  }
+
+  // インタビュー結果のコメントを生成
+  String _generateInterviewComment(Player player) {
+    final comments = <String>[];
+    
+    // 性格によるコメント
+    switch (player.personality) {
+      case '真面目':
+        comments.add('真面目で責任感が強く、練習への取り組みが素晴らしい');
+        comments.add('将来の目標を明確に持っており、プロ野球への意欲が高い');
+        break;
+      case '明るい':
+        comments.add('明るく前向きな性格で、チームの雰囲気を良くしている');
+        comments.add('コミュニケーション能力が高く、チームメイトからの信頼も厚い');
+        break;
+      case 'クール':
+        comments.add('冷静で分析的な性格で、試合での判断力が優れている');
+        comments.add('感情に流されず、常に客観的に自分を見つめている');
+        break;
+      case 'リーダー':
+        comments.add('リーダーシップがあり、チームを引っ張る力を持っている');
+        comments.add('後輩の面倒見が良く、チーム全体の成長を考えている');
+        break;
+      case '努力家':
+        comments.add('努力家で、地道な練習を積み重ねている');
+        comments.add('向上心が強く、常に自分の限界に挑戦している');
+        break;
+    }
+    
+    // ポジションによるコメント
+    if (player.isPitcher) {
+      comments.add('投手としての責任感が強く、試合での緊張感を楽しんでいる');
+    } else {
+      comments.add('野手としての機動力と判断力を重視している');
+    }
+    
+    // 複数のコメントを組み合わせて返す
+    if (comments.length >= 2) {
+      return '${comments[0]}。${comments[1]}。';
+    } else if (comments.isNotEmpty) {
+      return comments[0];
+    }
+    
+    return '選手の性格と将来への意欲を把握できました';
+  }
+
+  // ビデオ分析を実行
+  String _executeVideoAnalyze(String playerName, bool success) {
+    if (!success) {
+      return '${playerName}の動画分析は失敗しました。質の良い映像がありませんでした。';
+    }
+    
+    // 選手を探す
+    Player? targetPlayer;
+    for (final school in _game.gameState.schools) {
+      try {
+        targetPlayer = school.players.firstWhere(
+          (p) => p.name == playerName,
+        );
+        break;
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    if (targetPlayer == null) {
+      return '選手が見つかりませんでした: $playerName';
+    }
+    
+    // 選手を発掘（未発掘の場合）
+    if (!targetPlayer.isDiscovered) {
+      targetPlayer.discover('あなた');
+    }
+    
+    // 能力値の把握度を大幅に向上（技術分析なので精度が高い）
+    _improvePlayerKnowledge(targetPlayer, 30, 40);
+    
+    // ビデオ分析結果を生成
+    final comment = _generateVideoAnalysisComment(targetPlayer);
+    
+    return '${playerName}君（${targetPlayer.position}）の映像分析が完了しました。\n\n$comment';
+  }
+
+  // ビデオ分析結果のコメントを生成
+  String _generateVideoAnalysisComment(Player player) {
+    final comments = <String>[];
+    
+    if (player.isPitcher) {
+      final velo = player.getDisplayFastballVelo() ?? 0;
+      if (velo >= 150) {
+        comments.add('球速${velo}km/hの速球は非常に優秀で、プロレベル');
+      } else if (velo >= 145) {
+        comments.add('球速${velo}km/hの速球は優秀で、将来性がある');
+      } else if (velo >= 140) {
+        comments.add('球速${velo}km/hの速球は良好で、安定している');
+      }
+      
+      final control = player.getDisplayControl() ?? 0;
+      if (control >= 85) {
+        comments.add('制球力が非常に優秀で、コントロールが安定している');
+      } else if (control >= 75) {
+        comments.add('制球力は良好で、投球フォームが安定している');
+      }
+      
+      final stamina = player.getDisplayStamina() ?? 0;
+      if (stamina >= 80) {
+        comments.add('スタミナが豊富で、長いイニングを投げられる');
+      }
+    } else {
+      final batPower = player.getDisplayBatPower() ?? 0;
+      if (batPower >= 85) {
+        comments.add('打撃力が非常に優秀で、長打力がある');
+      } else if (batPower >= 75) {
+        comments.add('打撃力は良好で、安定した打撃が期待できる');
+      }
+      
+      final batControl = player.getDisplayBatControl() ?? 0;
+      if (batControl >= 80) {
+        comments.add('打撃コントロールが優秀で、選球眼が良い');
+      }
+      
+      final run = player.getDisplayRun() ?? 0;
+      if (run >= 85) {
+        comments.add('走力が非常に優秀で、盗塁の期待ができる');
+      } else if (run >= 75) {
+        comments.add('走力は良好で、機動力がある');
+      }
+      
+      final field = player.getDisplayField() ?? 0;
+      if (field >= 80) {
+        comments.add('守備力が優秀で、安定した守備が期待できる');
+      }
+    }
+    
+    // 技術的な分析コメント
+    comments.add('映像分析により、技術的なメカニクスを詳細に把握できました');
+    
+    // 複数のコメントを組み合わせて返す
+    if (comments.length >= 2) {
+      return '${comments[0]}。${comments[1]}。';
+    } else if (comments.isNotEmpty) {
+      return comments[0];
+    }
+    
+    return '技術的な詳細を把握できました';
+  }
+
   // 選手の能力値把握度を向上させる
   void _improvePlayerKnowledge(Player player, int basicImprovement, int focusedImprovement) {
     final random = Random();
@@ -3495,20 +3774,7 @@ class ScoutGame extends FlameGame {
       _initializeSchools();
     }
     
-    // タイトル
-    titleText = TextComponent(
-      text: 'Scout - フリーランススカウト',
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      ),
-    );
-    titleText.position = Vector2(size.x / 2, 40);
-    titleText.anchor = Anchor.center;
-    add(titleText);
+
     
     // 時間表示
     timeText = TextComponent(
@@ -3520,8 +3786,8 @@ class ScoutGame extends FlameGame {
         ),
       ),
     );
-    timeText.position = Vector2(size.x / 2, 80);
-    timeText.anchor = Anchor.center;
+    timeText.position = Vector2(100, 40);
+    timeText.anchor = Anchor.topLeft;
     add(timeText);
     
     // 年表示
@@ -3534,8 +3800,8 @@ class ScoutGame extends FlameGame {
         ),
       ),
     );
-    yearText.position = Vector2(size.x / 2, 105);
-    yearText.anchor = Anchor.center;
+    yearText.position = Vector2(100, 65);
+    yearText.anchor = Anchor.topLeft;
     add(yearText);
     
     // ステータス表示エリア
@@ -3557,7 +3823,7 @@ class ScoutGame extends FlameGame {
         ),
       ),
     );
-    newsText.position = Vector2(size.x / 2, 200);
+    newsText.position = Vector2(size.x / 2, 160);
     newsText.anchor = Anchor.center;
     add(newsText);
     
@@ -3607,7 +3873,7 @@ class ScoutGame extends FlameGame {
         ),
       ),
     );
-    reputationText.position = Vector2(400, 140);
+    reputationText.position = Vector2(550, 140);
     reputationText.anchor = Anchor.center;
     add(reputationText);
   }
@@ -3624,8 +3890,8 @@ class ScoutGame extends FlameGame {
         ),
       ),
     );
-    scheduleTitle.position = Vector2(100, 220);
-    scheduleTitle.anchor = Anchor.center;
+    scheduleTitle.position = Vector2(100, 100);
+    scheduleTitle.anchor = Anchor.topLeft;
     add(scheduleTitle);
     
     // 今週の予定内容
@@ -3640,8 +3906,8 @@ class ScoutGame extends FlameGame {
           ),
         ),
       );
-      scheduleText.position = Vector2(100, 280);
-      scheduleText.anchor = Anchor.center;
+      scheduleText.position = Vector2(100, 120);
+      scheduleText.anchor = Anchor.topLeft;
       add(scheduleText);
     } else {
       final scheduleText = TextComponent(
@@ -3653,16 +3919,16 @@ class ScoutGame extends FlameGame {
           ),
         ),
       );
-      scheduleText.position = Vector2(100, 280);
-      scheduleText.anchor = Anchor.center;
+      scheduleText.position = Vector2(100, 120);
+      scheduleText.anchor = Anchor.topLeft;
       add(scheduleText);
     }
   }
   
   void _createActionResultsDisplay() {
-    // スカウトレポートタイトル
-    final reportsTitle = TextComponent(
-      text: '📊 スカウトレポート',
+    // 先週のアクションの結果タイトル
+    final resultsTitle = TextComponent(
+      text: '📊 先週のアクションの結果',
       textRenderer: TextPaint(
         style: const TextStyle(
           fontSize: 14,
@@ -3671,38 +3937,37 @@ class ScoutGame extends FlameGame {
         ),
       ),
     );
-    reportsTitle.position = Vector2(300, 120);
-    reportsTitle.anchor = Anchor.center;
-    add(reportsTitle);
+    resultsTitle.position = Vector2(100, 150);
+    resultsTitle.anchor = Anchor.topLeft;
+    add(resultsTitle);
     
-    // 最新のレポートを表示
-    final recentReports = gameState.scoutReportManager.getAllReports();
-    if (recentReports.isNotEmpty) {
-      int yOffset = 140;
-      // 最新の3件を表示
-      final displayReports = recentReports.take(3).toList();
+    // 先週のアクション結果を表示
+    final lastWeekActions = gameState.lastWeekActions;
+    if (lastWeekActions.isNotEmpty) {
+      int yOffset = 170;
+      // 最新の3件を表示（画面に収まるように調整）
+      final displayActions = lastWeekActions.take(3).toList();
       
-      for (final report in displayReports) {
-        // レポートタイトル
-        final titleText = TextComponent(
-          text: report.title,
+      for (final action in displayActions) {
+        // アクション名と結果
+        final actionText = TextComponent(
+          text: '${action.actionName} - ${action.school}',
           textRenderer: TextPaint(
             style: TextStyle(
               fontSize: 11,
-              color: report.getColor(),
+              color: action.success ? Colors.green : Colors.red,
               fontWeight: FontWeight.bold,
             ),
           ),
         );
-        titleText.position = Vector2(300, yOffset.toDouble());
-        titleText.anchor = Anchor.center;
-        add(titleText);
+        actionText.position = Vector2(100, yOffset.toDouble());
+        actionText.anchor = Anchor.topLeft;
+        add(actionText);
         
-        // レポートの説明（1行のみ）
-        final descText = TextComponent(
-          text: report.description.length > 25 
-            ? '${report.description.substring(0, 25)}...' 
-            : report.description,
+        // 結果の詳細（短縮版）
+        final resultText = _generateShortActionResultText(action);
+        final resultComponent = TextComponent(
+          text: resultText,
           textRenderer: TextPaint(
             style: TextStyle(
               fontSize: 10,
@@ -3710,23 +3975,23 @@ class ScoutGame extends FlameGame {
             ),
           ),
         );
-        descText.position = Vector2(300, (yOffset + 15).toDouble());
-        descText.anchor = Anchor.center;
-        add(descText);
+        resultComponent.position = Vector2(100, (yOffset + 12).toDouble());
+        resultComponent.anchor = Anchor.topLeft;
+        add(resultComponent);
         
-        yOffset += 40; // 行間を広げる
+        yOffset += 25; // 行間を縮小
       }
       
-      // レポート詳細ボタン
+      // 詳細ボタン
       final detailButton = ButtonComponent(
         button: RectangleComponent(
           size: Vector2(120, 25),
           paint: Paint()..color = Colors.blue.withOpacity(0.8),
         ),
-        onPressed: () => _showScoutReportsDialog(),
+        onPressed: () => _showActionResultsDetailsDialog(),
       );
-      detailButton.position = Vector2(300, (yOffset + 10).toDouble());
-      detailButton.anchor = Anchor.center;
+      detailButton.position = Vector2(100, (yOffset + 5).toDouble());
+      detailButton.anchor = Anchor.topLeft;
       add(detailButton);
       
       final detailText = TextComponent(
@@ -3738,12 +4003,12 @@ class ScoutGame extends FlameGame {
           ),
         ),
       );
-      detailText.position = Vector2(300, (yOffset + 10).toDouble());
-      detailText.anchor = Anchor.center;
+      detailText.position = Vector2(160, (yOffset + 5).toDouble());
+      detailText.anchor = Anchor.topLeft;
       add(detailText);
     } else {
-      final noReportsText = TextComponent(
-        text: 'レポートなし',
+      final noActionsText = TextComponent(
+        text: 'アクションなし',
         textRenderer: TextPaint(
           style: const TextStyle(
             fontSize: 12,
@@ -3751,12 +4016,80 @@ class ScoutGame extends FlameGame {
           ),
         ),
       );
-      noReportsText.position = Vector2(300, 140);
-      noReportsText.anchor = Anchor.center;
-      add(noReportsText);
+      noActionsText.position = Vector2(100, 170);
+      noActionsText.anchor = Anchor.topLeft;
+      add(noActionsText);
     }
   }
   
+  // アクション結果の短縮版テキストを生成
+  String _generateShortActionResultText(ActionResult result) {
+    if (!result.success) {
+      return '失敗 - 情報が得られませんでした';
+    }
+    
+    switch (result.actionName) {
+      case '練習視察':
+        return _generateShortPracticeWatchText(result);
+      case 'インタビュー':
+        return _generateShortInterviewText(result);
+      case '試合観戦':
+        return _generateShortGameWatchText(result);
+      case 'ビデオ分析':
+        return _generateShortVideoAnalyzeText(result);
+      default:
+        return '成功';
+    }
+  }
+
+  // 練習視察の短縮版テキスト
+  String _generateShortPracticeWatchText(ActionResult result) {
+    final school = result.school;
+    final player = result.player;
+    
+    if (player != null) {
+      return '${player}君を視察';
+    } else {
+      return '${school}を視察';
+    }
+  }
+
+  // インタビューの短縮版テキスト
+  String _generateShortInterviewText(ActionResult result) {
+    final player = result.player;
+    if (player != null) {
+      return '${player}君と面談';
+    }
+    return 'インタビュー実施';
+  }
+
+  // 試合観戦の短縮版テキスト
+  String _generateShortGameWatchText(ActionResult result) {
+    final school = result.school;
+    return '${school}の試合を観戦';
+  }
+
+  // ビデオ分析の短縮版テキスト
+  String _generateShortVideoAnalyzeText(ActionResult result) {
+    final player = result.player;
+    if (player != null) {
+      return '${player}君の映像分析';
+    }
+    return 'ビデオ分析実施';
+  }
+
+  // アクション結果詳細ダイアログを表示
+  void _showActionResultsDetailsDialog() {
+    final lastWeekActions = gameState.lastWeekActions;
+    
+    if (lastWeekActions.isEmpty) {
+      return;
+    }
+    
+    // FlameのOverlayシステムを使用してダイアログを表示
+    overlays.add('actionResultsDetails');
+  }
+
   // アクション結果から詳細な報告テキストを生成
   String _generateActionResultText(ActionResult result) {
     if (!result.success) {
@@ -3988,9 +4321,9 @@ class ScoutGame extends FlameGame {
     removeAll(children.where((component) => 
       component is TextComponent && 
       (component.text.contains('📅') || 
-       component.text.contains('📋') ||
+       component.text.contains('📊') ||
        component.text.contains('今週の予定') ||
-       component.text.contains('先週の結果') ||
+       component.text.contains('先週のアクションの結果') ||
        component.text.contains('予定なし') ||
        component.text.contains('アクションなし') ||
        (component.text.contains(':') && (component.text.contains('試合') || component.text.contains('練習') || component.text.contains('視察'))) ||

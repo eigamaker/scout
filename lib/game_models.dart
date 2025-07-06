@@ -899,6 +899,26 @@ class GameState {
   NewsItem _generatePlayerGrowthNews(List<Player> growingPlayers) {
     final player = growingPlayers.first;
     
+    // 視察済みの学校からのニュースのみ生成
+    final visitedSchools = lastWeekActions
+        .where((action) => action.success && action.school != '不明')
+        .map((action) => action.school)
+        .toSet();
+    
+    if (!visitedSchools.contains(player.school)) {
+      // 視察していない学校の場合は一般ニュースを生成
+      return NewsItem(
+        headline: '📈 選手の成長が話題',
+        content: '各校で選手の成長が話題になっています。',
+        category: '選手',
+        importance: 2,
+        icon: '📈',
+        timestamp: DateTime.now(),
+        school: null,
+        player: null,
+      );
+    }
+    
     return NewsItem(
       headline: '📈 ${player.name}選手が急成長中',
       content: '${player.school}の${player.name}選手が練習での成果を実感。能力向上が期待されています。',
@@ -914,25 +934,76 @@ class GameState {
   // テンプレートベースのニュースを生成（従来の方法）
   void _generateTemplateNews() {
     final random = Random();
+    
+    // 視察済みの学校を取得
+    final visitedSchools = lastWeekActions
+        .where((action) => action.success && action.school != '不明')
+        .map((action) => action.school)
+        .toSet();
+    
+    // 視察済みの学校がない場合は一般ニュースのみ生成
+    if (visitedSchools.isEmpty) {
+      final generalNewsTemplates = [
+        {
+          'headline': '🌤️ 好天候で練習環境が良好',
+          'content': '今週は晴天が続き、各校の練習が順調に進んでいます。',
+          'category': '一般',
+          'importance': 1,
+          'icon': '🌤️',
+        },
+        {
+          'headline': '📺 高校野球特集番組が放送予定',
+          'content': '今週末のテレビ番組で注目選手特集が放送されます。',
+          'category': '一般',
+          'importance': 2,
+          'icon': '📺',
+        },
+        {
+          'headline': '📊 スカウトレポートが更新されました',
+          'content': '最新の選手評価データが公開され、注目選手の情報が更新されています。',
+          'category': 'スカウト',
+          'importance': 2,
+          'icon': '📊',
+        },
+      ];
+      
+      final selectedNews = generalNewsTemplates[random.nextInt(generalNewsTemplates.length)];
+      final newsItem = NewsItem(
+        headline: selectedNews['headline'] as String,
+        content: selectedNews['content'] as String,
+        category: selectedNews['category'] as String,
+        importance: selectedNews['importance'] as int,
+        icon: selectedNews['icon'] as String,
+        timestamp: DateTime.now(),
+        school: null,
+      );
+      
+      news.add(newsItem);
+      return;
+    }
+    
+    // 視察済みの学校からランダムに選択
+    final selectedSchool = visitedSchools.elementAt(random.nextInt(visitedSchools.length));
+    
     final newsTemplates = [
-      // 試合関連ニュース
+      // 試合関連ニュース（視察済み学校のみ）
       {
-        'headline': '⚾ ${schools[random.nextInt(schools.length)].name}が練習試合で勝利',
+        'headline': '⚾ ${selectedSchool}が練習試合で勝利',
         'content': '投手陣の好投と打線の爆発で圧勝。来季への期待が高まっています。',
         'category': '試合',
         'importance': 3,
         'icon': '⚾',
       },
       {
-        'headline': '🔥 新記録が誕生！${schools[random.nextInt(schools.length)].name}の投手が完封',
+        'headline': '🔥 新記録が誕生！${selectedSchool}の投手が完封',
         'content': '9回無失点、奪三振15個の圧巻の投球で新記録を樹立しました。',
         'category': '試合',
         'importance': 4,
         'icon': '🔥',
       },
-      // 選手関連ニュース
+      // 選手関連ニュース（視察済み学校のみ）
       {
-        'headline': '⭐ ${schools[random.nextInt(schools.length)].name}の${_getRandomPlayerName()}選手が注目',
+        'headline': '⭐ ${selectedSchool}の${_getRandomPlayerName()}選手が注目',
         'content': '打率.350、本塁打8本の好成績でプロ野球界から注目を集めています。',
         'category': '選手',
         'importance': 4,
@@ -945,35 +1016,28 @@ class GameState {
         'importance': 3,
         'icon': '💪',
       },
-      // 学校関連ニュース
+      // 学校関連ニュース（視察済み学校のみ）
       {
-        'headline': '🏫 ${schools[random.nextInt(schools.length)].name}に新監督就任',
+        'headline': '🏫 ${selectedSchool}に新監督就任',
         'content': '元プロ野球選手の新監督が就任し、チーム改革が始まります。',
         'category': '学校',
         'importance': 3,
         'icon': '🏫',
       },
       {
-        'headline': '📚 ${schools[random.nextInt(schools.length)].name}が野球部強化',
+        'headline': '📚 ${selectedSchool}が野球部強化',
         'content': '新たな練習施設の建設が決定し、来年度からの強化が期待されます。',
         'category': '学校',
         'importance': 2,
         'icon': '📚',
       },
-      // スカウト関連ニュース
+      // スカウト関連ニュース（視察済み学校のみ）
       {
-        'headline': '👀 他球団スカウトが${schools[random.nextInt(schools.length)].name}を視察',
+        'headline': '👀 他球団スカウトが${selectedSchool}を視察',
         'content': '複数のプロ野球球団のスカウトが同校の選手を視察に訪れました。',
         'category': 'スカウト',
         'importance': 4,
         'icon': '👀',
-      },
-      {
-        'headline': '📊 スカウトレポートが更新されました',
-        'content': '最新の選手評価データが公開され、注目選手の情報が更新されています。',
-        'category': 'スカウト',
-        'importance': 2,
-        'icon': '📊',
       },
       // 一般ニュース
       {
@@ -1000,8 +1064,7 @@ class GameState {
       importance: selectedNews['importance'] as int,
       icon: selectedNews['icon'] as String,
       timestamp: DateTime.now(),
-      school: (selectedNews['headline'] as String).contains('高校') ? 
-        schools[random.nextInt(schools.length)].name : null,
+      school: (selectedNews['headline'] as String).contains('高校') ? selectedSchool : null,
     );
     
     news.add(newsItem);
