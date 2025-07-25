@@ -1,7 +1,6 @@
-// 学校関連のデータモデル
 import 'dart:math';
-import 'player.dart';
-import 'pitch.dart';
+import '../player/player.dart';
+import '../player/pitch.dart';
 
 // 高校クラス
 class School {
@@ -19,7 +18,8 @@ class School {
     required this.coachName,
   });
   
-  Player _generateNewPlayer(int grade) {
+  // 新しい選手を生成
+  Player generateNewPlayer(int grade) {
     final names = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
     final positions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '左翼手', '中堅手', '右翼手'];
     final personalities = ['真面目', '明るい', 'クール', 'リーダー', '努力家'];

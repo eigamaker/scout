@@ -1,4 +1,3 @@
-// 選手関連のデータモデル
 import 'dart:math';
 import 'pitch.dart';
 
@@ -166,246 +165,88 @@ class Player {
   }
   
   // スカウトスキルに基づく表示能力値を取得
-  int getVisibleAbility(int scoutSkill) {
-    final trueAbility = _trueTotalAbility;
+  int getVisibleAbility(String abilityName, int scoutSkill) {
+    final trueValue = _getAbilityValue(abilityName);
+    if (trueValue == null) return 0;
+    
     final range = _getVisibleAbilityRange(scoutSkill);
-    final random = Random();
-    
-    // スカウトスキルが低いほどランダム要素が強くなる
-    final accuracy = scoutSkill / 100.0;
-    final randomFactor = (1.0 - accuracy) * range;
-    
-    final visibleAbility = trueAbility + (random.nextDouble() - 0.5) * randomFactor * 2;
-    return visibleAbility.round().clamp(0, 100);
+    final error = Random().nextInt(range * 2 + 1) - range;
+    return (trueValue + error).clamp(0, 100);
   }
   
-  // 一般的な評価（世間の評価）- 現時点の能力値から自動算出、確率的ブレあり
-  String getGeneralEvaluation() {
-    final ability = _trueTotalAbility;
-    final random = Random();
-    
-    // 評価のブレ（±10%の確率的変動）
-    final evaluationVariance = (random.nextDouble() - 0.5) * 0.2; // -10%〜+10%
-    final adjustedAbility = ability * (1.0 + evaluationVariance);
-    
-    if (adjustedAbility > 85) return 'S';
-    if (adjustedAbility > 70) return 'A';
-    if (adjustedAbility > 55) return 'B';
-    if (adjustedAbility > 40) return 'C';
-    return 'D';
-  }
-  
-  // ポテンシャル評価（スカウトの目利きが活きる）
-  String getPotentialEvaluation(int scoutSkill) {
-    final currentAbility = _trueTotalAbility;
-    final potential = peakAbility;
-    final random = Random();
-    
-    // スカウトスキルが高いほど正確なポテンシャルが見える
-    final skillAccuracy = scoutSkill / 100.0;
-    
-    // 現在の能力値とポテンシャルの関係を分析
-    final growthPotential = potential - currentAbility;
-    final growthRate = growthPotential / 100.0; // 成長余地の割合
-    
-    // スカウトスキルに基づくポテンシャル推定
-    final estimatedPotential = currentAbility + (growthPotential * skillAccuracy);
-    
-    // ランダム要素（スカウトの勘）
-    final randomFactor = (random.nextDouble() - 0.5) * (1.0 - skillAccuracy) * 30;
-    final finalEstimate = estimatedPotential + randomFactor;
-    
-    // ポテンシャル評価の基準
-    if (finalEstimate > 120) return '超一流級の可能性';
-    if (finalEstimate > 110) return '一流級の可能性';
-    if (finalEstimate > 100) return '有望な可能性';
-    if (finalEstimate > 90) return '成長の可能性あり';
-    if (finalEstimate > 80) return 'やや期待できる';
-    return '限定的な可能性';
-  }
-  
-  // ポテンシャルの曖昧な表現（従来のメソッドを更新）
-  String getPotentialDescription() {
-    // スカウトスキル50をデフォルトとして使用
-    return getPotentialEvaluation(50);
-  }
-  
-  // 選手を発掘する
-  void discover(String scoutName) {
-    if (!isDiscovered) {
-      isDiscovered = true;
-      discoveredAt = DateTime.now();
-      discoveredBy = scoutName;
-      
-      // 発掘時に基本的な能力値を少し把握
-      _improveBasicKnowledge();
+  // 真の能力値を取得
+  int? _getAbilityValue(String abilityName) {
+    switch (abilityName) {
+      case 'fastballVelo':
+        return isPitcher ? veloScore : null;
+      case 'control':
+        return control;
+      case 'stamina':
+        return stamina;
+      case 'breakAvg':
+        return breakAvg;
+      case 'batPower':
+        return isPitcher ? null : batPower;
+      case 'batControl':
+        return isPitcher ? null : batControl;
+      case 'run':
+        return isPitcher ? null : run;
+      case 'field':
+        return isPitcher ? null : field;
+      case 'arm':
+        return isPitcher ? null : arm;
+      default:
+        return null;
     }
   }
   
-  // 世間の注目を集める
-  void makePubliclyKnown() {
-    isPubliclyKnown = true;
-    fame = (fame + 30).clamp(0, 100); // 知名度を上げる
+  // 投手評価を取得（スカウトスキルに基づく）
+  int getPitcherEvaluation(int scoutSkill) {
+    final veloScore = getVisibleAbility('fastballVelo', scoutSkill);
+    final controlScore = getVisibleAbility('control', scoutSkill);
+    final staminaScore = getVisibleAbility('stamina', scoutSkill);
+    final breakScore = getVisibleAbility('breakAvg', scoutSkill);
+    
+    return ((veloScore + controlScore + staminaScore + breakScore) / 4).round();
   }
   
-  // スカウトのお気に入りに設定
-  void setAsFavorite() {
-    isScoutFavorite = true;
+  // 野手評価を取得（スカウトスキルに基づく）
+  int getBatterEvaluation(int scoutSkill) {
+    final powerScore = getVisibleAbility('batPower', scoutSkill);
+    final controlScore = getVisibleAbility('batControl', scoutSkill);
+    final runScore = getVisibleAbility('run', scoutSkill);
+    final fieldScore = getVisibleAbility('field', scoutSkill);
+    final armScore = getVisibleAbility('arm', scoutSkill);
+    
+    return ((powerScore + controlScore + runScore + fieldScore + armScore) / 5).round();
   }
   
-  // お気に入りを解除
-  void removeFromFavorites() {
-    isScoutFavorite = false;
-  }
-  
-  // 能力値の把握度を向上させる
-  void improveKnowledge(String abilityName, int improvement) {
-    if (abilityKnowledge.containsKey(abilityName)) {
-      abilityKnowledge[abilityName] = (abilityKnowledge[abilityName]! + improvement).clamp(0, 100);
-    }
-  }
-  
-  // 発掘時に基本的な能力値を少し把握
-  void _improveBasicKnowledge() {
+  // 総合評価を取得
+  int getTotalEvaluation(int scoutSkill) {
     if (isPitcher) {
-      improveKnowledge('fastballVelo', 20);
-      improveKnowledge('control', 15);
-      improveKnowledge('stamina', 15);
-      improveKnowledge('breakAvg', 15);
+      return getPitcherEvaluation(scoutSkill);
     } else {
-      improveKnowledge('batPower', 15);
-      improveKnowledge('batControl', 15);
-      improveKnowledge('run', 20);
-      improveKnowledge('field', 15);
-      improveKnowledge('arm', 15);
+      return getBatterEvaluation(scoutSkill);
     }
-    improveKnowledge('mentalGrit', 10);
-    improveKnowledge('growthRate', 10);
-    improveKnowledge('peakAbility', 5);
   }
   
-  // 把握度に基づく表示能力値を取得
-  int getDisplayAbility(String abilityName, int trueValue) {
-    final knowledge = abilityKnowledge[abilityName] ?? 0;
-    final random = Random();
-    
-    if (knowledge >= 100) return trueValue; // 完全把握
-    
-    // 把握度に応じて誤差を計算
-    final accuracy = knowledge / 100.0;
-    final maxError = (1.0 - accuracy) * 30; // 最大±30の誤差
-    
-    final error = (random.nextDouble() - 0.5) * maxError * 2;
-    return (trueValue + error).round().clamp(0, 100);
-  }
-  
-  // 投手の表示能力値を取得
-  int? getDisplayFastballVelo() {
-    if (fastballVelo == null) return null;
-    return getDisplayAbility('fastballVelo', fastballVelo!);
-  }
-  
-  int? getDisplayControl() {
-    if (control == null) return null;
-    return getDisplayAbility('control', control!);
-  }
-  
-  int? getDisplayStamina() {
-    if (stamina == null) return null;
-    return getDisplayAbility('stamina', stamina!);
-  }
-  
-  int? getDisplayBreakAvg() {
-    if (breakAvg == null) return null;
-    return getDisplayAbility('breakAvg', breakAvg!);
-  }
-  
-  // 野手の表示能力値を取得
-  int? getDisplayBatPower() {
-    if (batPower == null) return null;
-    return getDisplayAbility('batPower', batPower!);
-  }
-  
-  int? getDisplayBatControl() {
-    if (batControl == null) return null;
-    return getDisplayAbility('batControl', batControl!);
-  }
-  
-  int? getDisplayRun() {
-    if (run == null) return null;
-    return getDisplayAbility('run', run!);
-  }
-  
-  int? getDisplayField() {
-    if (field == null) return null;
-    return getDisplayAbility('field', field!);
-  }
-  
-  int? getDisplayArm() {
-    if (arm == null) return null;
-    return getDisplayAbility('arm', arm!);
-  }
-  
-  // 選手の状態を取得
-  String getDiscoveryStatus() {
-    if (isPubliclyKnown) return '世間注目';
-    if (isScoutFavorite) return 'お気に入り';
-    if (isDiscovered) return '発掘済み';
-    return '未発掘';
-  }
-  
-  // スカウトの個人評価を設定
-  void setScoutEvaluation(String evaluation, String notes) {
-    scoutEvaluation = evaluation;
-    scoutNotes = notes;
-  }
-  
-  // 投手の総合評価（一般的評価）
-  String getPitcherEvaluation() {
-    if (!isPitcher) return 'N/A';
-    return getGeneralEvaluation();
-  }
-  
-  // 野手の総合評価（一般的評価）
-  String getBatterEvaluation() {
-    if (isPitcher) return 'N/A';
-    return getGeneralEvaluation();
-  }
-  
-  // 入学時の知名度を計算（学校の知名度と個人能力の組み合わせ）
+  // 知名度を計算
   void calculateInitialFame() {
-    final ability = _trueTotalAbility;
-    final evaluation = getGeneralEvaluation();
-    
-    // 学校の知名度を考慮（有名校ほど基本知名度が高い）
+    final baseFame = _getBaseFame();
     final schoolFame = _getSchoolFame();
+    final performanceFame = _getPerformanceFame();
     
-    // 能力値に基づく個人知名度
-    int personalFame = 0;
-    if (evaluation == 'S') personalFame = 60;
-    else if (evaluation == 'A') personalFame = 40;
-    else if (evaluation == 'B') personalFame = 20;
-    else if (evaluation == 'C') personalFame = 10;
-    else personalFame = 5;
-    
-    // 学年による調整（上級生ほど注目される）
-    final gradeBonus = (grade - 1) * 5;
-    
-    // 投手の球速による追加知名度
-    int veloBonus = 0;
-    if (isPitcher && fastballVelo != null) {
-      if (fastballVelo! >= 150) veloBonus = 15;
-      else if (fastballVelo! >= 145) veloBonus = 10;
-      else if (fastballVelo! >= 140) veloBonus = 5;
-    }
-    
-    // ランダム要素（無名校から優秀な選手が現れる可能性）
-    final random = Random();
-    final randomFactor = random.nextDouble() * 20 - 10; // -10〜+10
-    
-    // 学校の知名度と個人能力を組み合わせ
-    final baseFame = (schoolFame * 0.6 + personalFame * 0.4).round();
-    fame = (baseFame + gradeBonus + veloBonus + randomFactor.round()).clamp(0, 100);
+    fame = ((baseFame + schoolFame + performanceFame) / 3).round().clamp(0, 100);
+  }
+  
+  // 基本知名度を計算
+  int _getBaseFame() {
+    final totalAbility = _trueTotalAbility;
+    if (totalAbility >= 90) return 80;
+    if (totalAbility >= 80) return 60;
+    if (totalAbility >= 70) return 40;
+    if (totalAbility >= 60) return 20;
+    return 10;
   }
   
   // 学校の知名度を取得
@@ -430,6 +271,13 @@ class Player {
     
     // デフォルトは中堅校レベル
     return 30;
+  }
+  
+  // 成績による知名度を計算
+  int _getPerformanceFame() {
+    // 実際の成績データに基づいて計算
+    // ここでは簡易的に能力値から推定
+    return _getBaseFame();
   }
   
   // 選手の成長
