@@ -1,47 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_manager.dart';
+import '../services/data_service.dart';
 
-class MainMenuScreen extends StatelessWidget {
+class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
 
-  void _startNewGame(BuildContext context) async {
+  @override
+  State<MainMenuScreen> createState() => _MainMenuScreenState();
+}
+
+class _MainMenuScreenState extends State<MainMenuScreen> {
+  Future<void> _startNewGame(BuildContext context) async {
     final gameManager = Provider.of<GameManager>(context, listen: false);
-    
-    // スカウト名入力ダイアログ
-    final scoutName = await showDialog<String>(
+    final dataService = Provider.of<DataService>(context, listen: false);
+    showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('スカウト名を入力'),
-        content: TextField(
-          decoration: const InputDecoration(
-            labelText: 'スカウト名',
-            hintText: '例：田中スカウト',
-          ),
-          autofocus: true,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Text('選手を作成しています...'),
+            SizedBox(height: 24),
+            LinearProgressIndicator(),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final textController = (context.findRenderObject() as RenderBox)
-                  .findChild<EditableText>()
-                  ?.controller as TextEditingController?;
-              Navigator.pop(context, textController?.text ?? '名無しスカウト');
-            },
-            child: const Text('開始'),
-          ),
-        ],
       ),
     );
-
-    if (scoutName != null && scoutName.isNotEmpty) {
-      gameManager.startNewGame(scoutName);
-      Navigator.pushReplacementNamed(context, '/game');
-    }
+    await gameManager.startNewGameWithDb('あなた', dataService);
+    if (!context.mounted) return;
+    Navigator.pop(context); // ダイアログを閉じる
+    Navigator.pushReplacementNamed(context, '/game');
   }
 
   @override
@@ -56,21 +46,14 @@ class MainMenuScreen extends StatelessWidget {
           children: [
             ElevatedButton(
               onPressed: () => _startNewGame(context),
-              child: const Text('新しいゲーム'),
+              child: const Text('ニューゲーム'),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(context, '/players');
+                Navigator.pushNamed(context, '/load');
               },
-              child: const Text('選手リスト'),
-            ),
-            const SizedBox(height: 20),
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/news');
-              },
-              child: const Text('ニュース一覧'),
+              child: const Text('続きから'),
             ),
           ],
         ),

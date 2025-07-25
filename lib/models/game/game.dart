@@ -11,71 +11,116 @@ enum GameState {
 }
 
 // ゲームクラス
+class GameAction {
+  final String id; // アクションID
+  final String type; // アクション種別（例: PRAC_WATCH, GAME_WATCH など）
+  final int schoolId; // 対象学校ID
+  final int? playerId; // 対象選手ID（任意）
+  final int apCost; // AP消費
+  final int budgetCost; // 予算消費
+  final Map<String, dynamic>? params; // その他パラメータ
+
+  GameAction({
+    required this.id,
+    required this.type,
+    required this.schoolId,
+    this.playerId,
+    required this.apCost,
+    required this.budgetCost,
+    this.params,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type,
+    'schoolId': schoolId,
+    'playerId': playerId,
+    'apCost': apCost,
+    'budgetCost': budgetCost,
+    'params': params,
+  };
+
+  factory GameAction.fromJson(Map<String, dynamic> json) => GameAction(
+    id: json['id'] as String,
+    type: json['type'] as String,
+    schoolId: json['schoolId'] as int,
+    playerId: json['playerId'] as int?,
+    apCost: json['apCost'] as int,
+    budgetCost: json['budgetCost'] as int,
+    params: json['params'] as Map<String, dynamic>?,
+  );
+}
+
 class Game {
   final String scoutName; // スカウト名
   final int scoutSkill; // スカウトスキル 0-100
-  final DateTime currentDate; // 現在の日付
   final int currentYear; // 現在の年
-  final int currentMonth; // 現在の月
-  final int currentDay; // 現在の日
+  final int currentMonth; // 現在の月（1-12）
+  final int currentWeekOfMonth; // 現在の月内の週（1-5）
   final GameState state; // ゲーム状態
   final List<School> schools; // 学校リスト
   final List<Player> discoveredPlayers; // 発掘した選手リスト
   final List<Player> watchedPlayers; // 注目選手リスト
   final List<Player> favoritePlayers; // お気に入り選手リスト
+  final int ap; // 今週のアクションポイント
   final int budget; // 予算
+  final Map<String, int> scoutSkills; // スカウトスキル（exploration, observation, analysis, insight, communication, negotiation, stamina）
   final int reputation; // 評判 0-100
   final int experience; // 経験値
   final int level; // レベル
+  final List<GameAction> weeklyActions; // 今週の行動計画
   
   Game({
     required this.scoutName,
     required this.scoutSkill,
-    required this.currentDate,
     required this.currentYear,
     required this.currentMonth,
-    required this.currentDay,
+    required this.currentWeekOfMonth,
     required this.state,
     required this.schools,
     required this.discoveredPlayers,
     required this.watchedPlayers,
     required this.favoritePlayers,
+    required this.ap,
     required this.budget,
+    required this.scoutSkills,
     required this.reputation,
     required this.experience,
     required this.level,
+    required this.weeklyActions,
   });
-  
-  // 日付を進める
-  Game advanceDate() {
-    final newDate = currentDate.add(const Duration(days: 1));
-    return copyWith(
-      currentDate: newDate,
-      currentYear: newDate.year,
-      currentMonth: newDate.month,
-      currentDay: newDate.day,
-    );
+
+  // 月ごとの最大週数を返す
+  int getMaxWeeksOfMonth(int month) {
+    if (month == 3 || month == 5 || month == 8 || month == 12) {
+      return 5;
+    }
+    return 4;
   }
-  
-  // 月を進める
-  Game advanceMonth() {
-    final newDate = DateTime(currentYear, currentMonth + 1, 1);
+
+  // 週を進める
+  Game advanceWeek() {
+    int newWeek = currentWeekOfMonth + 1;
+    int newMonth = currentMonth;
+    int newYear = currentYear;
+    int maxWeeks = getMaxWeeksOfMonth(currentMonth);
+    if (newWeek > maxWeeks) {
+      newWeek = 1;
+      newMonth += 1;
+      if (newMonth > 12) {
+        newMonth = 1;
+      }
+      // 年度切り替え（3月5週→4月1週）
+      if (currentMonth == 3 && currentWeekOfMonth == 5) {
+        newYear += 1;
+        newMonth = 4;
+        newWeek = 1;
+      }
+    }
     return copyWith(
-      currentDate: newDate,
-      currentYear: newDate.year,
-      currentMonth: newDate.month,
-      currentDay: newDate.day,
-    );
-  }
-  
-  // 年を進める
-  Game advanceYear() {
-    final newDate = DateTime(currentYear + 1, 1, 1);
-    return copyWith(
-      currentDate: newDate,
-      currentYear: newDate.year,
-      currentMonth: newDate.month,
-      currentDay: newDate.day,
+      currentYear: newYear,
+      currentMonth: newMonth,
+      currentWeekOfMonth: newWeek,
     );
   }
   
@@ -166,12 +211,15 @@ class Game {
   
   // 日付のフォーマット
   String getFormattedDate() {
-    return '${currentYear}/${currentMonth.toString().padLeft(2, '0')}/${currentDay.toString().padLeft(2, '0')}';
+    return '${currentMonth}月${currentWeekOfMonth}週';
   }
+
+  // 新年度開始判定
+  bool get isNewFiscalYearStart => currentMonth == 4 && currentWeekOfMonth == 1;
   
   // シーズンかどうか（4月〜8月）
   bool get isSeason {
-    return currentMonth >= 4 && currentMonth <= 8;
+    return currentWeekOfMonth >= 1 && currentWeekOfMonth <= 20; // 4月〜8月の週数を想定
   }
   
   // オフシーズンかどうか
@@ -181,7 +229,7 @@ class Game {
   
   // ドラフトシーズンかどうか（10月〜11月）
   bool get isDraftSeason {
-    return currentMonth >= 10 && currentMonth <= 11;
+    return currentWeekOfMonth >= 40 && currentWeekOfMonth <= 50; // 10月〜11月の週数を想定
   }
   
   // 発掘可能な選手を取得
@@ -220,13 +268,37 @@ class Game {
     return updatedPlayers;
   }
 
+  // 週初にAP/予算をリセット
+  Game resetWeeklyResources({int? newAp, int? newBudget}) {
+    return copyWith(
+      ap: newAp ?? ap,
+      budget: newBudget ?? budget,
+    );
+  }
+
+  // アクション追加
+  Game addAction(GameAction action) {
+    if (ap < action.apCost || budget < action.budgetCost) {
+      // AP/予算不足
+      return this;
+    }
+    return copyWith(
+      weeklyActions: [...weeklyActions, action],
+      ap: ap - action.apCost,
+      budget: budget - action.budgetCost,
+    );
+  }
+  // アクションリセット（週送り時）
+  Game resetActions() {
+    return copyWith(weeklyActions: []);
+  }
+
   Map<String, dynamic> toJson() => {
     'scoutName': scoutName,
     'scoutSkill': scoutSkill,
-    'currentDate': currentDate.toIso8601String(),
     'currentYear': currentYear,
     'currentMonth': currentMonth,
-    'currentDay': currentDay,
+    'currentWeekOfMonth': currentWeekOfMonth,
     'state': state.index,
     'schools': schools.map((s) => s.toJson()).toList(),
     'discoveredPlayers': discoveredPlayers.map((p) => p.toJson()).toList(),
@@ -236,15 +308,15 @@ class Game {
     'reputation': reputation,
     'experience': experience,
     'level': level,
+    'weeklyActions': weeklyActions.map((a) => a.toJson()).toList(),
   };
 
   factory Game.fromJson(Map<String, dynamic> json) => Game(
     scoutName: json['scoutName'],
     scoutSkill: json['scoutSkill'],
-    currentDate: DateTime.parse(json['currentDate']),
     currentYear: json['currentYear'],
     currentMonth: json['currentMonth'],
-    currentDay: json['currentDay'],
+    currentWeekOfMonth: json['currentWeekOfMonth'],
     state: GameState.values[json['state']],
     schools: (json['schools'] as List).map((s) => School.fromJson(s)).toList(),
     discoveredPlayers: (json['discoveredPlayers'] as List).map((p) => Player.fromJson(p)).toList(),
@@ -254,16 +326,18 @@ class Game {
     reputation: json['reputation'],
     experience: json['experience'],
     level: json['level'],
+    weeklyActions: (json['weeklyActions'] as List).map((a) => GameAction.fromJson(a)).toList(),
+    ap: json['ap'],
+    scoutSkills: Map<String, int>.from(json['scoutSkills'] ?? {}),
   );
   
   // コピーメソッド
   Game copyWith({
     String? scoutName,
     int? scoutSkill,
-    DateTime? currentDate,
     int? currentYear,
     int? currentMonth,
-    int? currentDay,
+    int? currentWeekOfMonth,
     GameState? state,
     List<School>? schools,
     List<Player>? discoveredPlayers,
@@ -273,14 +347,16 @@ class Game {
     int? reputation,
     int? experience,
     int? level,
+    List<GameAction>? weeklyActions,
+    int? ap,
+    Map<String, int>? scoutSkills,
   }) {
     return Game(
       scoutName: scoutName ?? this.scoutName,
       scoutSkill: scoutSkill ?? this.scoutSkill,
-      currentDate: currentDate ?? this.currentDate,
       currentYear: currentYear ?? this.currentYear,
       currentMonth: currentMonth ?? this.currentMonth,
-      currentDay: currentDay ?? this.currentDay,
+      currentWeekOfMonth: currentWeekOfMonth ?? this.currentWeekOfMonth,
       state: state ?? this.state,
       schools: schools ?? this.schools,
       discoveredPlayers: discoveredPlayers ?? this.discoveredPlayers,
@@ -290,6 +366,9 @@ class Game {
       reputation: reputation ?? this.reputation,
       experience: experience ?? this.experience,
       level: level ?? this.level,
+      weeklyActions: weeklyActions ?? this.weeklyActions,
+      ap: ap ?? this.ap,
+      scoutSkills: scoutSkills ?? this.scoutSkills,
     );
   }
 } 

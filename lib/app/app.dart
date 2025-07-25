@@ -5,6 +5,8 @@ import '../screens/player_list_screen.dart';
 import '../screens/player_detail_screen.dart';
 import '../screens/news_screen.dart';
 import '../screens/news_detail_screen.dart';
+import '../screens/load_game_screen.dart';
+import '../screens/school_list_screen.dart';
 import 'theme.dart';
 import '../models/player/player.dart';
 import '../models/news/news_item.dart';
@@ -24,6 +26,8 @@ class ScoutGameApp extends StatelessWidget {
         '/game': (context) => const GameScreen(),
         '/players': (context) => const PlayerListScreen(),
         '/news': (context) => const NewsScreen(),
+        '/load': (context) => const LoadGameScreen(),
+        '/schools': (context) => const SchoolListScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/playerDetail') {

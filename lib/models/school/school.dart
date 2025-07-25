@@ -125,6 +125,22 @@ class School {
     return player;
   }
 
+  School copyWith({
+    String? name,
+    String? location,
+    List<Player>? players,
+    int? coachTrust,
+    String? coachName,
+  }) {
+    return School(
+      name: name ?? this.name,
+      location: location ?? this.location,
+      players: players ?? this.players,
+      coachTrust: coachTrust ?? this.coachTrust,
+      coachName: coachName ?? this.coachName,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'name': name,
     'location': location,
