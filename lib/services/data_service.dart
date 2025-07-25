@@ -5,6 +5,7 @@ import 'package:path/path.dart';
 
 class DataService {
   static const String saveKey = 'scout_game_save';
+  static const String autoSaveKey = 'scout_game_autosave';
 
   static Database? _db;
 
@@ -104,14 +105,36 @@ class DataService {
     );
   }
 
-  Future<void> saveGameData(Map<String, dynamic> data) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(saveKey, jsonEncode(data));
+  String _slotKey(dynamic slot) {
+    if (slot == 'autosave') return autoSaveKey;
+    return 'scout_game_save_$slot';
   }
 
-  Future<Map<String, dynamic>?> loadGameData() async {
+  Future<void> saveGameDataToSlot(Map<String, dynamic> data, dynamic slot) async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(saveKey);
+    await prefs.setString(_slotKey(slot), jsonEncode(data));
+  }
+
+  Future<Map<String, dynamic>?> loadGameDataFromSlot(dynamic slot) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_slotKey(slot));
+    if (jsonString == null) return null;
+    return jsonDecode(jsonString);
+  }
+
+  Future<bool> hasGameDataInSlot(dynamic slot) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey(_slotKey(slot));
+  }
+
+  Future<void> saveAutoGameData(Map<String, dynamic> data) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(autoSaveKey, jsonEncode(data));
+  }
+
+  Future<Map<String, dynamic>?> loadAutoGameData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(autoSaveKey);
     if (jsonString == null) return null;
     return jsonDecode(jsonString);
   }

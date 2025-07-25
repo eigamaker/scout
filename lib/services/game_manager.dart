@@ -357,21 +357,61 @@ class GameManager {
     return personalities[DateTime.now().millisecondsSinceEpoch % personalities.length];
   }
 
+  Future<void> _refreshPlayersFromDb(DataService dataService) async {
+    if (_currentGame == null) return;
+    final db = await dataService.database;
+    final playerMaps = await db.query('Player');
+    final personIds = playerMaps.map((p) => p['id'] as int).toList();
+    final persons = <int, Map<String, dynamic>>{};
+    if (personIds.isNotEmpty) {
+      final personMaps = await db.query('Person', where: 'id IN (${List.filled(personIds.length, '?').join(',')})', whereArgs: personIds);
+      for (final p in personMaps) {
+        persons[p['id'] as int] = p;
+      }
+    }
+    // 学校ごとにplayersを再構築
+    final updatedSchools = _currentGame!.schools.map((school) {
+      final schoolPlayers = playerMaps.where((p) => school.name == school.name).map((p) {
+        final person = persons[p['id'] as int] ?? {};
+        return Player(
+          name: person['name'] as String? ?? '名無し',
+          school: school.name,
+          grade: p['grade'] as int? ?? 1,
+          position: p['position'] as String? ?? '',
+          personality: person['personality'] as String? ?? '',
+          fastballVelo: p['fastball_velo'] as int? ?? 0,
+          control: p['control'] as int? ?? 0,
+          stamina: p['stamina'] as int? ?? 0,
+          breakAvg: 0,
+          pitches: [],
+          mentalGrit: 0.0,
+          growthRate: p['growth_rate'] as double? ?? 1.0,
+          peakAbility: p['max_fastball_velo'] as int? ?? 0,
+          positionFit: {},
+        );
+      }).toList();
+      return school.copyWith(players: schoolPlayers);
+    }).toList();
+    _currentGame = _currentGame!.copyWith(schools: updatedSchools);
+  }
+
   /// 週送り時にアクションを実行し、リザルトを返す
-  List<String> advanceWeekWithResults(NewsService newsService, DataService dataService) {
+  Future<List<String>> advanceWeekWithResults(NewsService newsService, DataService dataService) async {
     final results = <String>[];
     if (_currentGame != null) {
       // 3月1週→2週の週送り時に卒業処理
       final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 1;
       if (isGraduation) {
-        graduateThirdYearStudents(dataService);
+        await graduateThirdYearStudents(dataService);
+        await _refreshPlayersFromDb(dataService);
         results.add('3年生が卒業しました。学校には1・2年生のみが在籍しています。');
       }
       // 3月5週→4月1週の週送り時に学年アップ＋新入生生成
       final isNewYear = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 5;
       if (isNewYear) {
-        promoteAllStudents(dataService);
-        generateNewStudentsForAllSchoolsDb(dataService);
+        await promoteAllStudents(dataService);
+        await generateNewStudentsForAllSchoolsDb(dataService);
+        await _refreshPlayersFromDb(dataService);
         results.add('新年度が始まり、全学校で学年が1つ上がり新1年生が入学しました！');
       }
       for (final action in _currentGame!.weeklyActions) {
@@ -386,8 +426,9 @@ class GameManager {
         .advanceWeek()
         .resetWeeklyResources(newAp: 6, newBudget: _currentGame!.budget)
         .resetActions();
+      await saveGame(dataService);
       // オートセーブ
-      saveGame(dataService);
+      await dataService.saveAutoGameData(_currentGame!.toJson());
     }
     return results;
   }
@@ -422,17 +463,21 @@ class GameManager {
   // セーブ
   Future<void> saveGame(DataService dataService) async {
     if (_currentGame != null) {
-      await dataService.saveGameData(_currentGame!.toJson());
+      await dataService.saveGameDataToSlot(_currentGame!.toJson(), 1);
     }
   }
 
   // ロード
   Future<bool> loadGame(DataService dataService) async {
-    final json = await dataService.loadGameData();
+    final json = await dataService.loadGameDataFromSlot(1);
     if (json != null) {
       _currentGame = Game.fromJson(json);
       return true;
     }
     return false;
+  }
+
+  void loadGameFromJson(Map<String, dynamic> json) {
+    _currentGame = Game.fromJson(json);
   }
 } 

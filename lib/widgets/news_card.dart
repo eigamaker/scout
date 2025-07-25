@@ -10,11 +10,11 @@ class NewsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: news.getImportanceColor().withOpacity(0.1),
+      color: Colors.white, // 明るい背景色に固定
       child: ListTile(
-        title: Text(news.title),
-        subtitle: Text(news.getShortContent()),
-        trailing: Text(news.getFormattedDate()),
+        title: Text(news.title, style: const TextStyle(color: Colors.black)),
+        subtitle: Text(news.getShortContent(), style: const TextStyle(color: Colors.black87)),
+        trailing: Text(news.getFormattedDate(), style: const TextStyle(color: Colors.black54)),
         onTap: onTap,
       ),
     );

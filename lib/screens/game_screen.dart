@@ -66,8 +66,26 @@ class _GameScreenState extends State<GameScreen> {
               title: const Text('セーブ'),
               onTap: () async {
                 final dataService = Provider.of<DataService>(context, listen: false);
-                await gameManager.saveGame(dataService);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('セーブしました')));
+                final gameManager = Provider.of<GameManager>(context, listen: false);
+                final slot = await showDialog<int>(
+                  context: context,
+                  builder: (context) => SimpleDialog(
+                    title: const Text('セーブスロットを選択'),
+                    children: [
+                      for (int i = 1; i <= 3; i++)
+                        SimpleDialogOption(
+                          onPressed: () => Navigator.pop(context, i),
+                          child: Text('スロット$i'),
+                        ),
+                    ],
+                  ),
+                );
+                if (slot != null) {
+                  await dataService.saveGameDataToSlot(gameManager.currentGame!.toJson(), slot);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('スロット$slotにセーブしました')),
+                  );
+                }
               },
             ),
             ListTile(
@@ -79,6 +97,14 @@ class _GameScreenState extends State<GameScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(loaded ? 'ロードしました' : 'セーブデータがありません')),
                 );
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.home),
+              title: const Text('ホームに戻る'),
+              onTap: () {
+                Navigator.pushNamedAndRemoveUntil(context, '/mainMenu', (route) => false);
               },
             ),
           ],
@@ -257,7 +283,7 @@ class _GameScreenState extends State<GameScreen> {
           final gameManager = Provider.of<GameManager>(context, listen: false);
           final newsService = Provider.of<NewsService>(context, listen: false);
           final dataService = Provider.of<DataService>(context, listen: false);
-          final results = gameManager.advanceWeekWithResults(newsService, dataService);
+          final results = await gameManager.advanceWeekWithResults(newsService, dataService);
           setState(() {
             _weekLogs.insert(0, results);
           });
