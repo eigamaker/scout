@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'dart:io'; // Added for File
 
 class DataService {
   static const String saveKey = 'scout_game_save';
@@ -9,9 +10,16 @@ class DataService {
 
   static Database? _db;
 
+  String _currentSlot = 'セーブ1'; // デフォルト
+  set currentSlot(String slot) {
+    _currentSlot = slot;
+    _db = null; // スロット切り替え時にキャッシュクリア
+  }
+  String get currentSlot => _currentSlot;
+
   Future<Database> get database async {
     if (_db != null) return _db!;
-    _db = await _initDb();
+    _db = await getDatabaseWithSlot(_currentSlot);
     return _db!;
   }
 
@@ -193,5 +201,133 @@ class DataService {
       'max_mental': 90,
       'growth_rate': 1.1,
     });
+  }
+
+  // スロットごとにDBファイル名を切り替える
+  Future<Database> getDatabaseWithSlot(String slot) async {
+    final dbPath = await getDatabasesPath();
+    final dbName = slot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(slot)}.db';
+    final path = join(dbPath, dbName);
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: (db, version) async {
+        // 既存のテーブル作成処理を流用
+        await _createAllTables(db);
+      },
+    );
+  }
+
+  // スロット名から番号を取得
+  int _slotNumber(String slot) {
+    if (slot == 'セーブ1') return 1;
+    if (slot == 'セーブ2') return 2;
+    if (slot == 'セーブ3') return 3;
+    return 1;
+  }
+
+  // テーブル作成処理を共通化
+  Future<void> _createAllTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE Person (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        birth_date TEXT,
+        gender TEXT,
+        hometown TEXT,
+        personality TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE Player (
+        id INTEGER PRIMARY KEY,
+        school_id INTEGER,
+        grade INTEGER,
+        position TEXT,
+        fastball_velo INTEGER,
+        max_fastball_velo INTEGER,
+        control INTEGER,
+        max_control INTEGER,
+        stamina INTEGER,
+        max_stamina INTEGER,
+        batting_power INTEGER,
+        max_batting_power INTEGER,
+        running_speed INTEGER,
+        max_running_speed INTEGER,
+        defense INTEGER,
+        max_defense INTEGER,
+        mental INTEGER,
+        max_mental INTEGER,
+        growth_rate REAL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE Coach (
+        id INTEGER PRIMARY KEY,
+        team_id INTEGER,
+        trust INTEGER,
+        leadership INTEGER,
+        strategy INTEGER,
+        training_skill INTEGER
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE Scout (
+        id INTEGER PRIMARY KEY,
+        organization_id INTEGER,
+        scout_skill INTEGER,
+        negotiation INTEGER,
+        network INTEGER
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE Career (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        person_id INTEGER,
+        role TEXT,
+        organization_id INTEGER,
+        start_year INTEGER,
+        end_year INTEGER
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE Organization (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        type TEXT,
+        location TEXT,
+        school_strength INTEGER,
+        last_year_strength INTEGER,
+        scouting_popularity INTEGER
+      )
+    ''');
+  }
+
+  // スロット用DBファイルを削除
+  Future<void> deleteDatabaseWithSlot(String slot) async {
+    final dbPath = await getDatabasesPath();
+    final dbName = slot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(slot)}.db';
+    final path = join(dbPath, dbName);
+    await deleteDatabase(path);
+    print('DB削除: $path, exists= ${await File(path).exists()}');
+  }
+
+  // スロット間でDBファイルをコピー
+  Future<void> copyDatabaseBetweenSlots(String fromSlot, String toSlot) async {
+    final dbPath = await getDatabasesPath();
+    final fromDbName = fromSlot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(fromSlot)}.db';
+    final toDbName = toSlot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(toSlot)}.db';
+    final fromPath = join(dbPath, fromDbName);
+    final toPath = join(dbPath, toDbName);
+    final fromFile = File(fromPath);
+    final toFile = File(toPath);
+    if (await toFile.exists()) {
+      await toFile.delete();
+    }
+    if (await fromFile.exists()) {
+      await fromFile.copy(toPath);
+    }
+    // DBキャッシュをリセット
+    _db = null;
   }
 } 

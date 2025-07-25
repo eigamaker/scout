@@ -31,6 +31,7 @@ class School {
     final mentalGrit = (Random().nextDouble() - 0.5) * 0.3; // -0.15〜+0.15
     final growthRate = 0.85 + Random().nextDouble() * 0.3; // 0.85-1.15
     final peakAbility = 80 + Random().nextInt(71); // 80-150
+    final talent = 1 + Random().nextInt(5); // 1-5
     
     // ポジション適性を生成
     final positionFit = <String, int>{};
@@ -91,6 +92,8 @@ class School {
         growthRate: growthRate,
         peakAbility: peakAbility,
         positionFit: positionFit,
+        talent: talent,
+        growthType: '標準', // 仮で標準を指定（必要に応じてロジック追加）
       );
     } else {
       // 野手の能力値を生成
@@ -116,6 +119,8 @@ class School {
         growthRate: growthRate,
         peakAbility: peakAbility,
         positionFit: positionFit,
+        talent: talent,
+        growthType: '標準', // 仮で標準を指定（必要に応じてロジック追加）
       );
     }
     
