@@ -77,6 +77,8 @@ class GameManager {
             growthRate: growthRate,
             peakAbility: peakAbility,
             positionFit: {},
+            talent: 3,
+            growthType: 'normal',
           );
           newPlayers.add(player);
           if (isFamous) {
@@ -129,6 +131,8 @@ class GameManager {
         growthRate: p['growth_rate'] as double? ?? 1.0,
         peakAbility: p['max_fastball_velo'] as int? ?? 0,
         positionFit: {},
+        talent: p['talent'] is int ? p['talent'] as int : int.tryParse(p['talent']?.toString() ?? '') ?? 3,
+        growthType: p['growthType'] is String ? p['growthType'] as String : (p['growthType']?.toString() ?? 'normal'),
       );
     }).toList();
     // Gameインスタンス生成
@@ -295,6 +299,8 @@ class GameManager {
           growthRate: growthRate,
           peakAbility: peakAbility,
           positionFit: {},
+          talent: 3,
+          growthType: 'normal',
         );
         newPlayers.add(player);
         if (isFamous) {
@@ -340,6 +346,20 @@ class GameManager {
     _currentGame = _currentGame!.copyWith(schools: updatedSchools);
   }
 
+  // 全選手の成長処理（3か月ごと）
+  void growAllPlayers() {
+    if (_currentGame == null) return;
+    final updatedSchools = _currentGame!.schools.map((school) {
+      final grownPlayers = school.players.map((p) {
+        final player = p.copyWith();
+        player.grow();
+        return player;
+      }).toList();
+      return school.copyWith(players: grownPlayers);
+    }).toList();
+    _currentGame = _currentGame!.copyWith(schools: updatedSchools);
+  }
+
   // ランダムな名前生成（簡易）
   String _generateRandomName() {
     const familyNames = ['田中', '佐藤', '鈴木', '高橋', '伊藤', '渡辺', '山本', '中村', '小林', '加藤'];
@@ -355,6 +375,102 @@ class GameManager {
   String _randomPersonality() {
     const personalities = ['真面目', '負けず嫌い', 'ムードメーカー', '冷静', '情熱的', '努力家', '天才肌'];
     return personalities[DateTime.now().millisecondsSinceEpoch % personalities.length];
+  }
+
+  // 才能ランク・成長タイプ・peakAbility・全ポジション適性を含めた選手生成
+  Player generatePlayer({
+    required String name,
+    required String school,
+    required int grade,
+    required String position,
+    required String personality,
+  }) {
+    // 才能ランク（1〜5）
+    final talent = _randomTalent();
+    // 成長タイプ
+    final growthType = _randomGrowthType();
+    // peakAbility（才能ランクでレンジを決定）
+    final peakAbility = _randomPeakAbility(talent);
+    // 全ポジション適性
+    final positionFit = _randomPositionFit(position);
+    // 投手能力
+    final fastballVelo = 110 + (DateTime.now().millisecondsSinceEpoch % 60);
+    final control = 30 + (DateTime.now().millisecondsSinceEpoch % 40);
+    final stamina = 30 + (DateTime.now().millisecondsSinceEpoch % 40);
+    final breakAvg = 20 + (DateTime.now().millisecondsSinceEpoch % 60);
+    // 野手能力
+    final batPower = 35 + (DateTime.now().millisecondsSinceEpoch % 41);
+    final batControl = 40 + (DateTime.now().millisecondsSinceEpoch % 41);
+    final run = 45 + (DateTime.now().millisecondsSinceEpoch % 41);
+    final field = 40 + (DateTime.now().millisecondsSinceEpoch % 41);
+    final arm = 35 + (DateTime.now().millisecondsSinceEpoch % 41);
+    // メンタル・成長率
+    final mentalGrit = 0.5 + ((DateTime.now().millisecondsSinceEpoch % 50) / 100);
+    final growthRate = 0.9 + ((DateTime.now().millisecondsSinceEpoch % 30) / 100);
+    return Player(
+      name: name,
+      school: school,
+      grade: grade,
+      position: position,
+      personality: personality,
+      fastballVelo: fastballVelo,
+      control: control,
+      stamina: stamina,
+      breakAvg: breakAvg,
+      pitches: [],
+      batPower: batPower,
+      batControl: batControl,
+      run: run,
+      field: field,
+      arm: arm,
+      mentalGrit: mentalGrit,
+      growthRate: growthRate,
+      peakAbility: peakAbility,
+      positionFit: positionFit,
+      talent: talent,
+      growthType: growthType,
+    );
+  }
+
+  int _randomTalent() {
+    final r = DateTime.now().millisecondsSinceEpoch % 100;
+    if (r < 20) return 1; // 20%
+    if (r < 50) return 2; // 30%
+    if (r < 85) return 3; // 35%
+    if (r < 95) return 4; // 10%
+    return 5; // 5%
+  }
+  String _randomGrowthType() {
+    const types = ['early', 'normal', 'late', 'spurt'];
+    return types[DateTime.now().millisecondsSinceEpoch % types.length];
+  }
+  int _randomPeakAbility(int talent) {
+    switch (talent) {
+      case 1:
+        return 75 + (DateTime.now().millisecondsSinceEpoch % 6); // 75-80
+      case 2:
+        return 85 + (DateTime.now().millisecondsSinceEpoch % 8); // 85-92
+      case 3:
+        return 95 + (DateTime.now().millisecondsSinceEpoch % 8); // 95-102
+      case 4:
+        return 105 + (DateTime.now().millisecondsSinceEpoch % 10); // 105-115
+      case 5:
+        return 120 + (DateTime.now().millisecondsSinceEpoch % 31); // 120-150
+      default:
+        return 80;
+    }
+  }
+  Map<String, int> _randomPositionFit(String mainPosition) {
+    const positions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '左翼手', '中堅手', '右翼手'];
+    final fit = <String, int>{};
+    for (final pos in positions) {
+      if (pos == mainPosition) {
+        fit[pos] = 70 + (DateTime.now().millisecondsSinceEpoch % 21); // 70-90
+      } else {
+        fit[pos] = 40 + (DateTime.now().millisecondsSinceEpoch % 31); // 40-70
+      }
+    }
+    return fit;
   }
 
   Future<void> _refreshPlayersFromDb(DataService dataService) async {
@@ -388,6 +504,8 @@ class GameManager {
           growthRate: p['growth_rate'] as double? ?? 1.0,
           peakAbility: p['max_fastball_velo'] as int? ?? 0,
           positionFit: {},
+          talent: (p['talent'] is int) ? p['talent'] as int : int.tryParse(p['talent']?.toString() ?? '') ?? 3,
+          growthType: (p['growthType'] is String) ? p['growthType'] as String : (p['growthType']?.toString() ?? 'normal'),
         );
       }).toList();
       return school.copyWith(players: schoolPlayers);
@@ -413,6 +531,13 @@ class GameManager {
         await generateNewStudentsForAllSchoolsDb(dataService);
         await _refreshPlayersFromDb(dataService);
         results.add('新年度が始まり、全学校で学年が1つ上がり新1年生が入学しました！');
+      }
+      // 3か月ごと（4,7,10,1月の最終週）に成長処理
+      final isGrowthMonth = [4, 7, 10, 1].contains(_currentGame!.currentMonth);
+      final isLastWeekOfMonth = _currentGame!.getMaxWeeksOfMonth(_currentGame!.currentMonth) == _currentGame!.currentWeekOfMonth;
+      if (isGrowthMonth && isLastWeekOfMonth) {
+        growAllPlayers();
+        results.add('今シーズンの成長イベントが発生しました。選手たちが成長しています。');
       }
       for (final action in _currentGame!.weeklyActions) {
         // 簡易リザルト生成（今後詳細化）

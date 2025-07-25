@@ -48,6 +48,8 @@ class Player {
   final double growthRate; // 成長スピード 0.85-1.15
   final int peakAbility; // ポテンシャル 80-150
   final Map<String, int> positionFit; // ポジション適性
+  final int talent; // 才能ランク 1-5
+  final String growthType; // 成長タイプ
   
   // スカウトの評価（個人評価）
   String? scoutEvaluation; // スカウトの個人評価
@@ -83,6 +85,8 @@ class Player {
     required this.growthRate,
     required this.peakAbility,
     required this.positionFit,
+    required this.talent,
+    required this.growthType,
     this.scoutEvaluation,
     this.scoutNotes,
     Map<String, int>? abilityKnowledge,
@@ -363,6 +367,8 @@ class Player {
     'growthRate': growthRate,
     'peakAbility': peakAbility,
     'positionFit': positionFit,
+    'talent': talent,
+    'growthType': growthType,
     'scoutEvaluation': scoutEvaluation,
     'scoutNotes': scoutNotes,
   };
@@ -402,6 +408,8 @@ class Player {
     growthRate: (json['growthRate'] as num).toDouble(),
     peakAbility: json['peakAbility'],
     positionFit: Map<String, int>.from(json['positionFit']),
+    talent: json['talent'],
+    growthType: json['growthType'],
     scoutEvaluation: json['scoutEvaluation'],
     scoutNotes: json['scoutNotes'],
   );
@@ -437,6 +445,8 @@ class Player {
     double? growthRate,
     int? peakAbility,
     Map<String, int>? positionFit,
+    int? talent,
+    String? growthType,
     String? scoutEvaluation,
     String? scoutNotes,
   }) {
@@ -471,6 +481,8 @@ class Player {
       growthRate: growthRate ?? this.growthRate,
       peakAbility: peakAbility ?? this.peakAbility,
       positionFit: positionFit ?? Map<String, int>.from(this.positionFit),
+      talent: talent ?? this.talent,
+      growthType: growthType ?? this.growthType,
       scoutEvaluation: scoutEvaluation ?? this.scoutEvaluation,
       scoutNotes: scoutNotes ?? this.scoutNotes,
     );
