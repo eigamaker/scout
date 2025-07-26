@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_manager.dart';
+import '../services/scouting/action_service.dart';
 
 class SchoolListScreen extends StatelessWidget {
   const SchoolListScreen({super.key});
@@ -60,8 +61,23 @@ class SchoolListScreen extends StatelessWidget {
                     ),
                     ElevatedButton(
                       onPressed: () {
+                        final result = ActionService.scoutSchool(
+                          school: game.schools[i], 
+                          currentWeek: game.currentWeekOfMonth
+                        );
+                        
+                        // 発掘結果をGameManagerに反映
+                        if (result.discoveredPlayer != null) {
+                          gameManager.discoverPlayer(result.discoveredPlayer!);
+                        } else if (result.improvedPlayer != null) {
+                          gameManager.updatePlayerKnowledge(result.improvedPlayer!);
+                        }
+                        
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('${game.schools[i].name}を視察しました')),
+                          SnackBar(
+                            content: Text(result.message),
+                            duration: const Duration(seconds: 3),
+                          ),
                         );
                       },
                       style: ElevatedButton.styleFrom(

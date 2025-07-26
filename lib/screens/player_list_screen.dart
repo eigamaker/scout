@@ -13,7 +13,7 @@ class PlayerListScreen extends StatefulWidget {
 }
 
 class _PlayerListScreenState extends State<PlayerListScreen> {
-  String _selectedFilter = 'all';
+  String _selectedFilter = 'discovered'; // デフォルトを「発掘済み」に変更
   String _selectedSort = 'name';
 
   // フィルター適用
@@ -24,11 +24,13 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
       case 'famous':
         return players.where((player) => player.fameLevel >= 3).toList();
       case 'pitcher':
-        return players.where((player) => player.isPitcher).toList();
+        return players.where((player) => player.isPitcher && player.isDiscovered).toList();
       case 'batter':
-        return players.where((player) => !player.isPitcher).toList();
+        return players.where((player) => !player.isPitcher && player.isDiscovered).toList();
+      case 'all':
+        return players; // 全ての選手（発掘済み＋未発掘）
       default:
-        return players;
+        return players.where((player) => player.isDiscovered).toList();
     }
   }
 
@@ -64,31 +66,36 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
             // フィルター
             const Text('フィルター:', style: TextStyle(fontWeight: FontWeight.bold)),
             RadioListTile<String>(
-              title: const Text('全て'),
-              value: 'all',
-              groupValue: _selectedFilter,
-              onChanged: (value) => setState(() => _selectedFilter = value!),
-            ),
-            RadioListTile<String>(
               title: const Text('発掘済み'),
+              subtitle: const Text('視察で発掘した選手のみ'),
               value: 'discovered',
               groupValue: _selectedFilter,
               onChanged: (value) => setState(() => _selectedFilter = value!),
             ),
             RadioListTile<String>(
+              title: const Text('全ての選手'),
+              subtitle: const Text('発掘済み＋未発掘の全選手'),
+              value: 'all',
+              groupValue: _selectedFilter,
+              onChanged: (value) => setState(() => _selectedFilter = value!),
+            ),
+            RadioListTile<String>(
               title: const Text('有名選手'),
+              subtitle: const Text('知名度の高い選手'),
               value: 'famous',
               groupValue: _selectedFilter,
               onChanged: (value) => setState(() => _selectedFilter = value!),
             ),
             RadioListTile<String>(
               title: const Text('投手'),
+              subtitle: const Text('発掘済みの投手のみ'),
               value: 'pitcher',
               groupValue: _selectedFilter,
               onChanged: (value) => setState(() => _selectedFilter = value!),
             ),
             RadioListTile<String>(
               title: const Text('野手'),
+              subtitle: const Text('発掘済みの野手のみ'),
               value: 'batter',
               groupValue: _selectedFilter,
               onChanged: (value) => setState(() => _selectedFilter = value!),
@@ -161,7 +168,7 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
       body: Column(
         children: [
           // フィルター情報表示
-          if (_selectedFilter != 'all' || _selectedSort != 'name')
+          if (_selectedFilter != 'discovered' || _selectedSort != 'name')
             Container(
               padding: const EdgeInsets.all(8),
               color: Colors.grey[100],

@@ -1424,4 +1424,26 @@ class GameManager {
   void loadGameFromJson(Map<String, dynamic> json) {
     _currentGame = Game.fromJson(json);
   }
+
+  // 選手を発掘済みとして登録
+  void discoverPlayer(Player player) {
+    if (_currentGame != null) {
+      _currentGame = _currentGame!.discoverPlayer(player);
+    }
+  }
+
+  // 選手の能力値把握度を更新
+  void updatePlayerKnowledge(Player player) {
+    if (_currentGame != null) {
+      // discoveredPlayersリスト内の該当選手を更新
+      final updatedPlayers = _currentGame!.discoveredPlayers.map((p) {
+        if (p.name == player.name && p.school == player.school) {
+          return player;
+        }
+        return p;
+      }).toList();
+      
+      _currentGame = _currentGame!.copyWith(discoveredPlayers: updatedPlayers);
+    }
+  }
 } 

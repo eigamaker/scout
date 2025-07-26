@@ -128,7 +128,7 @@ class PlayerCard extends StatelessWidget {
               // 能力値の簡易表示（発掘済みまたは知名度が高い場合）
               if (player.isDiscovered || player.fameLevel >= 2) ...[
                 Text(
-                  '能力値:',
+                  '能力値（推定）:',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -141,7 +141,7 @@ class PlayerCard extends StatelessWidget {
               if (player.isDiscovered) ...[
                 const SizedBox(height: 8),
                 Text(
-                  '隠し情報:',
+                  '隠し情報（推定）:',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -229,12 +229,17 @@ class PlayerCard extends StatelessWidget {
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: Colors.grey[100],
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[300]!),
       ),
       child: Text(
         '$label: $value',
-        style: const TextStyle(fontSize: 10),
+        style: const TextStyle(
+          fontSize: 10,
+          fontStyle: FontStyle.italic,
+          color: Colors.grey,
+        ),
       ),
     );
   }
