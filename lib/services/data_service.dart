@@ -49,20 +49,37 @@ class DataService {
             grade INTEGER,
             position TEXT,
             fastball_velo INTEGER,
-            max_fastball_velo INTEGER,
             control INTEGER,
-            max_control INTEGER,
             stamina INTEGER,
-            max_stamina INTEGER,
+            break_avg INTEGER,
             batting_power INTEGER,
-            max_batting_power INTEGER,
+            bat_control INTEGER,
             running_speed INTEGER,
-            max_running_speed INTEGER,
             defense INTEGER,
-            max_defense INTEGER,
-            mental INTEGER,
-            max_mental INTEGER,
-            growth_rate REAL
+            arm INTEGER,
+            growth_rate REAL,
+            talent INTEGER,
+            growth_type TEXT,
+            mental_grit REAL,
+            peak_ability INTEGER
+          )
+        ''');
+        
+        // PlayerPotentialsテーブル（個別ポテンシャル保存）
+        await db.execute('''
+          CREATE TABLE PlayerPotentials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id INTEGER,
+            control_potential INTEGER,
+            stamina_potential INTEGER,
+            break_avg_potential INTEGER,
+            bat_power_potential INTEGER,
+            bat_control_potential INTEGER,
+            run_potential INTEGER,
+            field_potential INTEGER,
+            arm_potential INTEGER,
+            fastball_velo_potential INTEGER,
+            FOREIGN KEY (player_id) REFERENCES Player (id)
           )
         ''');
         // Coachテーブル
@@ -186,20 +203,33 @@ class DataService {
       'grade': 3,
       'position': '投手',
       'fastball_velo': 145,
-      'max_fastball_velo': 152,
       'control': 70,
-      'max_control': 85,
       'stamina': 80,
-      'max_stamina': 90,
+      'break_avg': 75,
       'batting_power': 60,
-      'max_batting_power': 75,
+      'bat_control': 65,
       'running_speed': 65,
-      'max_running_speed': 80,
       'defense': 68,
-      'max_defense': 80,
-      'mental': 75,
-      'max_mental': 90,
-      'growth_rate': 1.1,
+      'arm': 75,
+      'growth_rate': 1.0,
+      'talent': 3,
+      'growth_type': 'normal',
+      'mental_grit': 0.6,
+      'peak_ability': 85,
+    });
+    
+    // 個別ポテンシャルも保存
+    await db.insert('PlayerPotentials', {
+      'player_id': personId,
+      'control_potential': 85,
+      'stamina_potential': 90,
+      'break_avg_potential': 80,
+      'bat_power_potential': 75,
+      'bat_control_potential': 80,
+      'run_potential': 80,
+      'field_potential': 80,
+      'arm_potential': 85,
+      'fastball_velo_potential': 150,
     });
   }
 
@@ -245,20 +275,36 @@ class DataService {
         grade INTEGER,
         position TEXT,
         fastball_velo INTEGER,
-        max_fastball_velo INTEGER,
         control INTEGER,
-        max_control INTEGER,
         stamina INTEGER,
-        max_stamina INTEGER,
+        break_avg INTEGER,
         batting_power INTEGER,
-        max_batting_power INTEGER,
+        bat_control INTEGER,
         running_speed INTEGER,
-        max_running_speed INTEGER,
         defense INTEGER,
-        max_defense INTEGER,
-        mental INTEGER,
-        max_mental INTEGER,
-        growth_rate REAL
+        arm INTEGER,
+        growth_rate REAL,
+        talent INTEGER,
+        growth_type TEXT,
+        mental_grit REAL,
+        peak_ability INTEGER
+      )
+    ''');
+    
+    await db.execute('''
+      CREATE TABLE PlayerPotentials (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER,
+        control_potential INTEGER,
+        stamina_potential INTEGER,
+        break_avg_potential INTEGER,
+        bat_power_potential INTEGER,
+        bat_control_potential INTEGER,
+        run_potential INTEGER,
+        field_potential INTEGER,
+        arm_potential INTEGER,
+        fastball_velo_potential INTEGER,
+        FOREIGN KEY (player_id) REFERENCES Player (id)
       )
     ''');
     await db.execute('''
