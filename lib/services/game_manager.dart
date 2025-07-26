@@ -390,6 +390,12 @@ class GameManager {
     if (_currentGame == null) return;
     final db = await dataService.database;
     final updatedSchools = <School>[];
+    
+    // バッチ処理用のリスト
+    final personBatch = <Map<String, dynamic>>[];
+    final playerBatch = <Map<String, dynamic>>[];
+    final potentialBatch = <Map<String, dynamic>>[];
+    
     for (final school in _currentGame!.schools) {
       final newPlayers = <Player>[];
       for (int grade = 1; grade <= 3; grade++) {
@@ -397,8 +403,12 @@ class GameManager {
         for (int i = 0; i < numNew; i++) {
           final isFamous = i == 0 && (Random().nextInt(3) == 0);
           final name = _generateRandomName();
-          final position = _randomPosition();
           final personality = _randomPersonality();
+          
+          // 才能ランクを先に決定（ポジション決定に使用）
+          final talent = _randomTalent();
+          final random = Random();
+          final position = _determinePositionByPitchingAbility(talent, random);
           
           // 新しいgeneratePlayerメソッドを使用して選手を生成
           final player = generatePlayer(
@@ -409,8 +419,11 @@ class GameManager {
             personality: personality,
           );
           
-          // Personテーブルinsert
-          final personId = await db.insert('Person', {
+          // 知名度を計算
+          player.calculateInitialFame();
+          
+          // バッチ用データを準備
+          personBatch.add({
             'name': name,
             'birth_date': '20${6 + Random().nextInt(10)}-04-01',
             'gender': '男',
@@ -418,26 +431,20 @@ class GameManager {
             'personality': personality,
           });
           
-          // Playerテーブルinsert（すべての選手が投手と野手の両方の能力値を持つ）
-          await db.insert('Player', {
-            'id': personId,
+          playerBatch.add({
             'school_id': updatedSchools.length + 1, // 仮: schoolIdは1始まりで順次
             'grade': grade,
             'position': position,
+            'fame': player.fame,
             'fastball_velo': player.fastballVelo ?? 0,
-            'max_fastball_velo': (player.fastballVelo ?? 0) + 10,
             'control': player.control ?? 0,
-            'max_control': (player.control ?? 0) + 10,
             'stamina': player.stamina ?? 0,
-            'max_stamina': (player.stamina ?? 0) + 10,
+            'break_avg': player.breakAvg ?? 0,
             'batting_power': player.batPower ?? 0,
-            'max_batting_power': (player.batPower ?? 0) + 10,
+            'bat_control': player.batControl ?? 0,
             'running_speed': player.run ?? 0,
-            'max_running_speed': (player.run ?? 0) + 10,
             'defense': player.field ?? 0,
-            'max_defense': (player.field ?? 0) + 10,
-            'mental': player.arm ?? 0,
-            'max_mental': (player.arm ?? 0) + 10,
+            'arm': player.arm ?? 0,
             'growth_rate': player.growthRate,
             'talent': player.talent,
             'growth_type': player.growthType,
@@ -445,10 +452,9 @@ class GameManager {
             'peak_ability': player.peakAbility,
           });
           
-          // PlayerPotentialsテーブルinsert（個別ポテンシャル保存）
+          // PlayerPotentialsテーブル用データを準備
           if (player.individualPotentials != null) {
-            await db.insert('PlayerPotentials', {
-              'player_id': personId,
+            potentialBatch.add({
               'control_potential': player.individualPotentials!['control'] ?? 0,
               'stamina_potential': player.individualPotentials!['stamina'] ?? 0,
               'break_avg_potential': player.individualPotentials!['breakAvg'] ?? 0,
@@ -469,6 +475,36 @@ class GameManager {
       }
       updatedSchools.add(school.copyWith(players: newPlayers));
     }
+    
+    // バッチ挿入を実行
+    await db.transaction((txn) async {
+      // Personテーブルをバッチ挿入
+      for (final personData in personBatch) {
+        final personId = await txn.insert('Person', personData);
+        
+        // 対応するPlayerデータにpersonIdを設定
+        final playerIndex = personBatch.indexOf(personData);
+        if (playerIndex < playerBatch.length) {
+          playerBatch[playerIndex]['id'] = personId;
+          
+          // 対応するPotentialデータにplayerIdを設定
+          if (playerIndex < potentialBatch.length) {
+            potentialBatch[playerIndex]['player_id'] = personId;
+          }
+        }
+      }
+      
+      // Playerテーブルをバッチ挿入
+      for (final playerData in playerBatch) {
+        await txn.insert('Player', playerData);
+      }
+      
+      // PlayerPotentialsテーブルをバッチ挿入
+      for (final potentialData in potentialBatch) {
+        await txn.insert('PlayerPotentials', potentialData);
+      }
+    });
+    
     _currentGame = _currentGame!.copyWith(schools: updatedSchools);
   }
 
@@ -518,25 +554,32 @@ class GameManager {
       final playerId = p['id'] as int;
       final individualPotentials = potentials[playerId];
       
-      return Player(
+      final player = Player(
         name: person['name'] as String? ?? '名無し',
         school: schools.firstWhere((s) => s.name == '横浜工業高校').name,
         grade: p['grade'] as int? ?? 1,
         position: p['position'] as String? ?? '',
         personality: person['personality'] as String? ?? '',
+        fame: p['fame'] as int? ?? 0,
         fastballVelo: p['fastball_velo'] as int? ?? 0,
         control: p['control'] as int? ?? 0,
         stamina: p['stamina'] as int? ?? 0,
         breakAvg: p['break_avg'] as int? ?? 0,
+        batPower: p['batting_power'] as int? ?? 0,
+        batControl: p['bat_control'] as int? ?? 0,
+        run: p['running_speed'] as int? ?? 0,
+        field: p['defense'] as int? ?? 0,
+        arm: p['arm'] as int? ?? 0,
         pitches: [],
         mentalGrit: (p['mental_grit'] as num?)?.toDouble() ?? 0.0,
         growthRate: p['growth_rate'] as double? ?? 1.0,
         peakAbility: p['peak_ability'] as int? ?? 0,
-        positionFit: {},
+        positionFit: _generateDefaultPositionFit(p['position'] as String? ?? '投手'),
         talent: p['talent'] is int ? p['talent'] as int : int.tryParse(p['talent']?.toString() ?? '') ?? 3,
         growthType: p['growthType'] is String ? p['growthType'] as String : (p['growthType']?.toString() ?? 'normal'),
         individualPotentials: individualPotentials,
       );
+      return player;
     }).toList();
     // Gameインスタンス生成
     _currentGame = Game(
@@ -642,6 +685,12 @@ class GameManager {
     if (_currentGame == null) return;
     final db = await dataService.database;
     final updatedSchools = <School>[];
+    
+    // バッチ処理用のリスト
+    final personBatch = <Map<String, dynamic>>[];
+    final playerBatch = <Map<String, dynamic>>[];
+    final potentialBatch = <Map<String, dynamic>>[];
+    
     for (final school in _currentGame!.schools) {
       final newPlayers = List<Player>.from(school.players);
       final numNew = 10 + (Random().nextInt(6)); // 10〜15人
@@ -660,8 +709,8 @@ class GameManager {
           personality: personality,
         );
         
-        // Personテーブルinsert
-        final personId = await db.insert('Person', {
+        // バッチ用データを準備
+        personBatch.add({
           'name': name,
           'birth_date': '20${6 + Random().nextInt(10)}-04-01',
           'gender': '男',
@@ -669,26 +718,19 @@ class GameManager {
           'personality': personality,
         });
         
-        // Playerテーブルinsert（すべての選手が投手と野手の両方の能力値を持つ）
-        await db.insert('Player', {
-          'id': personId,
+        playerBatch.add({
           'school_id': updatedSchools.length + 1, // 仮: schoolIdは1始まりで順次
           'grade': 1,
           'position': position,
           'fastball_velo': player.fastballVelo ?? 0,
-          'max_fastball_velo': (player.fastballVelo ?? 0) + 10,
           'control': player.control ?? 0,
-          'max_control': (player.control ?? 0) + 10,
           'stamina': player.stamina ?? 0,
-          'max_stamina': (player.stamina ?? 0) + 10,
+          'break_avg': player.breakAvg ?? 0,
           'batting_power': player.batPower ?? 0,
-          'max_batting_power': (player.batPower ?? 0) + 10,
+          'bat_control': player.batControl ?? 0,
           'running_speed': player.run ?? 0,
-          'max_running_speed': (player.run ?? 0) + 10,
           'defense': player.field ?? 0,
-          'max_defense': (player.field ?? 0) + 10,
-          'mental': player.arm ?? 0,
-          'max_mental': (player.arm ?? 0) + 10,
+          'arm': player.arm ?? 0,
           'growth_rate': player.growthRate,
           'talent': player.talent,
           'growth_type': player.growthType,
@@ -696,10 +738,9 @@ class GameManager {
           'peak_ability': player.peakAbility,
         });
         
-        // PlayerPotentialsテーブルinsert（個別ポテンシャル保存）
+        // PlayerPotentialsテーブル用データを準備
         if (player.individualPotentials != null) {
-          await db.insert('PlayerPotentials', {
-            'player_id': personId,
+          potentialBatch.add({
             'control_potential': player.individualPotentials!['control'] ?? 0,
             'stamina_potential': player.individualPotentials!['stamina'] ?? 0,
             'break_avg_potential': player.individualPotentials!['breakAvg'] ?? 0,
@@ -719,6 +760,36 @@ class GameManager {
       }
       updatedSchools.add(school.copyWith(players: newPlayers));
     }
+    
+    // バッチ挿入を実行
+    await db.transaction((txn) async {
+      // Personテーブルをバッチ挿入
+      for (final personData in personBatch) {
+        final personId = await txn.insert('Person', personData);
+        
+        // 対応するPlayerデータにpersonIdを設定
+        final playerIndex = personBatch.indexOf(personData);
+        if (playerIndex < playerBatch.length) {
+          playerBatch[playerIndex]['id'] = personId;
+          
+          // 対応するPotentialデータにplayerIdを設定
+          if (playerIndex < potentialBatch.length) {
+            potentialBatch[playerIndex]['player_id'] = personId;
+          }
+        }
+      }
+      
+      // Playerテーブルをバッチ挿入
+      for (final playerData in playerBatch) {
+        await txn.insert('Player', playerData);
+      }
+      
+      // PlayerPotentialsテーブルをバッチ挿入
+      for (final potentialData in potentialBatch) {
+        await txn.insert('PlayerPotentials', potentialData);
+      }
+    });
+    
     _currentGame = _currentGame!.copyWith(schools: updatedSchools);
   }
 
@@ -779,6 +850,133 @@ class GameManager {
     final g = givenNames[random.nextInt(givenNames.length)];
     return '$f$g';
   }
+  // 投手能力総合評価によるポジション決定
+  String _determinePositionByPitchingAbility(int talent, Random random) {
+    // 才能ランクに基づく基本能力値を計算
+    final baseAbility = _getBaseAbilityByTalent(talent);
+    final baseVelocity = _getBaseVelocityByTalent(talent);
+    
+    // 投手能力の総合評価を計算
+    final pitcherScore = _calculatePitcherScore(baseAbility, baseVelocity, random);
+    final fielderScore = _calculateFielderScore(baseAbility, random);
+    
+    // 投手適性を判定（バランスを考慮）
+    final pitcherProbability = _calculatePitcherProbability(pitcherScore, fielderScore);
+    final isPitcher = random.nextDouble() < pitcherProbability;
+    
+    if (isPitcher) {
+      return '投手';
+    } else {
+      // 野手ポジションを決定（投手能力が高いほど肩の良いポジションに）
+      return _determineFielderPositionByPitchingAbility(pitcherScore, random);
+    }
+  }
+  
+  // 投手能力総合スコアを計算
+  int _calculatePitcherScore(int baseAbility, int baseVelocity, Random random) {
+    final control = baseAbility + random.nextInt(20);
+    final stamina = baseAbility + random.nextInt(20);
+    final breakAvg = baseAbility + random.nextInt(20);
+    final velocity = baseVelocity + random.nextInt(20);
+    
+    // 投手能力の重み付け（球速40%、制球25%、スタミナ20%、変化球15%）
+    return ((velocity * 0.4) + (control * 0.25) + (stamina * 0.2) + (breakAvg * 0.15)).round();
+  }
+  
+  // 野手能力総合スコアを計算
+  int _calculateFielderScore(int baseAbility, Random random) {
+    final batPower = baseAbility + random.nextInt(20);
+    final batControl = baseAbility + random.nextInt(20);
+    final run = baseAbility + random.nextInt(20);
+    final field = baseAbility + random.nextInt(20);
+    final arm = baseAbility + random.nextInt(20);
+    
+    // 野手能力の重み付け（打撃50%、守備50%）
+    final battingScore = (batPower + batControl) / 2;
+    final fieldingScore = (run + field + arm) / 3;
+    return ((battingScore * 0.5) + (fieldingScore * 0.5)).round();
+  }
+  
+  // 投手適性確率を計算（投手能力と野手能力のバランスを考慮）
+  double _calculatePitcherProbability(int pitcherScore, int fielderScore) {
+    final scoreDifference = pitcherScore - fielderScore;
+    
+    // 投手能力が野手能力より大幅に高い場合
+    if (scoreDifference >= 30) return 0.90;
+    if (scoreDifference >= 20) return 0.75;
+    if (scoreDifference >= 10) return 0.60;
+    if (scoreDifference >= 0) return 0.45;
+    if (scoreDifference >= -10) return 0.30;
+    if (scoreDifference >= -20) return 0.15;
+    return 0.05; // 投手能力が野手能力より大幅に低い場合
+  }
+  
+  // 投手能力に基づく野手ポジション決定
+  String _determineFielderPositionByPitchingAbility(int pitcherScore, Random random) {
+    if (pitcherScore >= 140) {
+      // 投手能力が非常に高い場合、捕手か外野手
+      return random.nextBool() ? '捕手' : '外野手';
+    } else if (pitcherScore >= 130) {
+      // 投手能力が高い場合、捕手、外野手、三塁手
+      final positions = ['捕手', '外野手', '三塁手'];
+      return positions[random.nextInt(positions.length)];
+    } else if (pitcherScore >= 120) {
+      // 投手能力が中程度の場合、三塁手、遊撃手、外野手
+      final positions = ['三塁手', '遊撃手', '外野手'];
+      return positions[random.nextInt(positions.length)];
+    } else {
+      // 投手能力が低い場合、内野手（一塁手、二塁手）
+      return random.nextBool() ? '一塁手' : '二塁手';
+    }
+  }
+  
+  // 学年・ポジション別の最大球速を決定
+  int _getMaxVelocityByGradeAndPosition(int grade, String position, int baseVelocity) {
+    if (position == '投手') {
+      // 投手の学年別制限（才能ランク6の怪物は特別扱い）
+      if (baseVelocity >= 155) return 155; // 才能ランク6の怪物は155km/hまで
+      
+      switch (grade) {
+        case 1: return 140; // 1年生は140km/hまで
+        case 2: return 145; // 2年生は145km/hまで
+        case 3: return 155; // 3年生は155km/hまで
+        default: return 140;
+      }
+    } else {
+      // 野手の球速上限を設定（投手能力が高い選手でも現実的な範囲に）
+      if (baseVelocity >= 150) return 145; // 非常に高い投手能力でも145km/hまで
+      if (baseVelocity >= 145) return 140; // 高い投手能力でも140km/hまで
+      if (baseVelocity >= 140) return 135; // やや高い投手能力でも135km/hまで
+      if (baseVelocity >= 135) return 130; // 中程度の投手能力でも130km/hまで
+      return 128; // それ以外は128km/hまで
+    }
+  }
+  
+  // 野手の最大球速を決定（既存メソッドとの互換性のため）
+  int _getMaxVelocityForFielder(int baseVelocity) {
+    // 野手の球速上限を設定（投手能力が高い選手でも現実的な範囲に）
+    if (baseVelocity >= 150) return 145; // 非常に高い投手能力でも145km/hまで
+    if (baseVelocity >= 145) return 140; // 高い投手能力でも140km/hまで
+    if (baseVelocity >= 140) return 135; // やや高い投手能力でも135km/hまで
+    if (baseVelocity >= 135) return 130; // 中程度の投手能力でも130km/hまで
+    return 128; // それ以外は128km/hまで
+  }
+  
+  // デフォルトのポジション適性を生成
+  Map<String, int> _generateDefaultPositionFit(String position) {
+    const positions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '外野手'];
+    final fit = <String, int>{};
+    for (final pos in positions) {
+      if (pos == position) {
+        fit[pos] = 80; // メインポジション
+      } else {
+        fit[pos] = 50; // サブポジション
+      }
+    }
+    return fit;
+  }
+  
+  // 従来のランダムポジション決定（フォールバック用）
   String _randomPosition() {
     final random = Random();
     const positions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '外野手'];
@@ -810,32 +1008,8 @@ class GameManager {
     final mentalGrit = 0.5 + (random.nextDouble() * 0.3); // 0.5-0.8
     final growthRate = 0.9 + (random.nextDouble() * 0.3); // 0.9-1.2
     
-    // 1. 個別ポテンシャルを生成
-    final individualPotentials = IndividualPotentialGenerator.generateIndividualPotentials(talent, random);
-    
-    // 2. 能力バランスを調整
-    final balancedPotentials = AbilityBalanceAdjuster.adjustPotentialsForBalance(
-      individualPotentials, 
-      talent, 
-      random
-    );
-    
-    // 3. 初期能力値を生成
-    final initialAbilities = InitialAbilityGenerator.generateInitialAbilities(
-      balancedPotentials,
-      grade,
-      mentalGrit,
-      growthRate,
-      talent,
-      growthType,
-      random,
-    );
-    
-    // 4. 学年別確率調整を適用
-    final adjustedAbilities = _applyGradeAdjustments(initialAbilities, grade, random);
-    
-    // 5. ポジション別調整を適用
-    final finalAbilities = _applyPositionAdjustments(adjustedAbilities, position, random);
+    // 簡素化された能力値生成（パフォーマンス向上のため）
+    final abilities = _generateSimplifiedAbilities(talent, grade, position, random);
     
     // 球種を生成（投手の場合）
     final pitches = <Pitch>[];
@@ -863,30 +1037,148 @@ class GameManager {
       }
     }
     
+    // 簡素化された個別ポテンシャル生成
+    final individualPotentials = _generateSimplifiedPotentials(talent, random);
+    
     return Player(
       name: name,
       school: school,
       grade: grade,
       position: position,
       personality: personality,
-      fastballVelo: finalAbilities['fastballVelo'] ?? 125,
-      control: finalAbilities['control'] ?? 25,
-      stamina: finalAbilities['stamina'] ?? 25,
-      breakAvg: finalAbilities['breakAvg'] ?? 25,
+      fastballVelo: abilities['fastballVelo'] ?? 125,
+      control: abilities['control'] ?? 25,
+      stamina: abilities['stamina'] ?? 25,
+      breakAvg: abilities['breakAvg'] ?? 25,
       pitches: pitches,
-      batPower: finalAbilities['batPower'] ?? 25,
-      batControl: finalAbilities['batControl'] ?? 25,
-      run: finalAbilities['run'] ?? 25,
-      field: finalAbilities['field'] ?? 25,
-      arm: finalAbilities['arm'] ?? 25,
+      batPower: abilities['batPower'] ?? 25,
+      batControl: abilities['batControl'] ?? 25,
+      run: abilities['run'] ?? 25,
+      field: abilities['field'] ?? 25,
+      arm: abilities['arm'] ?? 25,
       mentalGrit: mentalGrit,
       growthRate: growthRate,
-      peakAbility: balancedPotentials.values.reduce((a, b) => a + b) ~/ balancedPotentials.length, // 平均ポテンシャル
+      peakAbility: individualPotentials.values.reduce((a, b) => a + b) ~/ individualPotentials.length, // 平均ポテンシャル
       positionFit: positionFit,
       talent: talent,
       growthType: growthType,
-      individualPotentials: balancedPotentials, // 個別ポテンシャルを保存
+      individualPotentials: individualPotentials, // 個別ポテンシャルを保存
     );
+  }
+  
+  // 簡素化された能力値生成（パフォーマンス向上のため）
+  Map<String, int> _generateSimplifiedAbilities(int talent, int grade, String position, Random random) {
+    final abilities = <String, int>{};
+    
+    // 才能ランクに基づく基本能力値を決定
+    final baseAbility = _getBaseAbilityByTalent(talent);
+    final gradeMultiplier = _getGradeMultiplier(grade);
+    
+    // 才能ランク6の怪物は特別な上限を設定
+    final maxAbility = talent == 6 ? 90 : 100;
+    
+    // 投手能力値
+    abilities['control'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+    abilities['stamina'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+    abilities['breakAvg'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+    
+    // 野手能力値
+    abilities['batPower'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+    abilities['batControl'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+    abilities['run'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+    abilities['field'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+    abilities['arm'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+    
+    // 球速（学年・ポジション別制限）
+    final baseVelocity = _getBaseVelocityByTalent(talent);
+    final maxVelocity = _getMaxVelocityByGradeAndPosition(grade, position, baseVelocity);
+    
+    if (position == '投手') {
+      // 投手は学年に応じた制限
+      abilities['fastballVelo'] = (baseVelocity + random.nextInt(20)).clamp(125, maxVelocity);
+    } else {
+      // 野手は球速を制限（投手能力が高い選手でも現実的な範囲に）
+      final fielderMaxVelocity = _getMaxVelocityForFielder(baseVelocity);
+      abilities['fastballVelo'] = (baseVelocity + random.nextInt(15)).clamp(125, fielderMaxVelocity);
+    }
+    
+    // ポジション別調整
+    if (position == '投手') {
+      abilities['control'] = (abilities['control']! + random.nextInt(21)).clamp(25, 100);
+      abilities['stamina'] = (abilities['stamina']! + random.nextInt(21)).clamp(25, 100);
+      abilities['breakAvg'] = (abilities['breakAvg']! + random.nextInt(21)).clamp(25, 100);
+    } else {
+      abilities['batPower'] = (abilities['batPower']! + random.nextInt(21)).clamp(25, 100);
+      abilities['batControl'] = (abilities['batControl']! + random.nextInt(21)).clamp(25, 100);
+      abilities['run'] = (abilities['run']! + random.nextInt(21)).clamp(25, 100);
+      abilities['field'] = (abilities['field']! + random.nextInt(21)).clamp(25, 100);
+      abilities['arm'] = (abilities['arm']! + random.nextInt(21)).clamp(25, 100);
+    }
+    
+    return abilities;
+  }
+  
+  // 簡素化された個別ポテンシャル生成
+  Map<String, int> _generateSimplifiedPotentials(int talent, Random random) {
+    final potentials = <String, int>{};
+    final basePotential = _getBasePotentialByTalent(talent);
+    
+    // 各能力値のポテンシャルを生成
+    final abilities = ['control', 'stamina', 'breakAvg', 'batPower', 'batControl', 'run', 'field', 'arm'];
+    for (final ability in abilities) {
+      potentials[ability] = (basePotential + random.nextInt(30) - 15).clamp(50, 150);
+    }
+    
+    // 球速ポテンシャル
+    final baseVelocity = _getBaseVelocityByTalent(talent);
+    potentials['fastballVelo'] = (baseVelocity + random.nextInt(30) - 15).clamp(125, 170);
+    
+    return potentials;
+  }
+  
+  int _getBaseAbilityByTalent(int talent) {
+    switch (talent) {
+      case 1: return 35;
+      case 2: return 45;
+      case 3: return 55;
+      case 4: return 65;
+      case 5: return 75;
+      case 6: return 85; // 怪物級の基本能力値
+      default: return 45;
+    }
+  }
+  
+  double _getGradeMultiplier(int grade) {
+    switch (grade) {
+      case 1: return 0.6;
+      case 2: return 0.8;
+      case 3: return 1.0;
+      default: return 0.8;
+    }
+  }
+  
+  int _getBaseVelocityByTalent(int talent) {
+    switch (talent) {
+      case 1: return 130;
+      case 2: return 135;
+      case 3: return 140;
+      case 4: return 145;
+      case 5: return 150;
+      case 6: return 155; // 怪物級の基本球速
+      default: return 135;
+    }
+  }
+  
+  int _getBasePotentialByTalent(int talent) {
+    switch (talent) {
+      case 1: return 65;
+      case 2: return 75;
+      case 3: return 85;
+      case 4: return 95;
+      case 5: return 105;
+      case 6: return 130; // 怪物級のポテンシャル
+      default: return 75;
+    }
   }
   
   // 学年別確率調整を適用
@@ -952,12 +1244,13 @@ class GameManager {
 
   int _randomTalent() {
     final random = Random();
-    final r = random.nextInt(1000); // より細かい確率制御のため1000を使用
-    if (r < 499) return 1; // 49.9%
-    if (r < 749) return 2; // 25%
-    if (r < 949) return 3; // 20%
-    if (r < 999) return 4; // 5%
-    return 5; // 0.1%
+    final r = random.nextInt(1000000); // より細かい確率制御のため1000000を使用
+    if (r < 499000) return 1;      // 49.9%
+    if (r < 749000) return 2;      // 25%
+    if (r < 949000) return 3;      // 20%
+    if (r < 999000) return 4;      // 5%
+    if (r < 999996) return 5;      // 0.0996%
+    return 6;                      // 0.0004% (10年に1人程度)
   }
   String _randomGrowthType() {
     final random = Random();
@@ -977,6 +1270,8 @@ class GameManager {
         return 105 + random.nextInt(10); // 105-115
       case 5:
         return 120 + random.nextInt(31); // 120-150
+      case 6:
+        return 130 + random.nextInt(21); // 130-150 (怪物級)
       default:
         return 80;
     }
@@ -1033,7 +1328,7 @@ class GameManager {
         final playerId = p['id'] as int;
         final individualPotentials = potentials[playerId];
         
-        return Player(
+        final player = Player(
           name: person['name'] as String? ?? '名無し',
           school: school.name,
           grade: p['grade'] as int? ?? 1,
@@ -1043,15 +1338,21 @@ class GameManager {
           control: p['control'] as int? ?? 0,
           stamina: p['stamina'] as int? ?? 0,
           breakAvg: p['break_avg'] as int? ?? 0,
+          batPower: p['batting_power'] as int? ?? 0,
+          batControl: p['bat_control'] as int? ?? 0,
+          run: p['running_speed'] as int? ?? 0,
+          field: p['defense'] as int? ?? 0,
+          arm: p['arm'] as int? ?? 0,
           pitches: [],
           mentalGrit: (p['mental_grit'] as num?)?.toDouble() ?? 0.0,
           growthRate: p['growth_rate'] as double? ?? 1.0,
           peakAbility: p['peak_ability'] as int? ?? 0,
-          positionFit: {},
+          positionFit: _generateDefaultPositionFit(p['position'] as String? ?? '投手'),
           talent: (p['talent'] is int) ? p['talent'] as int : int.tryParse(p['talent']?.toString() ?? '') ?? 3,
           growthType: (p['growthType'] is String) ? p['growthType'] as String : (p['growthType']?.toString() ?? 'normal'),
           individualPotentials: individualPotentials,
         );
+        return player;
       }).toList();
       return school.copyWith(players: schoolPlayers);
     }).toList();

@@ -76,32 +76,39 @@ class PlayerDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('能力値', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: textColor)),
+                Text('投手能力値', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: textColor)),
                 Container(
                   decoration: BoxDecoration(
                     color: tableBg,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: player.isPitcher
-                      ? Table(
-                          columnWidths: const {0: IntrinsicColumnWidth()},
-                          children: [
-                            TableRow(children: [Text('球速', style: TextStyle(color: textColor)), Text(player.fastballVelo?.toString() ?? '-', style: TextStyle(color: textColor))]),
-                            TableRow(children: [Text('制球', style: TextStyle(color: textColor)), Text(player.control?.toString() ?? '-', style: TextStyle(color: textColor))]),
-                            TableRow(children: [Text('スタミナ', style: TextStyle(color: textColor)), Text(player.stamina?.toString() ?? '-', style: TextStyle(color: textColor))]),
-                            TableRow(children: [Text('変化', style: TextStyle(color: textColor)), Text(player.breakAvg?.toString() ?? '-', style: TextStyle(color: textColor))]),
-                          ],
-                        )
-                      : Table(
-                          columnWidths: const {0: IntrinsicColumnWidth()},
-                          children: [
-                            TableRow(children: [Text('パワー', style: TextStyle(color: textColor)), Text(player.batPower?.toString() ?? '-', style: TextStyle(color: textColor))]),
-                            TableRow(children: [Text('バットコントロール', style: TextStyle(color: textColor)), Text(player.batControl?.toString() ?? '-', style: TextStyle(color: textColor))]),
-                            TableRow(children: [Text('走力', style: TextStyle(color: textColor)), Text(player.run?.toString() ?? '-', style: TextStyle(color: textColor))]),
-                            TableRow(children: [Text('守備', style: TextStyle(color: textColor)), Text(player.field?.toString() ?? '-', style: TextStyle(color: textColor))]),
-                            TableRow(children: [Text('肩', style: TextStyle(color: textColor)), Text(player.arm?.toString() ?? '-', style: TextStyle(color: textColor))]),
-                          ],
-                        ),
+                  child: Table(
+                    columnWidths: const {0: IntrinsicColumnWidth()},
+                    children: [
+                      TableRow(children: [Text('球速', style: TextStyle(color: textColor)), Text(player.fastballVelo != null ? '${player.fastballVelo} km/h' : '-', style: TextStyle(color: textColor))]),
+                      TableRow(children: [Text('制球', style: TextStyle(color: textColor)), Text(player.control?.toString() ?? '-', style: TextStyle(color: textColor))]),
+                      TableRow(children: [Text('スタミナ', style: TextStyle(color: textColor)), Text(player.stamina?.toString() ?? '-', style: TextStyle(color: textColor))]),
+                      TableRow(children: [Text('変化', style: TextStyle(color: textColor)), Text(player.breakAvg?.toString() ?? '-', style: TextStyle(color: textColor))]),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('野手能力値', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: textColor)),
+                Container(
+                  decoration: BoxDecoration(
+                    color: tableBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Table(
+                    columnWidths: const {0: IntrinsicColumnWidth()},
+                    children: [
+                      TableRow(children: [Text('パワー', style: TextStyle(color: textColor)), Text(player.batPower?.toString() ?? '-', style: TextStyle(color: textColor))]),
+                      TableRow(children: [Text('バットコントロール', style: TextStyle(color: textColor)), Text(player.batControl?.toString() ?? '-', style: TextStyle(color: textColor))]),
+                      TableRow(children: [Text('走力', style: TextStyle(color: textColor)), Text(player.run?.toString() ?? '-', style: TextStyle(color: textColor))]),
+                      TableRow(children: [Text('守備', style: TextStyle(color: textColor)), Text(player.field?.toString() ?? '-', style: TextStyle(color: textColor))]),
+                      TableRow(children: [Text('肩', style: TextStyle(color: textColor)), Text(player.arm?.toString() ?? '-', style: TextStyle(color: textColor))]),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 if (player.isPitcher && player.pitches != null && player.pitches!.isNotEmpty) ...[

@@ -12,8 +12,8 @@ class PlayerCard extends StatelessWidget {
     return Card(
       child: ListTile(
         title: Text(player.name),
-        subtitle: Text(' {player.position}（ {player.school}）'),
-        trailing: Text('知名度:  {player.fame}'),
+        subtitle: Text('${player.position}（${player.school}）'),
+        trailing: Text('知名度: ${player.fame}'),
         onTap: onTap,
       ),
     );

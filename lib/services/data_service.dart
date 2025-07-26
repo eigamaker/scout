@@ -28,7 +28,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 3,
       onCreate: (db, version) async {
         // Personテーブル
         await db.execute('''
@@ -48,6 +48,7 @@ class DataService {
             school_id INTEGER,
             grade INTEGER,
             position TEXT,
+            fame INTEGER,
             fastball_velo INTEGER,
             control INTEGER,
             stamina INTEGER,
@@ -169,6 +170,8 @@ class DataService {
     // 既にデータが存在する場合はスキップ
     final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM Organization')) ?? 0;
     if (count > 0) return;
+    
+    // サンプルデータは削除（実際の選手生成はGameManagerで行う）
     // 組織（神奈川県の高校）
     final schoolIds = <int>[];
     final schools = [
@@ -189,48 +192,6 @@ class DataService {
       final id = await db.insert('Organization', school);
       schoolIds.add(id);
     }
-    // サンプル人物・選手
-    final personId = await db.insert('Person', {
-      'name': '田中太郎',
-      'birth_date': '2006-04-01',
-      'gender': '男',
-      'hometown': '横浜市',
-      'personality': '真面目',
-    });
-    await db.insert('Player', {
-      'id': personId,
-      'school_id': schoolIds[0],
-      'grade': 3,
-      'position': '投手',
-      'fastball_velo': 145,
-      'control': 70,
-      'stamina': 80,
-      'break_avg': 75,
-      'batting_power': 60,
-      'bat_control': 65,
-      'running_speed': 65,
-      'defense': 68,
-      'arm': 75,
-      'growth_rate': 1.0,
-      'talent': 3,
-      'growth_type': 'normal',
-      'mental_grit': 0.6,
-      'peak_ability': 85,
-    });
-    
-    // 個別ポテンシャルも保存
-    await db.insert('PlayerPotentials', {
-      'player_id': personId,
-      'control_potential': 85,
-      'stamina_potential': 90,
-      'break_avg_potential': 80,
-      'bat_power_potential': 75,
-      'bat_control_potential': 80,
-      'run_potential': 80,
-      'field_potential': 80,
-      'arm_potential': 85,
-      'fastball_velo_potential': 150,
-    });
   }
 
   // スロットごとにDBファイル名を切り替える
@@ -240,10 +201,23 @@ class DataService {
     final path = join(dbPath, dbName);
     return await openDatabase(
       path,
-      version: 1,
+      version: 3,
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // バージョン1から2へのアップグレード
+          await db.execute('ALTER TABLE Player ADD COLUMN talent INTEGER DEFAULT 3');
+          await db.execute('ALTER TABLE Player ADD COLUMN growth_type TEXT DEFAULT "normal"');
+          await db.execute('ALTER TABLE Player ADD COLUMN mental_grit REAL DEFAULT 0.0');
+          await db.execute('ALTER TABLE Player ADD COLUMN peak_ability INTEGER DEFAULT 0');
+        }
+        if (oldVersion < 3) {
+          // バージョン2から3へのアップグレード
+          await db.execute('ALTER TABLE Player ADD COLUMN fame INTEGER DEFAULT 0');
+        }
       },
     );
   }
@@ -274,6 +248,7 @@ class DataService {
         school_id INTEGER,
         grade INTEGER,
         position TEXT,
+        fame INTEGER,
         fastball_velo INTEGER,
         control INTEGER,
         stamina INTEGER,

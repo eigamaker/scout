@@ -136,28 +136,31 @@ class Player {
     return false;
   }
   
-  // 投手の球速スコア（0-100に換算）
+  // 球速スコア（0-100に換算）
   int get veloScore {
-    if (!isPitcher || fastballVelo == null) return 0;
+    if (fastballVelo == null) return 0;
     return ((fastballVelo! - 110) * 1.6).round().clamp(0, 100);
   }
   
   // 真の総合能力値を計算（0-100）
   int get _trueTotalAbility {
-    if (isPitcher) {
-      final veloScore = this.veloScore;
-      final controlScore = control ?? 0;
-      final staminaScore = stamina ?? 0;
-      final breakScore = breakAvg ?? 0;
-      return ((veloScore + controlScore + staminaScore + breakScore) / 4).round();
-    } else {
-      final powerScore = batPower ?? 0;
-      final controlScore = batControl ?? 0;
-      final runScore = run ?? 0;
-      final fieldScore = field ?? 0;
-      final armScore = arm ?? 0;
-      return ((powerScore + controlScore + runScore + fieldScore + armScore) / 5).round();
-    }
+    // 投手能力値の計算
+    final veloScore = this.veloScore;
+    final controlScore = control ?? 0;
+    final staminaScore = stamina ?? 0;
+    final breakScore = breakAvg ?? 0;
+    final pitcherScore = ((veloScore + controlScore + staminaScore + breakScore) / 4).round();
+    
+    // 野手能力値の計算
+    final powerScore = batPower ?? 0;
+    final batControlScore = batControl ?? 0;
+    final runScore = run ?? 0;
+    final fieldScore = field ?? 0;
+    final armScore = arm ?? 0;
+    final batterScore = ((powerScore + batControlScore + runScore + fieldScore + armScore) / 5).round();
+    
+    // 投手と野手の能力値を平均して総合能力値を算出
+    return ((pitcherScore + batterScore) / 2).round();
   }
   
   // スカウトスキルに基づく能力値の表示範囲を取得
@@ -184,7 +187,7 @@ class Player {
   int? _getAbilityValue(String abilityName) {
     switch (abilityName) {
       case 'fastballVelo':
-        return isPitcher ? veloScore : null;
+        return fastballVelo != null ? veloScore : null;
       case 'control':
         return control;
       case 'stamina':
@@ -192,15 +195,15 @@ class Player {
       case 'breakAvg':
         return breakAvg;
       case 'batPower':
-        return isPitcher ? null : batPower;
+        return batPower;
       case 'batControl':
-        return isPitcher ? null : batControl;
+        return batControl;
       case 'run':
-        return isPitcher ? null : run;
+        return run;
       case 'field':
-        return isPitcher ? null : field;
+        return field;
       case 'arm':
-        return isPitcher ? null : arm;
+        return arm;
       default:
         return null;
     }
@@ -229,11 +232,9 @@ class Player {
   
   // 総合評価を取得
   int getTotalEvaluation(int scoutSkill) {
-    if (isPitcher) {
-      return getPitcherEvaluation(scoutSkill);
-    } else {
-      return getBatterEvaluation(scoutSkill);
-    }
+    final pitcherEval = getPitcherEvaluation(scoutSkill);
+    final batterEval = getBatterEvaluation(scoutSkill);
+    return ((pitcherEval + batterEval) / 2).round();
   }
   
   // 知名度を計算
