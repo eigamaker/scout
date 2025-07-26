@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'pitch.dart';
+import 'achievement.dart';
 
 // 選手の種類
 enum PlayerType { highSchool, college, social }
@@ -21,6 +22,8 @@ class Player {
   bool isScoutFavorite; // 自分が気に入っている選手かどうか
   DateTime? discoveredAt; // 発掘日時
   String? discoveredBy; // 発掘したスカウト（将来的に複数スカウト対応）
+  int discoveredCount; // 発掘回数
+  List<DateTime> scoutedDates; // 視察履歴
   
   // 能力値の把握度（0-100、100で完全把握）
   Map<String, int> abilityKnowledge; // 各能力値の把握度
@@ -56,6 +59,10 @@ class Player {
   String? scoutEvaluation; // スカウトの個人評価
   String? scoutNotes; // スカウトのメモ
   
+  // 実績システム
+  final List<Achievement> achievements; // 実績リスト
+  final int totalFamePoints; // 総知名度ポイント
+  
   Player({
     required this.name,
     required this.school,
@@ -70,6 +77,8 @@ class Player {
     this.isScoutFavorite = false,
     this.discoveredAt,
     this.discoveredBy,
+    this.discoveredCount = 0,
+    List<DateTime>? scoutedDates,
     this.type = PlayerType.highSchool,
     this.yearsAfterGraduation = 0,
     this.fastballVelo,
@@ -92,7 +101,12 @@ class Player {
     this.scoutEvaluation,
     this.scoutNotes,
     Map<String, int>? abilityKnowledge,
-  }) : abilityKnowledge = abilityKnowledge ?? _initializeAbilityKnowledge();
+    List<Achievement>? achievements,
+  }) :
+    scoutedDates = scoutedDates ?? [],
+    abilityKnowledge = abilityKnowledge ?? _initializeAbilityKnowledge(),
+    achievements = achievements ?? [],
+    totalFamePoints = (achievements ?? []).fold(0, (sum, achievement) => sum + achievement.famePoints);
   
   // 能力値把握度の初期化
   static Map<String, int> _initializeAbilityKnowledge() {
@@ -173,12 +187,50 @@ class Player {
     return 50; // ±50の誤差（ほぼ見えない）
   }
   
+  // 知名度レベルを取得
+  int get fameLevel {
+    if (totalFamePoints >= 100) return 5; // 超有名
+    if (totalFamePoints >= 80) return 4;  // 有名
+    if (totalFamePoints >= 50) return 3;  // 知られている
+    if (totalFamePoints >= 20) return 2;  // 少し知られている
+    return 1; // 無名
+  }
+
+  // 知名度レベルの表示名
+  String get fameLevelName {
+    switch (fameLevel) {
+      case 5: return '超有名';
+      case 4: return '有名';
+      case 3: return '知られている';
+      case 2: return '少し知られている';
+      case 1: return '無名';
+      default: return '無名';
+    }
+  }
+
+  // 知名度に基づく初期情報の表示レベルを取得
+  int get _initialKnowledgeLevel {
+    switch (fameLevel) {
+      case 5: return 80; // 超有名: 80%の精度で情報把握
+      case 4: return 60; // 有名: 60%の精度で情報把握
+      case 3: return 40; // 知られている: 40%の精度で情報把握
+      case 2: return 20; // 少し知られている: 20%の精度で情報把握
+      case 1: return 0;  // 無名: 情報なし
+      default: return 0;
+    }
+  }
+
   // スカウトスキルに基づく表示能力値を取得
   int getVisibleAbility(String abilityName, int scoutSkill) {
     final trueValue = _getAbilityValue(abilityName);
     if (trueValue == null) return 0;
     
-    final range = _getVisibleAbilityRange(scoutSkill);
+    // 知名度による初期情報とスカウトスキルを組み合わせ
+    final baseKnowledge = _initialKnowledgeLevel;
+    final scoutKnowledge = scoutSkill;
+    final combinedKnowledge = (baseKnowledge + scoutKnowledge) / 2;
+    
+    final range = _getVisibleAbilityRange(combinedKnowledge.round());
     final error = Random().nextInt(range * 2 + 1) - range;
     return (trueValue + error).clamp(0, 100);
   }
@@ -353,6 +405,8 @@ class Player {
     'isScoutFavorite': isScoutFavorite,
     'discoveredAt': discoveredAt?.toIso8601String(),
     'discoveredBy': discoveredBy,
+    'discoveredCount': discoveredCount,
+    'scoutedDates': scoutedDates.map((d) => d.toIso8601String()).toList(),
     'abilityKnowledge': abilityKnowledge,
     'type': type.index,
     'yearsAfterGraduation': yearsAfterGraduation,
@@ -391,6 +445,10 @@ class Player {
     isScoutFavorite: json['isScoutFavorite'] ?? false,
     discoveredAt: json['discoveredAt'] != null ? DateTime.parse(json['discoveredAt']) : null,
     discoveredBy: json['discoveredBy'],
+    discoveredCount: json['discoveredCount'] ?? 0,
+    scoutedDates: json['scoutedDates'] != null 
+      ? (json['scoutedDates'] as List).map((d) => DateTime.parse(d)).toList()
+      : [],
     abilityKnowledge: json['abilityKnowledge'] != null 
       ? Map<String, int>.from(json['abilityKnowledge'])
       : null,
@@ -435,6 +493,8 @@ class Player {
     bool? isScoutFavorite,
     DateTime? discoveredAt,
     String? discoveredBy,
+    int? discoveredCount,
+    List<DateTime>? scoutedDates,
     Map<String, int>? abilityKnowledge,
     PlayerType? type,
     int? yearsAfterGraduation,
@@ -472,6 +532,8 @@ class Player {
       isScoutFavorite: isScoutFavorite ?? this.isScoutFavorite,
       discoveredAt: discoveredAt ?? this.discoveredAt,
       discoveredBy: discoveredBy ?? this.discoveredBy,
+      discoveredCount: discoveredCount ?? this.discoveredCount,
+      scoutedDates: scoutedDates ?? this.scoutedDates,
       abilityKnowledge: abilityKnowledge ?? Map<String, int>.from(this.abilityKnowledge),
       type: type ?? this.type,
       yearsAfterGraduation: yearsAfterGraduation ?? this.yearsAfterGraduation,

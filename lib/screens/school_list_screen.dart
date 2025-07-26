@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_manager.dart';
-import '../models/game/game.dart';
 
 class SchoolListScreen extends StatelessWidget {
   const SchoolListScreen({super.key});
@@ -10,43 +9,72 @@ class SchoolListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final gameManager = Provider.of<GameManager>(context);
     final game = gameManager.currentGame;
+    
     if (game == null) {
-      return const Scaffold(body: Center(child: Text('ゲームが開始されていません')));
+      return const Scaffold(
+        body: Center(child: Text('ゲームが開始されていません')),
+      );
     }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('学校リスト')),
-      body: ListView.builder(
-        itemCount: game.schools.length,
-        itemBuilder: (context, index) {
-          final school = game.schools[index];
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            child: ListTile(
-              title: Text(school.name),
-              subtitle: Text('所在地: ${school.location}'),
-              trailing: ElevatedButton(
-                onPressed: game.ap >= 2 && game.budget >= 20000
-                    ? () {
-                        final action = GameAction(
-                          id: UniqueKey().toString(),
-                          type: 'PRAC_WATCH',
-                          schoolId: index,
-                          playerId: null,
-                          apCost: 2,
-                          budgetCost: 20000,
-                          params: {},
-                        );
-                        gameManager.addActionToGame(action);
+      appBar: AppBar(
+        title: const Text('学校リスト'),
+        backgroundColor: Colors.blue,
+      ),
+      body: Container(
+        color: Colors.white,
+        child: ListView(
+          children: [
+            for (int i = 0; i < game.schools.length; i++)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(4.0),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            game.schools[i].name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${game.schools[i].location} • ${game.schools[i].players.length}人',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('${school.name}の練習視察を計画に追加しました')),
+                          SnackBar(content: Text('${game.schools[i].name}を視察しました')),
                         );
-                      }
-                    : null,
-                child: const Text('練習視察(AP2/¥20k)'),
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: const Size(60, 32),
+                      ),
+                      child: const Text('視察'),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }

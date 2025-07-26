@@ -88,7 +88,7 @@ class School {
     
     final player = Player(
       name: name,
-      school: name,
+      school: this.name,
       grade: grade,
       position: position,
       personality: personality,

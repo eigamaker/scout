@@ -5,6 +5,7 @@ import '../services/data_service.dart';
 import 'slot_select_screen.dart';
 import 'slot_copy_screen.dart';
 import 'package:sqflite/sqflite.dart';
+import 'game_screen.dart'; // Added import for GameScreen
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -42,12 +43,35 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         ),
       ),
     );
-    // スロット用DBでニューゲーム開始
-    final db = await dataService.getDatabaseWithSlot(slot);
-    await gameManager.startNewGameWithDb('あなた', dataService);
+    try {
+      // スロット用DBでニューゲーム開始
+      final db = await dataService.getDatabaseWithSlot(slot);
+      await gameManager.startNewGameWithDb('あなた', dataService);
+    } finally {
+      // 確実にダイアログを閉じる
+      if (context.mounted) {
+        Navigator.pop(context);
+        print('ダイアログを閉じました');
+      }
+    }
     if (!context.mounted) return;
-    Navigator.pop(context); // ダイアログを閉じる
-    Navigator.pushReplacementNamed(context, '/game');
+    
+    // SnackBarをクリア
+    ScaffoldMessenger.of(context).clearSnackBars();
+    
+    // 画面を強制リビルド
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
+        setState(() {});
+      }
+    });
+    
+    // 前の画面スタックをクリアしてゲーム画面に遷移
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const GameScreen()),
+      (route) => false,
+    );
   }
 
   @override
@@ -112,6 +136,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 }
               },
               child: const Text('セーブデータコピー'),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/scoutTest');
+              },
+              child: const Text('スカウトシステムテスト'),
             ),
           ],
         ),

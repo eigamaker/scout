@@ -387,7 +387,12 @@ class GameManager {
 
   // ニューゲーム時に全学校に1〜3年生を生成・配属（DBにもinsert）
   Future<void> generateInitialStudentsForAllSchoolsDb(DataService dataService) async {
-    if (_currentGame == null) return;
+    print('generateInitialStudentsForAllSchoolsDb: 開始');
+    if (_currentGame == null) {
+      print('generateInitialStudentsForAllSchoolsDb: _currentGameがnull');
+      return;
+    }
+    print('generateInitialStudentsForAllSchoolsDb: 学校数: ${_currentGame!.schools.length}');
     final db = await dataService.database;
     final updatedSchools = <School>[];
     
@@ -506,12 +511,19 @@ class GameManager {
     });
     
     _currentGame = _currentGame!.copyWith(schools: updatedSchools);
+    for (final s in updatedSchools) {
+      print('updatedSchools: name= [32m${s.name} [0m, players=${s.players.length}');
+    }
   }
 
   Future<void> startNewGameWithDb(String scoutName, DataService dataService) async {
-    // 初期データ投入（初回のみ）
-    await dataService.insertInitialData();
-    final db = await dataService.database;
+    try {
+      print('startNewGameWithDb: 開始');
+      // 初期データ投入（初回のみ）
+      await dataService.insertInitialData();
+      print('startNewGameWithDb: 初期データ投入完了');
+      final db = await dataService.database;
+      print('startNewGameWithDb: DB接続完了');
     // 学校リスト取得
     final schoolMaps = await db.query('Organization', where: 'type = ?', whereArgs: ['高校']);
     final schools = schoolMaps.map((m) => School(
@@ -521,66 +533,8 @@ class GameManager {
       coachTrust: m['school_strength'] as int? ?? 70,
       coachName: '未設定',
     )).toList();
-    // 選手リスト取得
-    final playerMaps = await db.query('Player');
-    final personIds = playerMaps.map((p) => p['id'] as int).toList();
-    final persons = <int, Map<String, dynamic>>{};
-    if (personIds.isNotEmpty) {
-      final personMaps = await db.query('Person', where: 'id IN (${List.filled(personIds.length, '?').join(',')})', whereArgs: personIds);
-      for (final p in personMaps) {
-        persons[p['id'] as int] = p;
-      }
-    }
-    // 個別ポテンシャルを取得
-    final potentialMaps = await db.query('PlayerPotentials');
-    final potentials = <int, Map<String, int>>{};
-    for (final p in potentialMaps) {
-      final playerId = p['player_id'] as int;
-      potentials[playerId] = {
-        'control': p['control_potential'] as int? ?? 0,
-        'stamina': p['stamina_potential'] as int? ?? 0,
-        'breakAvg': p['break_avg_potential'] as int? ?? 0,
-        'batPower': p['bat_power_potential'] as int? ?? 0,
-        'batControl': p['bat_control_potential'] as int? ?? 0,
-        'run': p['run_potential'] as int? ?? 0,
-        'field': p['field_potential'] as int? ?? 0,
-        'arm': p['arm_potential'] as int? ?? 0,
-        'fastballVelo': p['fastball_velo_potential'] as int? ?? 0,
-      };
-    }
-    
-    final players = playerMaps.map((p) {
-      final person = persons[p['id'] as int] ?? {};
-      final playerId = p['id'] as int;
-      final individualPotentials = potentials[playerId];
-      
-      final player = Player(
-        name: person['name'] as String? ?? '名無し',
-        school: schools.firstWhere((s) => s.name == '横浜工業高校').name,
-        grade: p['grade'] as int? ?? 1,
-        position: p['position'] as String? ?? '',
-        personality: person['personality'] as String? ?? '',
-        fame: p['fame'] as int? ?? 0,
-        fastballVelo: p['fastball_velo'] as int? ?? 0,
-        control: p['control'] as int? ?? 0,
-        stamina: p['stamina'] as int? ?? 0,
-        breakAvg: p['break_avg'] as int? ?? 0,
-        batPower: p['batting_power'] as int? ?? 0,
-        batControl: p['bat_control'] as int? ?? 0,
-        run: p['running_speed'] as int? ?? 0,
-        field: p['defense'] as int? ?? 0,
-        arm: p['arm'] as int? ?? 0,
-        pitches: [],
-        mentalGrit: (p['mental_grit'] as num?)?.toDouble() ?? 0.0,
-        growthRate: p['growth_rate'] as double? ?? 1.0,
-        peakAbility: p['peak_ability'] as int? ?? 0,
-        positionFit: _generateDefaultPositionFit(p['position'] as String? ?? '投手'),
-        talent: p['talent'] is int ? p['talent'] as int : int.tryParse(p['talent']?.toString() ?? '') ?? 3,
-        growthType: p['growthType'] is String ? p['growthType'] as String : (p['growthType']?.toString() ?? 'normal'),
-        individualPotentials: individualPotentials,
-      );
-      return player;
-    }).toList();
+    // 初期選手リストは空で開始（generateInitialStudentsForAllSchoolsDbで生成される）
+    final players = <Player>[];
     // Gameインスタンス生成
     _currentGame = Game(
       scoutName: scoutName,
@@ -611,6 +565,25 @@ class GameManager {
     );
     // 全学校に1〜3年生を生成
     await generateInitialStudentsForAllSchoolsDb(dataService);
+    
+    // generateInitialStudentsForAllSchoolsDbで更新された学校リストを取得
+    final updatedSchools = _currentGame!.schools;
+    
+    // 全選手をdiscoveredPlayersにも追加
+    final allPlayers = <Player>[];
+    for (final school in updatedSchools) {
+      allPlayers.addAll(school.players);
+    }
+    _currentGame = _currentGame!.copyWith(discoveredPlayers: allPlayers);
+    print('startNewGameWithDb: 完了 - 学校数: ${updatedSchools.length}, 選手数: ${allPlayers.length}');
+    for (final s in _currentGame!.schools) {
+      print('final schools: name=${s.name}, players=${s.players.length}');
+    }
+  } catch (e, stackTrace) {
+    print('startNewGameWithDb: エラー発生 - $e');
+    print('startNewGameWithDb: スタックトレース - $stackTrace');
+    rethrow;
+  }
   }
 
   // スカウト実行
