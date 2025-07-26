@@ -6,6 +6,7 @@ import '../models/school/school.dart';
 import '../models/news/news_item.dart';
 import 'news_service.dart';
 import 'data_service.dart';
+import 'scouting/action_service.dart';
 
 // 個別ポテンシャル生成システム
 class IndividualPotentialGenerator {
@@ -482,6 +483,17 @@ class GameManager {
     }
     
     // バッチ挿入を実行
+    print('generateInitialStudentsForAllSchoolsDb: バッチ挿入開始 - Person: ${personBatch.length}, Player: ${playerBatch.length}, Potential: ${potentialBatch.length}');
+    
+    // ポジション分布を確認
+    final positionCounts = <String, int>{};
+    for (final school in updatedSchools) {
+      for (final player in school.players) {
+        positionCounts[player.position] = (positionCounts[player.position] ?? 0) + 1;
+      }
+    }
+    print('ポジション分布: $positionCounts');
+    
     await db.transaction((txn) async {
       // Personテーブルをバッチ挿入
       for (final personData in personBatch) {
@@ -875,12 +887,12 @@ class GameManager {
     final scoreDifference = pitcherScore - fielderScore;
     
     // 投手能力が野手能力より大幅に高い場合
-    if (scoreDifference >= 30) return 0.90;
-    if (scoreDifference >= 20) return 0.75;
-    if (scoreDifference >= 10) return 0.60;
-    if (scoreDifference >= 0) return 0.45;
-    if (scoreDifference >= -10) return 0.30;
-    if (scoreDifference >= -20) return 0.15;
+    if (scoreDifference >= 30) return 0.80; // 0.90 → 0.80
+    if (scoreDifference >= 20) return 0.65; // 0.75 → 0.65
+    if (scoreDifference >= 10) return 0.50; // 0.60 → 0.50
+    if (scoreDifference >= 0) return 0.35;  // 0.45 → 0.35
+    if (scoreDifference >= -10) return 0.20; // 0.30 → 0.20
+    if (scoreDifference >= -20) return 0.10; // 0.15 → 0.10
     return 0.05; // 投手能力が野手能力より大幅に低い場合
   }
   
@@ -888,18 +900,24 @@ class GameManager {
   String _determineFielderPositionByPitchingAbility(int pitcherScore, Random random) {
     if (pitcherScore >= 140) {
       // 投手能力が非常に高い場合、捕手か外野手
-      return random.nextBool() ? '捕手' : '外野手';
+      final positions = ['捕手', '右翼手', '中堅手', '左翼手'];
+      return positions[random.nextInt(positions.length)];
     } else if (pitcherScore >= 130) {
       // 投手能力が高い場合、捕手、外野手、三塁手
-      final positions = ['捕手', '外野手', '三塁手'];
+      final positions = ['捕手', '右翼手', '中堅手', '三塁手'];
       return positions[random.nextInt(positions.length)];
     } else if (pitcherScore >= 120) {
       // 投手能力が中程度の場合、三塁手、遊撃手、外野手
-      final positions = ['三塁手', '遊撃手', '外野手'];
+      final positions = ['三塁手', '遊撃手', '右翼手', '中堅手'];
+      return positions[random.nextInt(positions.length)];
+    } else if (pitcherScore >= 110) {
+      // 投手能力がやや低い場合、内野手
+      final positions = ['二塁手', '遊撃手', '三塁手'];
       return positions[random.nextInt(positions.length)];
     } else {
       // 投手能力が低い場合、内野手（一塁手、二塁手）
-      return random.nextBool() ? '一塁手' : '二塁手';
+      final positions = ['一塁手', '二塁手', '遊撃手'];
+      return positions[random.nextInt(positions.length)];
     }
   }
   
@@ -1335,45 +1353,47 @@ class GameManager {
   /// 週送り時にアクションを実行し、リザルトを返す
   Future<List<String>> advanceWeekWithResults(NewsService newsService, DataService dataService) async {
     final results = <String>[];
-    if (_currentGame != null) {
-      // 3月1週→2週の週送り時に卒業処理
-      final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 1;
-      if (isGraduation) {
-        await graduateThirdYearStudents(dataService);
-        await _refreshPlayersFromDb(dataService);
-        results.add('3年生が卒業しました。学校には1・2年生のみが在籍しています。');
-      }
-      // 3月5週→4月1週の週送り時に学年アップ＋新入生生成
-      final isNewYear = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 5;
-      if (isNewYear) {
-        await promoteAllStudents(dataService);
-        await generateNewStudentsForAllSchoolsDb(dataService);
-        await _refreshPlayersFromDb(dataService);
-        results.add('新年度が始まり、全学校で学年が1つ上がり新1年生が入学しました！');
-      }
-      // 3か月ごと（4,7,10,1月の最終週）に成長処理
-      final isGrowthMonth = [4, 7, 10, 1].contains(_currentGame!.currentMonth);
-      final isLastWeekOfMonth = _currentGame!.getMaxWeeksOfMonth(_currentGame!.currentMonth) == _currentGame!.currentWeekOfMonth;
-      if (isGrowthMonth && isLastWeekOfMonth) {
-        growAllPlayers();
-        results.add('今シーズンの成長イベントが発生しました。選手たちが成長しています。');
-      }
-      for (final action in _currentGame!.weeklyActions) {
-        // 簡易リザルト生成（今後詳細化）
-        final schoolName = (action.schoolId < _currentGame!.schools.length)
-            ? _currentGame!.schools[action.schoolId].name
-            : '不明な学校';
-        results.add('${schoolName}で${_actionTypeToText(action.type)}を実行しました');
-      }
-      // 週送り（週進行、AP/予算リセット、アクションリセット）
-      _currentGame = _currentGame!
-        .advanceWeek()
-        .resetWeeklyResources(newAp: 6, newBudget: _currentGame!.budget)
-        .resetActions();
-      await saveGame(dataService);
-      // オートセーブ
-      await dataService.saveAutoGameData(_currentGame!.toJson());
+    if (_currentGame == null) return results;
+    
+    // スカウトアクションを実行
+    final scoutResults = await executeScoutActions(dataService);
+    results.addAll(scoutResults);
+    
+    // 3月1週→2週の週送り時に卒業処理
+    final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 1;
+    if (isGraduation) {
+      await graduateThirdYearStudents(dataService);
+      await _refreshPlayersFromDb(dataService);
+      results.add('3年生が卒業しました。学校には1・2年生のみが在籍しています。');
     }
+    
+    // 3月5週→4月1週の週送り時に学年アップ＋新入生生成
+    final isNewYear = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 5;
+    if (isNewYear) {
+      await promoteAllStudents(dataService);
+      await generateNewStudentsForAllSchoolsDb(dataService);
+      await _refreshPlayersFromDb(dataService);
+      results.add('新年度が始まり、全学校で学年が1つ上がり新1年生が入学しました！');
+    }
+    
+    // 3か月ごと（4,7,10,1月の最終週）に成長処理
+    final isGrowthMonth = [4, 7, 10, 1].contains(_currentGame!.currentMonth);
+    final isLastWeekOfMonth = _currentGame!.getMaxWeeksOfMonth(_currentGame!.currentMonth) == _currentGame!.currentWeekOfMonth;
+    if (isGrowthMonth && isLastWeekOfMonth) {
+      growAllPlayers();
+      results.add('今シーズンの成長イベントが発生しました。選手たちが成長しています。');
+    }
+    
+    // 週送り（週進行、AP/予算リセット、アクションリセット）
+    _currentGame = _currentGame!
+      .advanceWeek()
+      .resetWeeklyResources(newAp: 6, newBudget: _currentGame!.budget)
+      .resetActions();
+    
+    // オートセーブ（週送り完了後）
+    await saveGame(dataService);
+    await dataService.saveAutoGameData(_currentGame!.toJson());
+    
     return results;
   }
 
@@ -1445,5 +1465,41 @@ class GameManager {
       
       _currentGame = _currentGame!.copyWith(discoveredPlayers: updatedPlayers);
     }
+  }
+
+  // 週送り時にスカウトアクションを実行
+  Future<List<String>> executeScoutActions(DataService dataService) async {
+    final results = <String>[];
+    
+    if (_currentGame == null || _currentGame!.weeklyActions.isEmpty) {
+      return results;
+    }
+    
+    for (final action in _currentGame!.weeklyActions) {
+      if (action.type == 'SCOUT_SCHOOL') {
+        // 学校視察アクションの実行
+        final schoolIndex = action.schoolId;
+        if (schoolIndex < _currentGame!.schools.length) {
+          final school = _currentGame!.schools[schoolIndex];
+          final result = ActionService.scoutSchool(
+            school: school, 
+            currentWeek: _currentGame!.currentWeekOfMonth
+          );
+          
+          // 発掘結果を反映
+          if (result.discoveredPlayer != null) {
+            discoverPlayer(result.discoveredPlayer!);
+            results.add('🏫 ${school.name}の視察: ${result.message}');
+          } else if (result.improvedPlayer != null) {
+            updatePlayerKnowledge(result.improvedPlayer!);
+            results.add('🏫 ${school.name}の視察: ${result.message}');
+          } else {
+            results.add('🏫 ${school.name}の視察: ${result.message}');
+          }
+        }
+      }
+    }
+    
+    return results;
   }
 } 

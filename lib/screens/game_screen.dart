@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/game_manager.dart';
 import '../services/news_service.dart';
 import '../services/data_service.dart';
+import '../models/game/game.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -160,7 +161,7 @@ class _GameScreenState extends State<GameScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(_actionTypeToText(a.type), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    Text('学校ID:${a.schoolId}'),
+                                    Text(_getSchoolName(a.schoolId, game)),
                                     Text('AP:${a.apCost} / ¥${a.budgetCost ~/ 1000}k'),
                                   ],
                                 ),
@@ -354,8 +355,17 @@ class _GameScreenState extends State<GameScreen> {
         return '練習視察';
       case 'GAME_WATCH':
         return '試合観戦';
+      case 'SCOUT_SCHOOL':
+        return '学校視察';
       default:
         return type;
     }
+  }
+
+  String _getSchoolName(int schoolId, Game game) {
+    if (schoolId < game.schools.length) {
+      return game.schools[schoolId].name;
+    }
+    return '不明な学校';
   }
 } 

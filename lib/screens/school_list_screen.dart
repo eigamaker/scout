@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_manager.dart';
 import '../services/scouting/action_service.dart';
+import '../models/game/game.dart';
 
 class SchoolListScreen extends StatelessWidget {
   const SchoolListScreen({super.key});
@@ -61,30 +62,40 @@ class SchoolListScreen extends StatelessWidget {
                     ),
                     ElevatedButton(
                       onPressed: () {
-                        final result = ActionService.scoutSchool(
-                          school: game.schools[i], 
-                          currentWeek: game.currentWeekOfMonth
+                        // アクション計画に追加（AP消費）
+                        final action = GameAction(
+                          id: UniqueKey().toString(),
+                          type: 'SCOUT_SCHOOL',
+                          schoolId: i,
+                          playerId: null,
+                          apCost: 2,
+                          budgetCost: 20000,
+                          params: {},
                         );
                         
-                        // 発掘結果をGameManagerに反映
-                        if (result.discoveredPlayer != null) {
-                          gameManager.discoverPlayer(result.discoveredPlayer!);
-                        } else if (result.improvedPlayer != null) {
-                          gameManager.updatePlayerKnowledge(result.improvedPlayer!);
+                        // APと予算が足りるかチェック
+                        if (game.ap >= action.apCost && game.budget >= action.budgetCost) {
+                          gameManager.addActionToGame(action);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('${game.schools[i].name}の視察を計画に追加しました（AP: ${action.apCost}, 予算: ¥${action.budgetCost}）'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('APまたは予算が不足しています'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
                         }
-                        
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(result.message),
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         minimumSize: const Size(60, 32),
                       ),
-                      child: const Text('視察'),
+                      child: const Text('視察計画'),
                     ),
                   ],
                 ),
