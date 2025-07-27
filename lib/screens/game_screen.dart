@@ -21,6 +21,11 @@ class _GameScreenState extends State<GameScreen> {
   final List<List<String>> _weekLogs = [];
   ScoutingHistory? _scoutingHistory;
   List<String> _actionLogMessages = [];
+  
+  // アコーディオンの展開状態管理
+  bool _newsExpanded = false;
+  bool _historyExpanded = false;
+  bool _actionsExpanded = false;
 
   @override
   void initState() {
@@ -181,22 +186,7 @@ class _GameScreenState extends State<GameScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 主要ステータス
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _statusCard(Icons.calendar_today, '日付', game.getFormattedDate()),
-                  _statusCard(Icons.flash_on, 'AP', game.ap.toString()),
-                  _statusCard(Icons.attach_money, '予算', '¥${game.budget ~/ 1000}k'),
-                  _statusCard(Icons.star, '評判', game.reputation.toString()),
-                  _statusCard(Icons.trending_up, '経験値', game.experience.toString()),
-                  _statusCard(Icons.leaderboard, 'レベル', game.level.toString()),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            // 今週の計画
+            // 基礎情報カード（統合）
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -204,141 +194,110 @@ class _GameScreenState extends State<GameScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      children: const [
-                        Icon(Icons.list_alt),
-                        SizedBox(width: 8),
-                        Text('今週の計画', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      children: [
+                        const Icon(Icons.info_outline),
+                        const SizedBox(width: 8),
+                        Text(
+                          '基礎情報',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 80,
-                      child: game.weeklyActions.isEmpty
-                        ? const Center(child: Text('今週の行動は未設定'))
-                        : ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: game.weeklyActions.map((a) => Card(
-                              color: Colors.blue[50],
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(_actionTypeToText(a.type), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    Text(_getSchoolName(a.schoolId, game)),
-                                    Text('AP:${a.apCost} / ¥${a.budgetCost ~/ 1000}k'),
-                                  ],
-                                ),
-                              ),
-                            )).toList(),
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // 統計
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _statBlock('発掘選手', game.discoveredPlayers.length.toString()),
-                    _statBlock('注目選手', game.watchedPlayers.length.toString()),
-                    _statBlock('お気に入り', game.favoritePlayers.length.toString()),
-                    _statBlock('ニュース', newsService.newsList.length.toString()),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // ニュース
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                    const SizedBox(height: 12),
                     Row(
-                      children: const [
-                        Icon(Icons.article),
-                        SizedBox(width: 8),
-                        Text('最新ニュース', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      children: [
+                        Expanded(
+                          child: _infoRow(Icons.calendar_today, '日付', game.getFormattedDate()),
+                        ),
+                        Expanded(
+                          child: _infoRow(Icons.flash_on, 'AP', '${game.ap}/${game.ap}'),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    SizedBox(
-                      height: 80,
-                      child: newsService.newsList.isEmpty
-                        ? const Text('ニュースはありません')
-                        : ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: newsService.newsList.take(3).map((n) => Card(
-                              color: Colors.white, // 明るい背景色
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(n.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-                                    Text(n.getFormattedDate(), style: const TextStyle(fontSize: 12, color: Colors.black)),
-                                  ],
-                                ),
-                              ),
-                            )).toList(),
-                          ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _infoRow(Icons.attach_money, '予算', '¥${game.budget ~/ 1000}k'),
+                        ),
+                        Expanded(
+                          child: _infoRow(Icons.star, '評判', game.reputation.toString()),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _infoRow(Icons.trending_up, '経験値', game.experience.toString()),
+                        ),
+                        Expanded(
+                          child: _infoRow(Icons.leaderboard, 'レベル', game.level.toString()),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // 統計情報
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _statChip('発掘選手', game.discoveredPlayers.length.toString()),
+                        _statChip('注目選手', game.watchedPlayers.length.toString()),
+                        _statChip('お気に入り', game.favoritePlayers.length.toString()),
+                        _statChip('ニュース', newsService.newsList.length.toString()),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            // アクション履歴（週送りリザルトログ）
+            const SizedBox(height: 16),
+            
+            // 重要な情報の縦並びアコーディオン
             Expanded(
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: const [
-                          Icon(Icons.history),
-                          SizedBox(width: 8),
-                          Text('アクション履歴', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: _weekLogs.isEmpty
-                          ? const Center(child: Text('まだ履歴がありません'))
-                          : ListView.builder(
-                              itemCount: _weekLogs.length,
-                              itemBuilder: (context, i) {
-                                final week = _weekLogs.length - i;
-                                final logs = _weekLogs[i];
-                                return Card(
-                                  color: Colors.grey[100],
-                                  margin: const EdgeInsets.symmetric(vertical: 4),
-                                  child: ListTile(
-                                    title: Text('第${week}週リザルト'),
-                                    subtitle: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: logs.map((l) => Text(l)).toList(),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                      ),
-                    ],
+              child: Column(
+                children: [
+                  // 最新ニュース
+                  _buildExpandableCard(
+                    icon: Icons.article,
+                    title: '最新ニュース',
+                    isExpanded: _newsExpanded,
+                    onTap: () => setState(() {
+                      _newsExpanded = !_newsExpanded;
+                      _historyExpanded = false;
+                      _actionsExpanded = false;
+                    }),
+                    child: _buildNewsContent(newsService),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  
+                  // 今週のアクションキュー
+                  _buildExpandableCard(
+                    icon: Icons.list_alt,
+                    title: '今週のアクションキュー',
+                    isExpanded: _actionsExpanded,
+                    onTap: () => setState(() {
+                      _actionsExpanded = !_actionsExpanded;
+                      _newsExpanded = false;
+                      _historyExpanded = false;
+                    }),
+                    child: _buildActionsContent(game),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // アクション履歴
+                  _buildExpandableCard(
+                    icon: Icons.history,
+                    title: 'アクション履歴',
+                    isExpanded: _historyExpanded,
+                    onTap: () => setState(() {
+                      _historyExpanded = !_historyExpanded;
+                      _newsExpanded = false;
+                      _actionsExpanded = false;
+                    }),
+                    child: _buildHistoryContent(),
+                  ),
+                ],
               ),
             ),
           ],
@@ -381,38 +340,7 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _statusCard(IconData icon, String label, String value) {
-    return Card(
-      margin: const EdgeInsets.only(right: 12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 24),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _statBlock(String label, String value) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
 
   String _actionTypeToText(String type) {
     switch (type) {
@@ -432,6 +360,149 @@ class _GameScreenState extends State<GameScreen> {
       return game.schools[schoolId].name;
     }
     return '不明な学校';
+  }
+
+  // 情報行ウィジェット
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 統計チップウィジェット
+  Widget _statChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue[200]!),
+      ),
+      child: Column(
+        children: [
+          Text(label, style: TextStyle(fontSize: 10, color: Colors.blue[700])),
+          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blue[700])),
+        ],
+      ),
+    );
+  }
+
+  // アコーディオンカードウィジェット
+  Widget _buildExpandableCard({
+    required IconData icon,
+    required String title,
+    required bool isExpanded,
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
+    return Card(
+      child: Column(
+        children: [
+          ListTile(
+            leading: Icon(icon),
+            title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            trailing: Icon(
+              isExpanded ? Icons.expand_less : Icons.expand_more,
+            ),
+            onTap: onTap,
+          ),
+          if (isExpanded)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: child,
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ニュースコンテンツ
+  Widget _buildNewsContent(NewsService newsService) {
+    if (newsService.newsList.isEmpty) {
+      return const Text('ニュースはありません');
+    }
+    
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        itemCount: newsService.newsList.length,
+        itemBuilder: (context, index) {
+          final news = newsService.newsList[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: ListTile(
+              title: Text(news.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(news.getFormattedDate()),
+              onTap: () => Navigator.pushNamed(context, '/newsDetail', arguments: news),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // アクションコンテンツ
+  Widget _buildActionsContent(Game game) {
+    if (game.weeklyActions.isEmpty) {
+      return const Text('今週の行動は未設定');
+    }
+    
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        itemCount: game.weeklyActions.length,
+        itemBuilder: (context, index) {
+          final action = game.weeklyActions[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: ListTile(
+              title: Text(_actionTypeToText(action.type), style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${_getSchoolName(action.schoolId, game)} - AP:${action.apCost} / ¥${action.budgetCost ~/ 1000}k'),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // 履歴コンテンツ
+  Widget _buildHistoryContent() {
+    if (_weekLogs.isEmpty) {
+      return const Text('まだ履歴がありません');
+    }
+    
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        itemCount: _weekLogs.length,
+        itemBuilder: (context, index) {
+          final week = _weekLogs.length - index;
+          final logs = _weekLogs[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: ExpansionTile(
+              title: Text('第${week}週リザルト'),
+              children: logs.map((log) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text(log),
+              )).toList(),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _showScoutTestDialog(BuildContext context) {
