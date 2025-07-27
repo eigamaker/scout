@@ -6,7 +6,7 @@ import '../models/school/school.dart';
 import '../models/news/news_item.dart';
 import 'news_service.dart';
 import 'data_service.dart';
-import 'scouting/action_service.dart';
+import 'scouting/action_service.dart' as scouting;
 
 // 個別ポテンシャル生成システム
 class IndividualPotentialGenerator {
@@ -414,7 +414,7 @@ class GameManager {
           // 才能ランクを先に決定（ポジション決定に使用）
           final talent = _randomTalent();
           final random = Random();
-          final position = _determinePositionByPitchingAbility(talent, random);
+          final position = _randomPosition();
           
           // 新しいgeneratePlayerメソッドを使用して選手を生成
           final player = generatePlayer(
@@ -967,11 +967,19 @@ class GameManager {
     return fit;
   }
   
-  // 従来のランダムポジション決定（フォールバック用）
+  // 現実的なポジション分布でランダムポジション決定
   String _randomPosition() {
     final random = Random();
-    const positions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '外野手'];
-    return positions[random.nextInt(positions.length)];
+    final rand = random.nextDouble();
+    
+    // 現実的な野球チームのポジション分布（投手比率を大幅に削減）
+    if (rand < 0.08) return '投手';        // 8% - 投手（15% → 8%に削減）
+    if (rand < 0.13) return '捕手';        // 5% - 捕手
+    if (rand < 0.28) return '一塁手';      // 15% - 一塁手
+    if (rand < 0.38) return '二塁手';      // 10% - 二塁手
+    if (rand < 0.48) return '三塁手';      // 10% - 三塁手
+    if (rand < 0.63) return '遊撃手';      // 15% - 遊撃手
+    return '外野手';                       // 37% - 外野手（30% → 37%に増加）
   }
   String _randomPersonality() {
     final random = Random();
@@ -1475,26 +1483,24 @@ class GameManager {
       return results;
     }
     
+    // 新しいスカウトシステムでは、週送り時の自動実行は行わない
+    // スカウトアクションは手動で実行する必要がある
     for (final action in _currentGame!.weeklyActions) {
       if (action.type == 'SCOUT_SCHOOL') {
-        // 学校視察アクションの実行
+        // 学校視察アクションの実行（簡易版）
         final schoolIndex = action.schoolId;
         if (schoolIndex < _currentGame!.schools.length) {
           final school = _currentGame!.schools[schoolIndex];
-          final result = ActionService.scoutSchool(
-            school: school, 
-            currentWeek: _currentGame!.currentWeekOfMonth
-          );
           
-          // 発掘結果を反映
-          if (result.discoveredPlayer != null) {
-            discoverPlayer(result.discoveredPlayer!);
-            results.add('🏫 ${school.name}の視察: ${result.message}');
-          } else if (result.improvedPlayer != null) {
-            updatePlayerKnowledge(result.improvedPlayer!);
-            results.add('🏫 ${school.name}の視察: ${result.message}');
+          // 簡易的な選手発掘ロジック
+          final undiscoveredPlayers = school.players.where((p) => !p.isDiscovered).toList();
+          if (undiscoveredPlayers.isNotEmpty) {
+            final randomPlayer = undiscoveredPlayers[Random().nextInt(undiscoveredPlayers.length)];
+            randomPlayer.isDiscovered = true;
+            discoverPlayer(randomPlayer);
+            results.add('🏫 ${school.name}の視察: 新しい選手「${randomPlayer.name}」を発見しました！');
           } else {
-            results.add('🏫 ${school.name}の視察: ${result.message}');
+            results.add('🏫 ${school.name}の視察: 特に新しい発見はありませんでした。');
           }
         }
       }
