@@ -21,10 +21,10 @@ class School {
   // 新しい選手を生成（個別ポテンシャルシステムを使用）
   Player generateNewPlayer(int grade) {
     final names = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
-    final positions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '左翼手', '中堅手', '右翼手'];
     final personalities = ['真面目', '明るい', 'クール', 'リーダー', '努力家'];
     
-    final position = positions[Random().nextInt(positions.length)];
+    // 現実的なポジション分布でランダムポジション決定
+    final position = _randomPosition();
     final personality = personalities[Random().nextInt(personalities.length)];
     final name = names[Random().nextInt(names.length)] + 
                 (Random().nextInt(999) + 1).toString().padLeft(3, '0');
@@ -463,6 +463,21 @@ class School {
     }
   }
   
+  // 現実的なポジション分布でランダムポジション決定
+  String _randomPosition() {
+    final random = Random();
+    final rand = random.nextDouble();
+    
+    // 現実的な野球チームのポジション分布（投手比率を大幅に削減）
+    if (rand < 0.08) return '投手';        // 8% - 投手
+    if (rand < 0.13) return '捕手';        // 5% - 捕手
+    if (rand < 0.28) return '一塁手';      // 15% - 一塁手
+    if (rand < 0.38) return '二塁手';      // 10% - 二塁手
+    if (rand < 0.48) return '三塁手';      // 10% - 三塁手
+    if (rand < 0.63) return '遊撃手';      // 15% - 遊撃手
+    return '外野手';                       // 37% - 外野手
+  }
+
   // ポジション別調整を適用
   Map<String, int> _applyPositionAdjustments(Map<String, int> abilities, String position, Random random) {
     final adjustedAbilities = Map<String, int>.from(abilities);
