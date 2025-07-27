@@ -137,13 +137,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               },
               child: const Text('セーブデータコピー'),
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/scoutTest');
-              },
-              child: const Text('スカウトシステムテスト'),
-            ),
+
           ],
         ),
       ),
