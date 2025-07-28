@@ -4,11 +4,7 @@ import '../services/game_manager.dart';
 import '../services/news_service.dart';
 import '../services/data_service.dart';
 import '../models/game/game.dart';
-import '../models/scouting/action.dart' as scouting;
-import '../models/scouting/scout.dart';
-import '../models/scouting/scouting_history.dart';
-import '../models/scouting/skill.dart';
-import '../services/scouting/action_service.dart';
+
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -19,8 +15,6 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   final List<List<String>> _weekLogs = [];
-  ScoutingHistory? _scoutingHistory;
-  List<String> _actionLogMessages = [];
   
   // アコーディオンの展開状態管理
   bool _newsExpanded = false;
@@ -30,53 +24,6 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeScoutingHistory();
-  }
-
-  void _initializeScoutingHistory() {
-    final gameManager = Provider.of<GameManager>(context, listen: false);
-    final game = gameManager.currentGame;
-    if (game != null) {
-      _scoutingHistory = ScoutingHistory.create(
-        scoutId: '1',
-        targetId: 'player_1',
-        targetType: 'player',
-      );
-    }
-  }
-
-  void _executeScoutAction(scouting.Action action) {
-    final gameManager = Provider.of<GameManager>(context, listen: false);
-    final game = gameManager.currentGame;
-    if (game == null) return;
-
-    // ゲームのスカウト情報を取得（仮の実装）
-    final scout = Scout.createDefault(id: '1', name: game.scoutName);
-    
-    final result = ActionService.executeAction(
-      action: action,
-      scout: scout,
-      targetId: 'player_1',
-      targetType: 'player',
-      history: _scoutingHistory,
-      currentWeek: game.currentWeekOfMonth,
-    );
-
-    setState(() {
-      if (result.isSuccessful && result.record != null) {
-        _scoutingHistory = _scoutingHistory?.addRecord(result.record!);
-      }
-
-      // ログメッセージを追加
-      final message = result.isSuccessful
-          ? '${action.name}: 成功 (精度: ${result.accuracy?.toStringAsFixed(1)}%)'
-          : '${action.name}: 失敗 (${result.failureReason})';
-      
-      _actionLogMessages.insert(0, message);
-      if (_actionLogMessages.length > 10) {
-        _actionLogMessages.removeLast();
-      }
-    });
   }
 
   @override
@@ -124,12 +71,6 @@ class _GameScreenState extends State<GameScreen> {
               leading: const Icon(Icons.article),
               title: const Text('ニュース'),
               onTap: () => Navigator.pushNamed(context, '/news'),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.psychology),
-              title: const Text('スカウトテスト'),
-              onTap: () => _showScoutTestDialog(context),
             ),
             const Divider(),
             ListTile(
@@ -505,209 +446,5 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  void _showScoutTestDialog(BuildContext context) {
-    final gameManager = Provider.of<GameManager>(context, listen: false);
-    final game = gameManager.currentGame;
-    if (game == null) return;
 
-    final scout = Scout.createDefault(id: '1', name: game.scoutName);
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: 600,
-          height: 700,
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'スカウトテスト',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              // スカウト情報
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'スカウト: ${scout.name}',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('レベル: ${scout.level}'),
-                                Text('AP: ${scout.actionPoints}/${scout.maxActionPoints}'),
-                                Text('体力: ${scout.stamina}/${scout.maxStamina}'),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('所持金: ¥${scout.money.toStringAsFixed(0)}'),
-                                Text('信頼度: ${scout.trustLevel}'),
-                                Text('成功率: ${(scout.successRate * 100).toStringAsFixed(1)}%'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 12),
-              
-              // スキル表示
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'スキル',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: Skill.values.map((skill) {
-                          final value = scout.getSkill(skill);
-                          return Chip(
-                            label: Text('${skill.displayName}: $value'),
-                            backgroundColor: value >= 7 
-                                ? Colors.green[100] 
-                                : value >= 5 
-                                    ? Colors.orange[100] 
-                                    : Colors.grey[100],
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 12),
-              
-              // アクションボタン
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'アクション',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: GridView.builder(
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 2.5,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                        ),
-                        itemCount: scouting.Action.getAll().length,
-                        itemBuilder: (context, index) {
-                          final action = scouting.Action.getAll()[index];
-                          final canExecute = scout.actionPoints >= action.actionPoints &&
-                                           scout.money >= action.cost &&
-                                           scout.stamina >= action.actionPoints * 5;
-                          
-                          return ElevatedButton(
-                            onPressed: canExecute ? () => _executeScoutAction(action) : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: canExecute ? null : Colors.grey[300],
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  action.name,
-                                  style: const TextStyle(fontSize: 12),
-                                  textAlign: TextAlign.center,
-                                ),
-                                Text(
-                                  'AP: ${action.actionPoints} ¥: ${action.cost}',
-                                  style: const TextStyle(fontSize: 10),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 12),
-              
-              // ログ
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '実行ログ',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 80,
-                        child: ListView.builder(
-                          itemCount: _actionLogMessages.length,
-                          itemBuilder: (context, index) {
-                            final message = _actionLogMessages[index];
-                            final isSuccess = message.contains('成功');
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Text(
-                                message,
-                                style: TextStyle(
-                                  color: isSuccess ? Colors.green : Colors.red,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 } 

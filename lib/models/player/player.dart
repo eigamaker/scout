@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'pitch.dart';
 import 'achievement.dart';
+import 'player_abilities.dart';
 
 // 選手の種類
 enum PlayerType { highSchool, college, social }
@@ -46,6 +47,11 @@ class Player {
   int? field; // 守備 0-100
   int? arm; // 肩 0-100
   
+  // 新しい能力値システム
+  final Map<TechnicalAbility, int> technicalAbilities; // 技術面能力値
+  final Map<MentalAbility, int> mentalAbilities; // メンタル面能力値
+  final Map<PhysicalAbility, int> physicalAbilities; // フィジカル面能力値
+  
   // 隠し能力値
   final double mentalGrit; // 精神力 -0.15〜+0.15
   final double growthRate; // 成長スピード 0.85-1.15
@@ -54,6 +60,9 @@ class Player {
   final int talent; // 才能ランク 1-5
   final String growthType; // 成長タイプ
   final Map<String, int>? individualPotentials; // 個別能力値ポテンシャル
+  final Map<TechnicalAbility, int>? technicalPotentials; // 技術面能力値ポテンシャル
+  final Map<MentalAbility, int>? mentalPotentials; // メンタル面能力値ポテンシャル
+  final Map<PhysicalAbility, int>? physicalPotentials; // フィジカル面能力値ポテンシャル
   
   // スカウトの評価（個人評価）
   String? scoutEvaluation; // スカウトの個人評価
@@ -91,13 +100,19 @@ class Player {
     this.run,
     this.field,
     this.arm,
+    Map<TechnicalAbility, int>? technicalAbilities,
+    Map<MentalAbility, int>? mentalAbilities,
+    Map<PhysicalAbility, int>? physicalAbilities,
     required this.mentalGrit,
     required this.growthRate,
     required this.peakAbility,
     required this.positionFit,
     required this.talent,
     required this.growthType,
-    this.individualPotentials,
+          this.individualPotentials,
+      Map<TechnicalAbility, int>? technicalPotentials,
+      Map<MentalAbility, int>? mentalPotentials,
+      Map<PhysicalAbility, int>? physicalPotentials,
     this.scoutEvaluation,
     this.scoutNotes,
     Map<String, int>? abilityKnowledge,
@@ -106,6 +121,12 @@ class Player {
     scoutedDates = scoutedDates ?? [],
     abilityKnowledge = abilityKnowledge ?? _initializeAbilityKnowledge(),
     achievements = achievements ?? [],
+    technicalAbilities = technicalAbilities ?? _initializeTechnicalAbilities(),
+    mentalAbilities = mentalAbilities ?? _initializeMentalAbilities(),
+    physicalAbilities = physicalAbilities ?? _initializePhysicalAbilities(),
+    technicalPotentials = technicalPotentials ?? _initializeTechnicalPotentials(),
+    mentalPotentials = mentalPotentials ?? _initializeMentalPotentials(),
+    physicalPotentials = physicalPotentials ?? _initializePhysicalPotentials(),
     totalFamePoints = (achievements ?? []).fold(0, (sum, achievement) => sum + achievement.famePoints);
   
   // 能力値把握度の初期化
@@ -123,6 +144,54 @@ class Player {
       'mentalGrit': 0,
       'growthRate': 0,
       'peakAbility': 0,
+    };
+  }
+  
+  // 技術面能力値の初期化
+  static Map<TechnicalAbility, int> _initializeTechnicalAbilities() {
+    return {
+      for (var ability in TechnicalAbility.values)
+        ability: 25, // 基本値25
+    };
+  }
+  
+  // メンタル面能力値の初期化
+  static Map<MentalAbility, int> _initializeMentalAbilities() {
+    return {
+      for (var ability in MentalAbility.values)
+        ability: 25, // 基本値25
+    };
+  }
+  
+  // フィジカル面能力値の初期化
+  static Map<PhysicalAbility, int> _initializePhysicalAbilities() {
+    return {
+      for (var ability in PhysicalAbility.values)
+        ability: 25, // 基本値25
+    };
+  }
+  
+  // 技術面能力値ポテンシャルの初期化
+  static Map<TechnicalAbility, int> _initializeTechnicalPotentials() {
+    return {
+      for (var ability in TechnicalAbility.values)
+        ability: 50, // 基本ポテンシャル50
+    };
+  }
+  
+  // メンタル面能力値ポテンシャルの初期化
+  static Map<MentalAbility, int> _initializeMentalPotentials() {
+    return {
+      for (var ability in MentalAbility.values)
+        ability: 50, // 基本ポテンシャル50
+    };
+  }
+  
+  // フィジカル面能力値ポテンシャルの初期化
+  static Map<PhysicalAbility, int> _initializePhysicalPotentials() {
+    return {
+      for (var ability in PhysicalAbility.values)
+        ability: 50, // 基本ポテンシャル50
     };
   }
   
@@ -154,6 +223,42 @@ class Player {
   int get veloScore {
     if (fastballVelo == null) return 0;
     return ((fastballVelo! - 110) * 1.6).round().clamp(0, 100);
+  }
+  
+  // 新しい能力値システムのゲッター
+  int getTechnicalAbility(TechnicalAbility ability) {
+    return technicalAbilities[ability] ?? 25;
+  }
+  
+  // 球速を実際のkm/hに変換（新しい能力値システム用）
+  int getFastballVelocityKmh() {
+    final fastballAbility = getTechnicalAbility(TechnicalAbility.fastball);
+    // 100段階の能力値を125-155km/hの範囲に変換
+    return 125 + ((fastballAbility - 25) * 30 / 75).round().clamp(0, 30);
+  }
+  
+  int getMentalAbility(MentalAbility ability) {
+    return mentalAbilities[ability] ?? 25;
+  }
+  
+  int getPhysicalAbility(PhysicalAbility ability) {
+    return physicalAbilities[ability] ?? 25;
+  }
+  
+  // 能力値の平均を取得
+  double getAverageTechnicalAbility() {
+    if (technicalAbilities.isEmpty) return 25.0;
+    return technicalAbilities.values.reduce((a, b) => a + b) / technicalAbilities.length;
+  }
+  
+  double getAverageMentalAbility() {
+    if (mentalAbilities.isEmpty) return 25.0;
+    return mentalAbilities.values.reduce((a, b) => a + b) / mentalAbilities.length;
+  }
+  
+  double getAveragePhysicalAbility() {
+    if (physicalAbilities.isEmpty) return 25.0;
+    return physicalAbilities.values.reduce((a, b) => a + b) / physicalAbilities.length;
   }
   
   // 真の総合能力値を計算（0-100）

@@ -28,7 +28,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
       path,
-      version: 3,
+      version: 1,
       onCreate: (db, version) async {
         // Personテーブル
         await db.execute('''
@@ -62,7 +62,10 @@ class DataService {
             talent INTEGER,
             growth_type TEXT,
             mental_grit REAL,
-            peak_ability INTEGER
+            peak_ability INTEGER,
+            technical_abilities TEXT,
+            mental_abilities TEXT,
+            physical_abilities TEXT
           )
         ''');
         
@@ -201,24 +204,12 @@ class DataService {
     final path = join(dbPath, dbName);
     return await openDatabase(
       path,
-      version: 3,
+      version: 1,
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
       },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          // バージョン1から2へのアップグレード
-          await db.execute('ALTER TABLE Player ADD COLUMN talent INTEGER DEFAULT 3');
-          await db.execute('ALTER TABLE Player ADD COLUMN growth_type TEXT DEFAULT "normal"');
-          await db.execute('ALTER TABLE Player ADD COLUMN mental_grit REAL DEFAULT 0.0');
-          await db.execute('ALTER TABLE Player ADD COLUMN peak_ability INTEGER DEFAULT 0');
-        }
-        if (oldVersion < 3) {
-          // バージョン2から3へのアップグレード
-          await db.execute('ALTER TABLE Player ADD COLUMN fame INTEGER DEFAULT 0');
-        }
-      },
+
     );
   }
 
@@ -262,7 +253,10 @@ class DataService {
         talent INTEGER,
         growth_type TEXT,
         mental_grit REAL,
-        peak_ability INTEGER
+        peak_ability INTEGER,
+        technical_abilities TEXT,
+        mental_abilities TEXT,
+        physical_abilities TEXT
       )
     ''');
     

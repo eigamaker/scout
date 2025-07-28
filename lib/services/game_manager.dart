@@ -1,11 +1,14 @@
 import 'dart:math';
+import 'dart:convert';
 import '../models/game/game.dart';
 import '../models/player/player.dart';
 import '../models/player/pitch.dart';
+import '../models/player/player_abilities.dart';
 import '../models/school/school.dart';
 import '../models/news/news_item.dart';
 import 'news_service.dart';
 import 'data_service.dart';
+import 'player_generator.dart';
 import 'scouting/action_service.dart' as scouting;
 
 // 個別ポテンシャル生成システム
@@ -456,6 +459,9 @@ class GameManager {
             'growth_type': player.growthType,
             'mental_grit': player.mentalGrit,
             'peak_ability': player.peakAbility,
+            'technical_abilities': jsonEncode(player.technicalAbilities.map((key, value) => MapEntry(key.name, value))),
+            'mental_abilities': jsonEncode(player.mentalAbilities.map((key, value) => MapEntry(key.name, value))),
+            'physical_abilities': jsonEncode(player.physicalAbilities.map((key, value) => MapEntry(key.name, value))),
           });
           
           // PlayerPotentialsテーブル用データを準備
@@ -559,7 +565,7 @@ class GameManager {
       discoveredPlayers: players,
       watchedPlayers: [],
       favoritePlayers: [],
-      ap: 6,
+      ap: 15,
       budget: 1000000,
       scoutSkills: {
         'exploration': 50,
@@ -721,6 +727,9 @@ class GameManager {
           'growth_type': player.growthType,
           'mental_grit': player.mentalGrit,
           'peak_ability': player.peakAbility,
+          'technical_abilities': jsonEncode(player.technicalAbilities.map((key, value) => MapEntry(key.name, value))),
+          'mental_abilities': jsonEncode(player.mentalAbilities.map((key, value) => MapEntry(key.name, value))),
+          'physical_abilities': jsonEncode(player.physicalAbilities.map((key, value) => MapEntry(key.name, value))),
         });
         
         // PlayerPotentialsテーブル用データを準備
@@ -1039,6 +1048,14 @@ class GameManager {
     // 簡素化された個別ポテンシャル生成
     final individualPotentials = _generateSimplifiedPotentials(talent, random);
     
+    // 新しい能力値システムを生成
+    final technicalAbilities = PlayerGenerator.generateTechnicalAbilities(talent, position);
+    final mentalAbilities = PlayerGenerator.generateMentalAbilities(talent);
+    final physicalAbilities = PlayerGenerator.generatePhysicalAbilities(talent, position);
+    final technicalPotentials = PlayerGenerator.generateTechnicalPotentials(talent, position);
+    final mentalPotentials = PlayerGenerator.generateMentalPotentials(talent);
+    final physicalPotentials = PlayerGenerator.generatePhysicalPotentials(talent, position);
+    
     return Player(
       name: name,
       school: school,
@@ -1055,6 +1072,12 @@ class GameManager {
       run: abilities['run'] ?? 25,
       field: abilities['field'] ?? 25,
       arm: abilities['arm'] ?? 25,
+      technicalAbilities: technicalAbilities,
+      mentalAbilities: mentalAbilities,
+      physicalAbilities: physicalAbilities,
+      technicalPotentials: technicalPotentials,
+      mentalPotentials: mentalPotentials,
+      physicalPotentials: physicalPotentials,
       mentalGrit: mentalGrit,
       growthRate: growthRate,
       peakAbility: individualPotentials.values.reduce((a, b) => a + b) ~/ individualPotentials.length, // 平均ポテンシャル
@@ -1327,6 +1350,34 @@ class GameManager {
         final playerId = p['id'] as int;
         final individualPotentials = potentials[playerId];
         
+        // 新しい能力値システムの復元
+        final technicalAbilitiesJson = p['technical_abilities'] as String? ?? '{}';
+        final mentalAbilitiesJson = p['mental_abilities'] as String? ?? '{}';
+        final physicalAbilitiesJson = p['physical_abilities'] as String? ?? '{}';
+        
+        final technicalAbilitiesMap = Map<String, dynamic>.from(jsonDecode(technicalAbilitiesJson));
+        final mentalAbilitiesMap = Map<String, dynamic>.from(jsonDecode(mentalAbilitiesJson));
+        final physicalAbilitiesMap = Map<String, dynamic>.from(jsonDecode(physicalAbilitiesJson));
+        
+        final technicalAbilities = <TechnicalAbility, int>{};
+        final mentalAbilities = <MentalAbility, int>{};
+        final physicalAbilities = <PhysicalAbility, int>{};
+        
+        // Technical abilities復元
+        for (final ability in TechnicalAbility.values) {
+          technicalAbilities[ability] = technicalAbilitiesMap[ability.name] as int? ?? 25;
+        }
+        
+        // Mental abilities復元
+        for (final ability in MentalAbility.values) {
+          mentalAbilities[ability] = mentalAbilitiesMap[ability.name] as int? ?? 25;
+        }
+        
+        // Physical abilities復元
+        for (final ability in PhysicalAbility.values) {
+          physicalAbilities[ability] = physicalAbilitiesMap[ability.name] as int? ?? 25;
+        }
+        
         final player = Player(
           name: person['name'] as String? ?? '名無し',
           school: school.name,
@@ -1343,6 +1394,9 @@ class GameManager {
           field: p['defense'] as int? ?? 0,
           arm: p['arm'] as int? ?? 0,
           pitches: [],
+          technicalAbilities: technicalAbilities,
+          mentalAbilities: mentalAbilities,
+          physicalAbilities: physicalAbilities,
           mentalGrit: (p['mental_grit'] as num?)?.toDouble() ?? 0.0,
           growthRate: p['growth_rate'] as double? ?? 1.0,
           peakAbility: p['peak_ability'] as int? ?? 0,

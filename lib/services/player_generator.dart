@@ -1,6 +1,7 @@
 import 'dart:math';
 import '../models/player/player.dart';
 import '../models/player/achievement.dart';
+import '../models/player/player_abilities.dart';
 
 class PlayerGenerator {
   static final Random _random = Random();
@@ -24,6 +25,9 @@ class PlayerGenerator {
         control: 85,
         stamina: 90,
         breakAvg: 80,
+        technicalAbilities: generateTechnicalAbilities(5, '投手'),
+        mentalAbilities: generateMentalAbilities(5),
+        physicalAbilities: generatePhysicalAbilities(5, '投手'),
         mentalGrit: 0.1,
         growthRate: 1.1,
         peakAbility: 140,
@@ -69,6 +73,9 @@ class PlayerGenerator {
         run: 95,
         field: 80,
         arm: 85,
+        technicalAbilities: generateTechnicalAbilities(4, '外野手'),
+        mentalAbilities: generateMentalAbilities(4),
+        physicalAbilities: generatePhysicalAbilities(4, '外野手'),
         mentalGrit: 0.05,
         growthRate: 1.05,
         peakAbility: 130,
@@ -107,6 +114,9 @@ class PlayerGenerator {
         control: 75,
         stamina: 80,
         breakAvg: 70,
+        technicalAbilities: generateTechnicalAbilities(3, '投手'),
+        mentalAbilities: generateMentalAbilities(3),
+        physicalAbilities: generatePhysicalAbilities(3, '投手'),
         mentalGrit: 0.0,
         growthRate: 1.0,
         peakAbility: 120,
@@ -146,6 +156,9 @@ class PlayerGenerator {
         run: 80,
         field: 85,
         arm: 70,
+        technicalAbilities: generateTechnicalAbilities(2, '内野手'),
+        mentalAbilities: generateMentalAbilities(2),
+        physicalAbilities: generatePhysicalAbilities(2, '内野手'),
         mentalGrit: -0.05,
         growthRate: 0.95,
         peakAbility: 110,
@@ -178,6 +191,9 @@ class PlayerGenerator {
         control: 60,
         stamina: 65,
         breakAvg: 55,
+        technicalAbilities: generateTechnicalAbilities(1, '投手'),
+        mentalAbilities: generateMentalAbilities(1),
+        physicalAbilities: generatePhysicalAbilities(1, '投手'),
         mentalGrit: -0.1,
         growthRate: 0.9,
         peakAbility: 100,
@@ -204,6 +220,9 @@ class PlayerGenerator {
         run: 95,
         field: 70,
         arm: 75,
+        technicalAbilities: generateTechnicalAbilities(4, '外野手'),
+        mentalAbilities: generateMentalAbilities(4),
+        physicalAbilities: generatePhysicalAbilities(4, '外野手'),
         mentalGrit: 0.15,
         growthRate: 1.15,
         peakAbility: 145,
@@ -229,6 +248,9 @@ class PlayerGenerator {
         control: 70,
         stamina: 75,
         breakAvg: 65,
+        technicalAbilities: generateTechnicalAbilities(2, '投手'),
+        mentalAbilities: generateMentalAbilities(2),
+        physicalAbilities: generatePhysicalAbilities(2, '投手'),
         mentalGrit: 0.05,
         growthRate: 1.0,
         peakAbility: 115,
@@ -255,6 +277,9 @@ class PlayerGenerator {
         run: 85,
         field: 90,
         arm: 70,
+        technicalAbilities: generateTechnicalAbilities(3, '内野手'),
+        mentalAbilities: generateMentalAbilities(3),
+        physicalAbilities: generatePhysicalAbilities(3, '内野手'),
         mentalGrit: 0.1,
         growthRate: 1.1,
         peakAbility: 135,
@@ -295,6 +320,248 @@ class PlayerGenerator {
       case 2: return _random.nextInt(1) + 1; // 1個
       case 1: return 0; // 実績なし
       default: return 0;
+    }
+  }
+  
+  // 新しい能力値システムの生成メソッド
+  static Map<TechnicalAbility, int> generateTechnicalAbilities(int talent, String position) {
+    final abilities = <TechnicalAbility, int>{};
+    
+    // 才能ランクに基づく基本能力値を決定
+    final baseAbility = _getBaseAbilityByTalent(talent);
+    
+    for (final ability in TechnicalAbility.values) {
+      int baseValue = baseAbility + _random.nextInt(20); // 基本値 + ランダム変動
+      
+      // ポジションによる調整
+      switch (position) {
+        case '投手':
+          if (ability == TechnicalAbility.control || 
+              ability == TechnicalAbility.fastball || 
+              ability == TechnicalAbility.breakingBall ||
+              ability == TechnicalAbility.pitchMovement) {
+            baseValue += _random.nextInt(21); // 投手能力+0-20
+          }
+          break;
+        case '捕手':
+          if (ability == TechnicalAbility.catcherAbility) {
+            baseValue += _random.nextInt(21);
+          }
+          break;
+        case '内野手':
+        case '外野手':
+          if (ability == TechnicalAbility.fielding || 
+              ability == TechnicalAbility.throwing) {
+            baseValue += _random.nextInt(16); // +0-15
+          }
+          break;
+      }
+      
+      // 打撃技術の調整
+      if (ability == TechnicalAbility.contact || 
+          ability == TechnicalAbility.power ||
+          ability == TechnicalAbility.plateDiscipline ||
+          ability == TechnicalAbility.batControl ||
+          ability == TechnicalAbility.swingSpeed) {
+        if (position != '投手') {
+          baseValue += _random.nextInt(16); // 野手は打撃能力+0-15
+        }
+      }
+      
+      abilities[ability] = baseValue.clamp(25, 100);
+    }
+    
+    return abilities;
+  }
+  
+  static int _getBaseAbilityByTalent(int talent) {
+    switch (talent) {
+      case 1: return 35;
+      case 2: return 45;
+      case 3: return 55;
+      case 4: return 65;
+      case 5: return 75;
+      case 6: return 85; // 怪物級の基本能力値
+      default: return 45;
+    }
+  }
+  
+  static Map<MentalAbility, int> generateMentalAbilities(int talent) {
+    final abilities = <MentalAbility, int>{};
+    
+    // 才能ランクに基づく基本能力値を決定
+    final baseAbility = _getBaseAbilityByTalent(talent);
+    
+    for (final ability in MentalAbility.values) {
+      int baseValue = baseAbility + _random.nextInt(20); // 基本値 + ランダム変動
+      
+      // 才能ランクによる微調整
+      baseValue += (talent - 1) * 3; // 才能ランク1つにつき+3
+      
+      // ランダムな変動
+      baseValue += _random.nextInt(11) - 5; // -5から+5の変動
+      
+      abilities[ability] = baseValue.clamp(25, 100);
+    }
+    
+    return abilities;
+  }
+  
+  static Map<PhysicalAbility, int> generatePhysicalAbilities(int talent, String position) {
+    final abilities = <PhysicalAbility, int>{};
+    
+    // 才能ランクに基づく基本能力値を決定
+    final baseAbility = _getBaseAbilityByTalent(talent);
+    
+    for (final ability in PhysicalAbility.values) {
+      int baseValue = baseAbility + _random.nextInt(20); // 基本値 + ランダム変動
+      
+      // 才能ランクによる微調整
+      baseValue += (talent - 1) * 3; // 才能ランク1つにつき+3
+      
+      // ポジションによる調整
+      switch (position) {
+        case '投手':
+          if (ability == PhysicalAbility.stamina) {
+            baseValue += _random.nextInt(16); // +0-15
+          }
+          break;
+        case '外野手':
+          if (ability == PhysicalAbility.pace) {
+            baseValue += _random.nextInt(21); // +0-20
+          }
+          break;
+        case '内野手':
+          if (ability == PhysicalAbility.agility) {
+            baseValue += _random.nextInt(16); // +0-15
+          }
+          break;
+      }
+      
+      abilities[ability] = baseValue.clamp(25, 100);
+    }
+    
+    return abilities;
+  }
+  
+  // 新しい能力値システムのポテンシャル生成メソッド
+  static Map<TechnicalAbility, int> generateTechnicalPotentials(int talent, String position) {
+    final potentials = <TechnicalAbility, int>{};
+    
+    // 才能ランクに基づく基本ポテンシャルを決定
+    final basePotential = _getBasePotentialByTalent(talent);
+    
+    for (final ability in TechnicalAbility.values) {
+      int baseValue = basePotential + _random.nextInt(30) - 15; // 基本値 + ランダム変動
+      
+      // ポジションによる調整
+      switch (position) {
+        case '投手':
+          if (ability == TechnicalAbility.control || 
+              ability == TechnicalAbility.fastball || 
+              ability == TechnicalAbility.breakingBall ||
+              ability == TechnicalAbility.pitchMovement) {
+            baseValue += _random.nextInt(21); // 投手能力ポテンシャル+0-20
+          }
+          break;
+        case '捕手':
+          if (ability == TechnicalAbility.catcherAbility) {
+            baseValue += _random.nextInt(21);
+          }
+          break;
+        case '内野手':
+        case '外野手':
+          if (ability == TechnicalAbility.fielding || 
+              ability == TechnicalAbility.throwing) {
+            baseValue += _random.nextInt(16); // +0-15
+          }
+          break;
+      }
+      
+      // 打撃技術の調整
+      if (ability == TechnicalAbility.contact || 
+          ability == TechnicalAbility.power ||
+          ability == TechnicalAbility.plateDiscipline ||
+          ability == TechnicalAbility.batControl ||
+          ability == TechnicalAbility.swingSpeed) {
+        if (position != '投手') {
+          baseValue += _random.nextInt(16); // 野手は打撃能力ポテンシャル+0-15
+        }
+      }
+      
+      potentials[ability] = baseValue.clamp(50, 150);
+    }
+    
+    return potentials;
+  }
+  
+  static Map<MentalAbility, int> generateMentalPotentials(int talent) {
+    final potentials = <MentalAbility, int>{};
+    
+    // 才能ランクに基づく基本ポテンシャルを決定
+    final basePotential = _getBasePotentialByTalent(talent);
+    
+    for (final ability in MentalAbility.values) {
+      int baseValue = basePotential + _random.nextInt(30) - 15; // 基本値 + ランダム変動
+      
+      // 才能ランクによる微調整
+      baseValue += (talent - 1) * 3; // 才能ランク1つにつき+3
+      
+      // ランダムな変動
+      baseValue += _random.nextInt(11) - 5; // -5から+5の変動
+      
+      potentials[ability] = baseValue.clamp(50, 150);
+    }
+    
+    return potentials;
+  }
+  
+  static Map<PhysicalAbility, int> generatePhysicalPotentials(int talent, String position) {
+    final potentials = <PhysicalAbility, int>{};
+    
+    // 才能ランクに基づく基本ポテンシャルを決定
+    final basePotential = _getBasePotentialByTalent(talent);
+    
+    for (final ability in PhysicalAbility.values) {
+      int baseValue = basePotential + _random.nextInt(30) - 15; // 基本値 + ランダム変動
+      
+      // 才能ランクによる微調整
+      baseValue += (talent - 1) * 3; // 才能ランク1つにつき+3
+      
+      // ポジションによる調整
+      switch (position) {
+        case '投手':
+          if (ability == PhysicalAbility.stamina) {
+            baseValue += _random.nextInt(21); // 投手はスタミナポテンシャル+0-20
+          }
+          break;
+        case '外野手':
+          if (ability == PhysicalAbility.pace || ability == PhysicalAbility.acceleration) {
+            baseValue += _random.nextInt(16); // 外野手は走力系ポテンシャル+0-15
+          }
+          break;
+        case '内野手':
+          if (ability == PhysicalAbility.agility || ability == PhysicalAbility.balance) {
+            baseValue += _random.nextInt(16); // 内野手は敏捷性系ポテンシャル+0-15
+          }
+          break;
+      }
+      
+      potentials[ability] = baseValue.clamp(50, 150);
+    }
+    
+    return potentials;
+  }
+  
+  static int _getBasePotentialByTalent(int talent) {
+    switch (talent) {
+      case 1: return 65;
+      case 2: return 75;
+      case 3: return 85;
+      case 4: return 95;
+      case 5: return 105;
+      case 6: return 130; // 怪物級のポテンシャル
+      default: return 75;
     }
   }
 } 
