@@ -33,19 +33,8 @@ class Player {
   PlayerType type;
   int yearsAfterGraduation; // 卒業後の年数（大学生・社会人用）
   
-  // 投手能力値（投手のみ）
-  int? fastballVelo; // 球速 110-170 km/h
-  int? control; // 制球 0-100
-  int? stamina; // スタミナ 0-100
-  int? breakAvg; // 変化 0-100
-  List<Pitch>? pitches; // 球種
-  
-  // 野手能力値（野手のみ）
-  int? batPower; // パワー 0-100
-  int? batControl; // バットコントロール 0-100
-  int? run; // 走力 0-100
-  int? field; // 守備 0-100
-  int? arm; // 肩 0-100
+  // 球種（投手のみ）
+  List<Pitch>? pitches;
   
   // 新しい能力値システム
   final Map<TechnicalAbility, int> technicalAbilities; // 技術面能力値
@@ -90,16 +79,7 @@ class Player {
     List<DateTime>? scoutedDates,
     this.type = PlayerType.highSchool,
     this.yearsAfterGraduation = 0,
-    this.fastballVelo,
-    this.control,
-    this.stamina,
-    this.breakAvg,
     this.pitches,
-    this.batPower,
-    this.batControl,
-    this.run,
-    this.field,
-    this.arm,
     Map<TechnicalAbility, int>? technicalAbilities,
     Map<MentalAbility, int>? mentalAbilities,
     Map<PhysicalAbility, int>? physicalAbilities,
@@ -221,8 +201,9 @@ class Player {
   
   // 球速スコア（0-100に換算）
   int get veloScore {
-    if (fastballVelo == null) return 0;
-    return ((fastballVelo! - 110) * 1.6).round().clamp(0, 100);
+    final fastballAbility = getTechnicalAbility(TechnicalAbility.fastball);
+    // 100段階の能力値を0-100のスコアに変換
+    return fastballAbility;
   }
   
   // 新しい能力値システムのゲッター
@@ -234,7 +215,13 @@ class Player {
   int getFastballVelocityKmh() {
     final fastballAbility = getTechnicalAbility(TechnicalAbility.fastball);
     // 100段階の能力値を125-155km/hの範囲に変換
-    return 125 + ((fastballAbility - 25) * 30 / 75).round().clamp(0, 30);
+    return 125 + ((fastballAbility - 25) * 30 / 75).round();
+  }
+  
+  // 球速を実際のkm/hに変換（古いシステム用）
+  int getFastballVelocityKmhOld() {
+    // 古いシステムは削除されたため、新しいシステムの値を返す
+    return getFastballVelocityKmh();
   }
   
   int getMentalAbility(MentalAbility ability) {
@@ -263,23 +250,12 @@ class Player {
   
   // 真の総合能力値を計算（0-100）
   int get _trueTotalAbility {
-    // 投手能力値の計算
-    final veloScore = this.veloScore;
-    final controlScore = control ?? 0;
-    final staminaScore = stamina ?? 0;
-    final breakScore = breakAvg ?? 0;
-    final pitcherScore = ((veloScore + controlScore + staminaScore + breakScore) / 4).round();
+    // 新しい能力値システムに基づく総合能力値計算
+    final technicalAvg = getAverageTechnicalAbility();
+    final mentalAvg = getAverageMentalAbility();
+    final physicalAvg = getAveragePhysicalAbility();
     
-    // 野手能力値の計算
-    final powerScore = batPower ?? 0;
-    final batControlScore = batControl ?? 0;
-    final runScore = run ?? 0;
-    final fieldScore = field ?? 0;
-    final armScore = arm ?? 0;
-    final batterScore = ((powerScore + batControlScore + runScore + fieldScore + armScore) / 5).round();
-    
-    // 投手と野手の能力値を平均して総合能力値を算出
-    return ((pitcherScore + batterScore) / 2).round();
+    return ((technicalAvg + mentalAvg + physicalAvg) / 3).round();
   }
   
   // スカウトスキルに基づく能力値の表示範囲を取得
@@ -340,27 +316,27 @@ class Player {
     return (trueValue + error).clamp(0, 100);
   }
   
-  // 真の能力値を取得
+  // 真の能力値を取得（新しい能力値システム）
   int? _getAbilityValue(String abilityName) {
     switch (abilityName) {
       case 'fastballVelo':
-        return fastballVelo != null ? veloScore : null;
+        return veloScore;
       case 'control':
-        return control;
+        return getTechnicalAbility(TechnicalAbility.control);
       case 'stamina':
-        return stamina;
+        return getPhysicalAbility(PhysicalAbility.stamina);
       case 'breakAvg':
-        return breakAvg;
+        return getTechnicalAbility(TechnicalAbility.breakingBall);
       case 'batPower':
-        return batPower;
+        return getTechnicalAbility(TechnicalAbility.power);
       case 'batControl':
-        return batControl;
+        return getTechnicalAbility(TechnicalAbility.batControl);
       case 'run':
-        return run;
+        return getPhysicalAbility(PhysicalAbility.pace);
       case 'field':
-        return field;
+        return getTechnicalAbility(TechnicalAbility.fielding);
       case 'arm':
-        return arm;
+        return getTechnicalAbility(TechnicalAbility.throwing);
       default:
         return null;
     }
@@ -463,36 +439,40 @@ class Player {
   }
   
   void _growPitcher() {
-    if (control != null && control! < peakAbility) {
-      control = (control! + Random().nextInt(3) + 1).clamp(0, peakAbility);
+    // 新しい能力値システムに基づく成長
+    // 技術面能力値の成長
+    for (final ability in [TechnicalAbility.control, TechnicalAbility.fastball, TechnicalAbility.breakingBall, TechnicalAbility.pitchMovement]) {
+      final currentValue = technicalAbilities[ability] ?? 25;
+      final potential = individualPotentials?[ability.name] ?? 100;
+      if (currentValue < potential) {
+        technicalAbilities[ability] = (currentValue + Random().nextInt(3) + 1).clamp(25, potential);
+      }
     }
-    if (stamina != null && stamina! < peakAbility) {
-      stamina = (stamina! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    if (breakAvg != null && breakAvg! < peakAbility) {
-      breakAvg = (breakAvg! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    // 球速は高校生では成長しにくい
-    if (fastballVelo != null && Random().nextDouble() < 0.1) {
-      fastballVelo = (fastballVelo! + Random().nextInt(2) + 1).clamp(110, 155);
+    
+    // フィジカル面能力値の成長
+    final staminaCurrent = physicalAbilities[PhysicalAbility.stamina] ?? 25;
+    final staminaPotential = individualPotentials?['stamina'] ?? 100;
+    if (staminaCurrent < staminaPotential) {
+      physicalAbilities[PhysicalAbility.stamina] = (staminaCurrent + Random().nextInt(3) + 1).clamp(25, staminaPotential);
     }
   }
   
   void _growBatter() {
-    if (batPower != null && batPower! < peakAbility) {
-      batPower = (batPower! + Random().nextInt(3) + 1).clamp(0, peakAbility);
+    // 新しい能力値システムに基づく成長
+    // 技術面能力値の成長
+    for (final ability in [TechnicalAbility.contact, TechnicalAbility.power, TechnicalAbility.batControl, TechnicalAbility.fielding, TechnicalAbility.throwing]) {
+      final currentValue = technicalAbilities[ability] ?? 25;
+      final potential = individualPotentials?[ability.name] ?? 100;
+      if (currentValue < potential) {
+        technicalAbilities[ability] = (currentValue + Random().nextInt(3) + 1).clamp(25, potential);
+      }
     }
-    if (batControl != null && batControl! < peakAbility) {
-      batControl = (batControl! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    if (run != null && run! < peakAbility) {
-      run = (run! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    if (field != null && field! < peakAbility) {
-      field = (field! + Random().nextInt(3) + 1).clamp(0, peakAbility);
-    }
-    if (arm != null && arm! < peakAbility) {
-      arm = (arm! + Random().nextInt(3) + 1).clamp(0, peakAbility);
+    
+    // フィジカル面能力値の成長
+    final paceCurrent = physicalAbilities[PhysicalAbility.pace] ?? 25;
+    final pacePotential = individualPotentials?['pace'] ?? 100;
+    if (paceCurrent < pacePotential) {
+      physicalAbilities[PhysicalAbility.pace] = (paceCurrent + Random().nextInt(3) + 1).clamp(25, pacePotential);
     }
   }
 
@@ -515,16 +495,7 @@ class Player {
     'abilityKnowledge': abilityKnowledge,
     'type': type.index,
     'yearsAfterGraduation': yearsAfterGraduation,
-    'fastballVelo': fastballVelo,
-    'control': control,
-    'stamina': stamina,
-    'breakAvg': breakAvg,
     'pitches': pitches?.map((p) => p.toJson()).toList(),
-    'batPower': batPower,
-    'batControl': batControl,
-    'run': run,
-    'field': field,
-    'arm': arm,
     'mentalGrit': mentalGrit,
     'growthRate': growthRate,
     'peakAbility': peakAbility,
@@ -559,18 +530,10 @@ class Player {
       : null,
     type: PlayerType.values[json['type'] ?? 0],
     yearsAfterGraduation: json['yearsAfterGraduation'] ?? 0,
-    fastballVelo: json['fastballVelo'],
-    control: json['control'],
-    stamina: json['stamina'],
-    breakAvg: json['breakAvg'],
-    pitches: json['pitches'] != null 
+
+        pitches: json['pitches'] != null
       ? (json['pitches'] as List).map((p) => Pitch.fromJson(p)).toList()
       : null,
-    batPower: json['batPower'],
-    batControl: json['batControl'],
-    run: json['run'],
-    field: json['field'],
-    arm: json['arm'],
     mentalGrit: (json['mentalGrit'] as num).toDouble(),
     growthRate: (json['growthRate'] as num).toDouble(),
     peakAbility: json['peakAbility'],
@@ -603,16 +566,7 @@ class Player {
     Map<String, int>? abilityKnowledge,
     PlayerType? type,
     int? yearsAfterGraduation,
-    int? fastballVelo,
-    int? control,
-    int? stamina,
-    int? breakAvg,
     List<Pitch>? pitches,
-    int? batPower,
-    int? batControl,
-    int? run,
-    int? field,
-    int? arm,
     double? mentalGrit,
     double? growthRate,
     int? peakAbility,
@@ -642,16 +596,7 @@ class Player {
       abilityKnowledge: abilityKnowledge ?? Map<String, int>.from(this.abilityKnowledge),
       type: type ?? this.type,
       yearsAfterGraduation: yearsAfterGraduation ?? this.yearsAfterGraduation,
-      fastballVelo: fastballVelo ?? this.fastballVelo,
-      control: control ?? this.control,
-      stamina: stamina ?? this.stamina,
-      breakAvg: breakAvg ?? this.breakAvg,
       pitches: pitches ?? this.pitches,
-      batPower: batPower ?? this.batPower,
-      batControl: batControl ?? this.batControl,
-      run: run ?? this.run,
-      field: field ?? this.field,
-      arm: arm ?? this.arm,
       mentalGrit: mentalGrit ?? this.mentalGrit,
       growthRate: growthRate ?? this.growthRate,
       peakAbility: peakAbility ?? this.peakAbility,

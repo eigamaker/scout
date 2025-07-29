@@ -329,6 +329,46 @@ running_speed: 走力
 defense: 守備
 arm: 肩力
 
+-- 新しい能力値システム（直接保存）
+-- Technical（技術面）能力値
+contact: ミート
+power: パワー
+plate_discipline: 選球眼
+bunt: バント
+opposite_field_hitting: 流し打ち
+pull_hitting: プルヒッティング
+bat_control_new: バットコントロール
+swing_speed: スイングスピード
+fielding: 捕球
+throwing: 送球
+catcher_ability: 捕手リード
+control_new: コントロール
+fastball: 球速
+breaking_ball: 変化球
+pitch_movement: 球種変化量
+
+-- Mental（メンタル面）能力値
+concentration: 集中力
+anticipation: 予測力
+vision: 視野
+composure: 冷静さ
+aggression: 積極性
+bravery: 勇気
+leadership: リーダーシップ
+work_rate: 仕事量
+self_discipline: 自己管理
+ambition: 野心
+
+-- Physical（フィジカル面）能力値
+acceleration: 加速力
+agility: 敏捷性
+balance: バランス
+jumping_reach: 跳躍力
+flexibility: 柔軟性
+stamina_new: 持久力
+strength: 強度
+pace: スピード
+
 -- 隠し能力値カラム
 talent: 才能ランク
 growth_type: 成長タイプ
@@ -336,6 +376,7 @@ mental_grit: 精神力
 peak_ability: 平均ポテンシャル
 
 -- PlayerPotentialsテーブル（個別ポテンシャル）
+-- 古いシステムのポテンシャル
 control_potential: 制球ポテンシャル
 stamina_potential: スタミナポテンシャル
 break_avg_potential: 変化球平均ポテンシャル
@@ -345,6 +386,46 @@ run_potential: 走力ポテンシャル
 field_potential: 守備ポテンシャル
 arm_potential: 肩力ポテンシャル
 fastball_velo_potential: 球速ポテンシャル
+
+-- 新しいシステムのTechnical（技術面）ポテンシャル
+contact_potential: ミートポテンシャル
+power_potential: パワーポテンシャル
+plate_discipline_potential: 選球眼ポテンシャル
+bunt_potential: バントポテンシャル
+opposite_field_hitting_potential: 流し打ちポテンシャル
+pull_hitting_potential: プルヒッティングポテンシャル
+bat_control_new_potential: バットコントロールポテンシャル
+swing_speed_potential: スイングスピードポテンシャル
+fielding_potential: 捕球ポテンシャル
+throwing_potential: 送球ポテンシャル
+catcher_ability_potential: 捕手リードポテンシャル
+control_new_potential: コントロールポテンシャル
+fastball_potential: 球速ポテンシャル
+breaking_ball_potential: 変化球ポテンシャル
+pitch_movement_potential: 球種変化量ポテンシャル
+
+-- 新しいシステムのMental（メンタル面）ポテンシャル
+concentration_potential: 集中力ポテンシャル
+anticipation_potential: 予測力ポテンシャル
+vision_potential: 視野ポテンシャル
+composure_potential: 冷静さポテンシャル
+aggression_potential: 積極性ポテンシャル
+bravery_potential: 勇気ポテンシャル
+leadership_potential: リーダーシップポテンシャル
+work_rate_potential: 仕事量ポテンシャル
+self_discipline_potential: 自己管理ポテンシャル
+ambition_potential: 野心ポテンシャル
+
+-- 新しいシステムのPhysical（フィジカル面）ポテンシャル
+acceleration_potential: 加速力ポテンシャル
+agility_potential: 敏捷性ポテンシャル
+balance_potential: バランスポテンシャル
+jumping_reach_potential: 跳躍力ポテンシャル
+natural_fitness_potential: 自然な健康ポテンシャル
+injury_proneness_potential: 怪我の傾向ポテンシャル
+stamina_new_potential: 持久力ポテンシャル
+strength_potential: 強度ポテンシャル
+pace_potential: スピードポテンシャル
 ```
 
 ## 設計思想

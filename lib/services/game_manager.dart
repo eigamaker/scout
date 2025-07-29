@@ -727,14 +727,48 @@ class GameManager {
           'growth_type': player.growthType,
           'mental_grit': player.mentalGrit,
           'peak_ability': player.peakAbility,
-          'technical_abilities': jsonEncode(player.technicalAbilities.map((key, value) => MapEntry(key.name, value))),
-          'mental_abilities': jsonEncode(player.mentalAbilities.map((key, value) => MapEntry(key.name, value))),
-          'physical_abilities': jsonEncode(player.physicalAbilities.map((key, value) => MapEntry(key.name, value))),
+          // 新しいシステムのTechnical（技術面）能力値
+          'contact': player.getTechnicalAbility(TechnicalAbility.contact),
+          'power': player.getTechnicalAbility(TechnicalAbility.power),
+          'plate_discipline': player.getTechnicalAbility(TechnicalAbility.plateDiscipline),
+          'bunt': player.getTechnicalAbility(TechnicalAbility.bunt),
+          'opposite_field_hitting': player.getTechnicalAbility(TechnicalAbility.oppositeFieldHitting),
+          'pull_hitting': player.getTechnicalAbility(TechnicalAbility.pullHitting),
+          'bat_control_new': player.getTechnicalAbility(TechnicalAbility.batControl),
+          'swing_speed': player.getTechnicalAbility(TechnicalAbility.swingSpeed),
+          'fielding': player.getTechnicalAbility(TechnicalAbility.fielding),
+          'throwing': player.getTechnicalAbility(TechnicalAbility.throwing),
+          'catcher_ability': player.getTechnicalAbility(TechnicalAbility.catcherAbility),
+          'control_new': player.getTechnicalAbility(TechnicalAbility.control),
+          'fastball': player.getTechnicalAbility(TechnicalAbility.fastball),
+          'breaking_ball': player.getTechnicalAbility(TechnicalAbility.breakingBall),
+          'pitch_movement': player.getTechnicalAbility(TechnicalAbility.pitchMovement),
+          // 新しいシステムのMental（メンタル面）能力値
+          'concentration': player.getMentalAbility(MentalAbility.concentration),
+          'anticipation': player.getMentalAbility(MentalAbility.anticipation),
+          'vision': player.getMentalAbility(MentalAbility.vision),
+          'composure': player.getMentalAbility(MentalAbility.composure),
+          'aggression': player.getMentalAbility(MentalAbility.aggression),
+          'bravery': player.getMentalAbility(MentalAbility.bravery),
+          'leadership': player.getMentalAbility(MentalAbility.leadership),
+          'work_rate': player.getMentalAbility(MentalAbility.workRate),
+          'self_discipline': player.getMentalAbility(MentalAbility.selfDiscipline),
+          'ambition': player.getMentalAbility(MentalAbility.ambition),
+          // 新しいシステムのPhysical（フィジカル面）能力値
+          'acceleration': player.getPhysicalAbility(PhysicalAbility.acceleration),
+          'agility': player.getPhysicalAbility(PhysicalAbility.agility),
+          'balance': player.getPhysicalAbility(PhysicalAbility.balance),
+          'jumping_reach': player.getPhysicalAbility(PhysicalAbility.jumpingReach),
+          'flexibility': player.getPhysicalAbility(PhysicalAbility.flexibility),
+          'stamina_new': player.getPhysicalAbility(PhysicalAbility.stamina),
+          'strength': player.getPhysicalAbility(PhysicalAbility.strength),
+          'pace': player.getPhysicalAbility(PhysicalAbility.pace),
         });
         
         // PlayerPotentialsテーブル用データを準備
         if (player.individualPotentials != null) {
           potentialBatch.add({
+            // 古いシステムのポテンシャル
             'control_potential': player.individualPotentials!['control'] ?? 0,
             'stamina_potential': player.individualPotentials!['stamina'] ?? 0,
             'break_avg_potential': player.individualPotentials!['breakAvg'] ?? 0,
@@ -744,6 +778,43 @@ class GameManager {
             'field_potential': player.individualPotentials!['field'] ?? 0,
             'arm_potential': player.individualPotentials!['arm'] ?? 0,
             'fastball_velo_potential': player.individualPotentials!['fastballVelo'] ?? 0,
+            // 新しいシステムのTechnical（技術面）ポテンシャル
+            'contact_potential': player.individualPotentials!['contact'] ?? 0,
+            'power_potential': player.individualPotentials!['power'] ?? 0,
+            'plate_discipline_potential': player.individualPotentials!['plateDiscipline'] ?? 0,
+            'bunt_potential': player.individualPotentials!['bunt'] ?? 0,
+            'opposite_field_hitting_potential': player.individualPotentials!['oppositeFieldHitting'] ?? 0,
+            'pull_hitting_potential': player.individualPotentials!['pullHitting'] ?? 0,
+            'bat_control_new_potential': player.individualPotentials!['batControl'] ?? 0,
+            'swing_speed_potential': player.individualPotentials!['swingSpeed'] ?? 0,
+            'fielding_potential': player.individualPotentials!['fielding'] ?? 0,
+            'throwing_potential': player.individualPotentials!['throwing'] ?? 0,
+            'catcher_ability_potential': player.individualPotentials!['catcherAbility'] ?? 0,
+            'control_new_potential': player.individualPotentials!['control'] ?? 0,
+            'fastball_potential': player.individualPotentials!['fastball'] ?? 0,
+            'breaking_ball_potential': player.individualPotentials!['breakingBall'] ?? 0,
+            'pitch_movement_potential': player.individualPotentials!['pitchMovement'] ?? 0,
+            // 新しいシステムのMental（メンタル面）ポテンシャル
+            'concentration_potential': player.individualPotentials!['concentration'] ?? 0,
+            'anticipation_potential': player.individualPotentials!['anticipation'] ?? 0,
+            'vision_potential': player.individualPotentials!['vision'] ?? 0,
+            'composure_potential': player.individualPotentials!['composure'] ?? 0,
+            'aggression_potential': player.individualPotentials!['aggression'] ?? 0,
+            'bravery_potential': player.individualPotentials!['bravery'] ?? 0,
+            'leadership_potential': player.individualPotentials!['leadership'] ?? 0,
+            'work_rate_potential': player.individualPotentials!['workRate'] ?? 0,
+            'self_discipline_potential': player.individualPotentials!['selfDiscipline'] ?? 0,
+            'ambition_potential': player.individualPotentials!['ambition'] ?? 0,
+            // 新しいシステムのPhysical（フィジカル面）ポテンシャル
+            'acceleration_potential': player.individualPotentials!['acceleration'] ?? 0,
+            'agility_potential': player.individualPotentials!['agility'] ?? 0,
+            'balance_potential': player.individualPotentials!['balance'] ?? 0,
+            'jumping_reach_potential': player.individualPotentials!['jumpingReach'] ?? 0,
+            'natural_fitness_potential': player.individualPotentials!['naturalFitness'] ?? 0,
+            'injury_proneness_potential': player.individualPotentials!['injuryProneness'] ?? 0,
+            'stamina_new_potential': player.individualPotentials!['stamina'] ?? 0,
+            'strength_potential': player.individualPotentials!['strength'] ?? 0,
+            'pace_potential': player.individualPotentials!['pace'] ?? 0,
           });
         }
         
@@ -962,17 +1033,20 @@ class GameManager {
     return 128; // それ以外は128km/hまで
   }
   
-  // デフォルトのポジション適性を生成
+  // 能力値に基づくポジション適性を生成
   Map<String, int> _generateDefaultPositionFit(String position) {
     const positions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '外野手'];
     final fit = <String, int>{};
+    
+    // 基本適性値を設定
     for (final pos in positions) {
       if (pos == position) {
-        fit[pos] = 80; // メインポジション
+        fit[pos] = 70 + Random().nextInt(21); // 70-90（メインポジション）
       } else {
-        fit[pos] = 50; // サブポジション
+        fit[pos] = 40 + Random().nextInt(31); // 40-70（サブポジション）
       }
     }
+    
     return fit;
   }
   
@@ -1016,9 +1090,6 @@ class GameManager {
     final mentalGrit = 0.5 + (random.nextDouble() * 0.3); // 0.5-0.8
     final growthRate = 0.9 + (random.nextDouble() * 0.3); // 0.9-1.2
     
-    // 簡素化された能力値生成（パフォーマンス向上のため）
-    final abilities = _generateSimplifiedAbilities(talent, grade, position, random);
-    
     // 球種を生成（投手の場合）
     final pitches = <Pitch>[];
     if (position == '投手') {
@@ -1045,16 +1116,13 @@ class GameManager {
       }
     }
     
-    // 簡素化された個別ポテンシャル生成
+    // 個別ポテンシャル生成（才能ランクに基づく）
     final individualPotentials = _generateSimplifiedPotentials(talent, random);
     
     // 新しい能力値システムを生成
-    final technicalAbilities = PlayerGenerator.generateTechnicalAbilities(talent, position);
-    final mentalAbilities = PlayerGenerator.generateMentalAbilities(talent);
-    final physicalAbilities = PlayerGenerator.generatePhysicalAbilities(talent, position);
-    final technicalPotentials = PlayerGenerator.generateTechnicalPotentials(talent, position);
-    final mentalPotentials = PlayerGenerator.generateMentalPotentials(talent);
-    final physicalPotentials = PlayerGenerator.generatePhysicalPotentials(talent, position);
+    final technicalAbilities = _generateTechnicalAbilities(talent, grade, position, random);
+    final mentalAbilities = _generateMentalAbilities(talent, grade, random);
+    final physicalAbilities = _generatePhysicalAbilities(talent, grade, random);
     
     return Player(
       name: name,
@@ -1062,22 +1130,10 @@ class GameManager {
       grade: grade,
       position: position,
       personality: personality,
-      fastballVelo: abilities['fastballVelo'] ?? 125,
-      control: abilities['control'] ?? 25,
-      stamina: abilities['stamina'] ?? 25,
-      breakAvg: abilities['breakAvg'] ?? 25,
       pitches: pitches,
-      batPower: abilities['batPower'] ?? 25,
-      batControl: abilities['batControl'] ?? 25,
-      run: abilities['run'] ?? 25,
-      field: abilities['field'] ?? 25,
-      arm: abilities['arm'] ?? 25,
       technicalAbilities: technicalAbilities,
       mentalAbilities: mentalAbilities,
       physicalAbilities: physicalAbilities,
-      technicalPotentials: technicalPotentials,
-      mentalPotentials: mentalPotentials,
-      physicalPotentials: physicalPotentials,
       mentalGrit: mentalGrit,
       growthRate: growthRate,
       peakAbility: individualPotentials.values.reduce((a, b) => a + b) ~/ individualPotentials.length, // 平均ポテンシャル
@@ -1088,72 +1144,121 @@ class GameManager {
     );
   }
   
-  // 簡素化された能力値生成（パフォーマンス向上のため）
-  Map<String, int> _generateSimplifiedAbilities(int talent, int grade, String position, Random random) {
-    final abilities = <String, int>{};
-    
-    // 才能ランクに基づく基本能力値を決定
+
+  
+  // 新しい能力値システムの生成
+  Map<TechnicalAbility, int> _generateTechnicalAbilities(int talent, int grade, String position, Random random) {
+    final abilities = <TechnicalAbility, int>{};
     final baseAbility = _getBaseAbilityByTalent(talent);
     final gradeMultiplier = _getGradeMultiplier(grade);
     
     // 才能ランク6の怪物は特別な上限を設定
     final maxAbility = talent == 6 ? 90 : 100;
     
-    // 投手能力値
-    abilities['control'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
-    abilities['stamina'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
-    abilities['breakAvg'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
-    
-    // 野手能力値
-    abilities['batPower'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
-    abilities['batControl'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
-    abilities['run'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
-    abilities['field'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
-    abilities['arm'] = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
-    
-    // 球速（学年・ポジション別制限）
-    final baseVelocity = _getBaseVelocityByTalent(talent);
-    final maxVelocity = _getMaxVelocityByGradeAndPosition(grade, position, baseVelocity);
-    
-    if (position == '投手') {
-      // 投手は学年に応じた制限
-      abilities['fastballVelo'] = (baseVelocity + random.nextInt(20)).clamp(125, maxVelocity);
-    } else {
-      // 野手は球速を制限（投手能力が高い選手でも現実的な範囲に）
-      final fielderMaxVelocity = _getMaxVelocityForFielder(baseVelocity);
-      abilities['fastballVelo'] = (baseVelocity + random.nextInt(15)).clamp(125, fielderMaxVelocity);
+    // Technical abilitiesを生成
+    for (final ability in TechnicalAbility.values) {
+      final baseValue = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+      abilities[ability] = baseValue;
     }
     
-    // ポジション別調整
+    // ポジション別調整を適用
     if (position == '投手') {
-      abilities['control'] = (abilities['control']! + random.nextInt(21)).clamp(25, 100);
-      abilities['stamina'] = (abilities['stamina']! + random.nextInt(21)).clamp(25, 100);
-      abilities['breakAvg'] = (abilities['breakAvg']! + random.nextInt(21)).clamp(25, 100);
+      abilities[TechnicalAbility.control] = (abilities[TechnicalAbility.control]! + random.nextInt(21)).clamp(25, 100);
+      abilities[TechnicalAbility.fastball] = (abilities[TechnicalAbility.fastball]! + random.nextInt(21)).clamp(25, 100);
+      abilities[TechnicalAbility.breakingBall] = (abilities[TechnicalAbility.breakingBall]! + random.nextInt(21)).clamp(25, 100);
+      abilities[TechnicalAbility.pitchMovement] = (abilities[TechnicalAbility.pitchMovement]! + random.nextInt(21)).clamp(25, 100);
     } else {
-      abilities['batPower'] = (abilities['batPower']! + random.nextInt(21)).clamp(25, 100);
-      abilities['batControl'] = (abilities['batControl']! + random.nextInt(21)).clamp(25, 100);
-      abilities['run'] = (abilities['run']! + random.nextInt(21)).clamp(25, 100);
-      abilities['field'] = (abilities['field']! + random.nextInt(21)).clamp(25, 100);
-      abilities['arm'] = (abilities['arm']! + random.nextInt(21)).clamp(25, 100);
+      abilities[TechnicalAbility.contact] = (abilities[TechnicalAbility.contact]! + random.nextInt(21)).clamp(25, 100);
+      abilities[TechnicalAbility.power] = (abilities[TechnicalAbility.power]! + random.nextInt(21)).clamp(25, 100);
+      abilities[TechnicalAbility.batControl] = (abilities[TechnicalAbility.batControl]! + random.nextInt(21)).clamp(25, 100);
+      abilities[TechnicalAbility.fielding] = (abilities[TechnicalAbility.fielding]! + random.nextInt(21)).clamp(25, 100);
+      abilities[TechnicalAbility.throwing] = (abilities[TechnicalAbility.throwing]! + random.nextInt(21)).clamp(25, 100);
     }
     
     return abilities;
   }
   
-  // 簡素化された個別ポテンシャル生成
+  Map<MentalAbility, int> _generateMentalAbilities(int talent, int grade, Random random) {
+    final abilities = <MentalAbility, int>{};
+    final baseAbility = _getBaseAbilityByTalent(talent);
+    final gradeMultiplier = _getGradeMultiplier(grade);
+    
+    // 才能ランク6の怪物は特別な上限を設定
+    final maxAbility = talent == 6 ? 90 : 100;
+    
+    // Mental abilitiesを生成
+    for (final ability in MentalAbility.values) {
+      final baseValue = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+      abilities[ability] = baseValue;
+    }
+    
+    return abilities;
+  }
+  
+  Map<PhysicalAbility, int> _generatePhysicalAbilities(int talent, int grade, Random random) {
+    final abilities = <PhysicalAbility, int>{};
+    final baseAbility = _getBaseAbilityByTalent(talent);
+    final gradeMultiplier = _getGradeMultiplier(grade);
+    
+    // 才能ランク6の怪物は特別な上限を設定
+    final maxAbility = talent == 6 ? 90 : 100;
+    
+    // Physical abilitiesを生成
+    for (final ability in PhysicalAbility.values) {
+      final baseValue = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+      abilities[ability] = baseValue;
+    }
+    
+    return abilities;
+  }
+  
+  // 新しい能力値システムに対応した個別ポテンシャル生成
   Map<String, int> _generateSimplifiedPotentials(int talent, Random random) {
     final potentials = <String, int>{};
     final basePotential = _getBasePotentialByTalent(talent);
     
-    // 各能力値のポテンシャルを生成
-    final abilities = ['control', 'stamina', 'breakAvg', 'batPower', 'batControl', 'run', 'field', 'arm'];
-    for (final ability in abilities) {
+    // 古いシステムの能力値ポテンシャルを生成
+    final oldAbilities = ['control', 'stamina', 'breakAvg', 'batPower', 'batControl', 'run', 'field', 'arm'];
+    for (final ability in oldAbilities) {
       potentials[ability] = (basePotential + random.nextInt(30) - 15).clamp(50, 150);
     }
     
     // 球速ポテンシャル
     final baseVelocity = _getBaseVelocityByTalent(talent);
     potentials['fastballVelo'] = (baseVelocity + random.nextInt(30) - 15).clamp(125, 170);
+    
+    // 新しい能力値システムのポテンシャルを生成
+    // Technical（技術面）能力値
+    final technicalAbilities = [
+      'contact', 'power', 'plateDiscipline', 'bunt', 'oppositeFieldHitting', 
+      'pullHitting', 'batControl', 'swingSpeed', 'fielding', 'throwing', 
+      'catcherAbility', 'control', 'fastball', 'breakingBall', 'pitchMovement'
+    ];
+    
+    // Mental（メンタル面）能力値
+    final mentalAbilities = [
+      'concentration', 'anticipation', 'vision', 'composure', 'aggression', 
+      'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition'
+    ];
+    
+    // Physical（フィジカル面）能力値
+    final physicalAbilities = [
+      'acceleration', 'agility', 'balance', 'jumpingReach', 'naturalFitness', 
+      'injuryProneness', 'stamina', 'strength', 'pace'
+    ];
+    
+    // 各カテゴリのポテンシャルを生成
+    for (final ability in technicalAbilities) {
+      potentials[ability] = (basePotential + random.nextInt(30) - 15).clamp(50, 150);
+    }
+    
+    for (final ability in mentalAbilities) {
+      potentials[ability] = (basePotential + random.nextInt(30) - 15).clamp(50, 150);
+    }
+    
+    for (final ability in physicalAbilities) {
+      potentials[ability] = (basePotential + random.nextInt(30) - 15).clamp(50, 150);
+    }
     
     return potentials;
   }
@@ -1331,6 +1436,7 @@ class GameManager {
     for (final p in potentialMaps) {
       final playerId = p['player_id'] as int;
       potentials[playerId] = {
+        // 古いシステムのポテンシャル
         'control': p['control_potential'] as int? ?? 0,
         'stamina': p['stamina_potential'] as int? ?? 0,
         'breakAvg': p['break_avg_potential'] as int? ?? 0,
@@ -1340,6 +1446,40 @@ class GameManager {
         'field': p['field_potential'] as int? ?? 0,
         'arm': p['arm_potential'] as int? ?? 0,
         'fastballVelo': p['fastball_velo_potential'] as int? ?? 0,
+        // 新しいシステムのTechnical（技術面）ポテンシャル
+        'contact': p['contact_potential'] as int? ?? 0,
+        'power': p['power_potential'] as int? ?? 0,
+        'plateDiscipline': p['plate_discipline_potential'] as int? ?? 0,
+        'bunt': p['bunt_potential'] as int? ?? 0,
+        'oppositeFieldHitting': p['opposite_field_hitting_potential'] as int? ?? 0,
+        'pullHitting': p['pull_hitting_potential'] as int? ?? 0,
+        'swingSpeed': p['swing_speed_potential'] as int? ?? 0,
+        'fielding': p['fielding_potential'] as int? ?? 0,
+        'throwing': p['throwing_potential'] as int? ?? 0,
+        'catcherAbility': p['catcher_ability_potential'] as int? ?? 0,
+        'fastball': p['fastball_potential'] as int? ?? 0,
+        'breakingBall': p['breaking_ball_potential'] as int? ?? 0,
+        'pitchMovement': p['pitch_movement_potential'] as int? ?? 0,
+        // 新しいシステムのMental（メンタル面）ポテンシャル
+        'concentration': p['concentration_potential'] as int? ?? 0,
+        'anticipation': p['anticipation_potential'] as int? ?? 0,
+        'vision': p['vision_potential'] as int? ?? 0,
+        'composure': p['composure_potential'] as int? ?? 0,
+        'aggression': p['aggression_potential'] as int? ?? 0,
+        'bravery': p['bravery_potential'] as int? ?? 0,
+        'leadership': p['leadership_potential'] as int? ?? 0,
+        'workRate': p['work_rate_potential'] as int? ?? 0,
+        'selfDiscipline': p['self_discipline_potential'] as int? ?? 0,
+        'ambition': p['ambition_potential'] as int? ?? 0,
+        // 新しいシステムのPhysical（フィジカル面）ポテンシャル
+        'acceleration': p['acceleration_potential'] as int? ?? 0,
+        'agility': p['agility_potential'] as int? ?? 0,
+        'balance': p['balance_potential'] as int? ?? 0,
+        'jumpingReach': p['jumping_reach_potential'] as int? ?? 0,
+        'naturalFitness': p['natural_fitness_potential'] as int? ?? 0,
+        'injuryProneness': p['injury_proneness_potential'] as int? ?? 0,
+        'strength': p['strength_potential'] as int? ?? 0,
+        'pace': p['pace_potential'] as int? ?? 0,
       };
     }
     
@@ -1350,33 +1490,49 @@ class GameManager {
         final playerId = p['id'] as int;
         final individualPotentials = potentials[playerId];
         
-        // 新しい能力値システムの復元
-        final technicalAbilitiesJson = p['technical_abilities'] as String? ?? '{}';
-        final mentalAbilitiesJson = p['mental_abilities'] as String? ?? '{}';
-        final physicalAbilitiesJson = p['physical_abilities'] as String? ?? '{}';
-        
-        final technicalAbilitiesMap = Map<String, dynamic>.from(jsonDecode(technicalAbilitiesJson));
-        final mentalAbilitiesMap = Map<String, dynamic>.from(jsonDecode(mentalAbilitiesJson));
-        final physicalAbilitiesMap = Map<String, dynamic>.from(jsonDecode(physicalAbilitiesJson));
-        
+        // 新しい能力値システムの復元（データベースから直接読み込み）
         final technicalAbilities = <TechnicalAbility, int>{};
         final mentalAbilities = <MentalAbility, int>{};
         final physicalAbilities = <PhysicalAbility, int>{};
         
         // Technical abilities復元
-        for (final ability in TechnicalAbility.values) {
-          technicalAbilities[ability] = technicalAbilitiesMap[ability.name] as int? ?? 25;
-        }
+        technicalAbilities[TechnicalAbility.contact] = p['contact'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.power] = p['power'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.plateDiscipline] = p['plate_discipline'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.bunt] = p['bunt'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.oppositeFieldHitting] = p['opposite_field_hitting'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.pullHitting] = p['pull_hitting'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.batControl] = p['bat_control_new'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.swingSpeed] = p['swing_speed'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.fielding] = p['fielding'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.throwing] = p['throwing'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.catcherAbility] = p['catcher_ability'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.control] = p['control_new'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.fastball] = p['fastball'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.breakingBall] = p['breaking_ball'] as int? ?? 25;
+        technicalAbilities[TechnicalAbility.pitchMovement] = p['pitch_movement'] as int? ?? 25;
         
         // Mental abilities復元
-        for (final ability in MentalAbility.values) {
-          mentalAbilities[ability] = mentalAbilitiesMap[ability.name] as int? ?? 25;
-        }
+        mentalAbilities[MentalAbility.concentration] = p['concentration'] as int? ?? 25;
+        mentalAbilities[MentalAbility.anticipation] = p['anticipation'] as int? ?? 25;
+        mentalAbilities[MentalAbility.vision] = p['vision'] as int? ?? 25;
+        mentalAbilities[MentalAbility.composure] = p['composure'] as int? ?? 25;
+        mentalAbilities[MentalAbility.aggression] = p['aggression'] as int? ?? 25;
+        mentalAbilities[MentalAbility.bravery] = p['bravery'] as int? ?? 25;
+        mentalAbilities[MentalAbility.leadership] = p['leadership'] as int? ?? 25;
+        mentalAbilities[MentalAbility.workRate] = p['work_rate'] as int? ?? 25;
+        mentalAbilities[MentalAbility.selfDiscipline] = p['self_discipline'] as int? ?? 25;
+        mentalAbilities[MentalAbility.ambition] = p['ambition'] as int? ?? 25;
         
         // Physical abilities復元
-        for (final ability in PhysicalAbility.values) {
-          physicalAbilities[ability] = physicalAbilitiesMap[ability.name] as int? ?? 25;
-        }
+        physicalAbilities[PhysicalAbility.acceleration] = p['acceleration'] as int? ?? 25;
+        physicalAbilities[PhysicalAbility.agility] = p['agility'] as int? ?? 25;
+        physicalAbilities[PhysicalAbility.balance] = p['balance'] as int? ?? 25;
+        physicalAbilities[PhysicalAbility.jumpingReach] = p['jumping_reach'] as int? ?? 25;
+        physicalAbilities[PhysicalAbility.flexibility] = p['flexibility'] as int? ?? 25;
+        physicalAbilities[PhysicalAbility.stamina] = p['stamina_new'] as int? ?? 25;
+        physicalAbilities[PhysicalAbility.strength] = p['strength'] as int? ?? 25;
+        physicalAbilities[PhysicalAbility.pace] = p['pace'] as int? ?? 25;
         
         final player = Player(
           name: person['name'] as String? ?? '名無し',

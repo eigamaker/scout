@@ -63,9 +63,43 @@ class DataService {
             growth_type TEXT,
             mental_grit REAL,
             peak_ability INTEGER,
-            technical_abilities TEXT,
-            mental_abilities TEXT,
-            physical_abilities TEXT
+            -- 新しいシステムのTechnical（技術面）能力値
+            contact INTEGER,
+            power INTEGER,
+            plate_discipline INTEGER,
+            bunt INTEGER,
+            opposite_field_hitting INTEGER,
+            pull_hitting INTEGER,
+            bat_control_new INTEGER,
+            swing_speed INTEGER,
+            fielding INTEGER,
+            throwing INTEGER,
+            catcher_ability INTEGER,
+            control_new INTEGER,
+            fastball INTEGER,
+            breaking_ball INTEGER,
+            pitch_movement INTEGER,
+            -- 新しいシステムのMental（メンタル面）能力値
+            concentration INTEGER,
+            anticipation INTEGER,
+            vision INTEGER,
+            composure INTEGER,
+            aggression INTEGER,
+            bravery INTEGER,
+            leadership INTEGER,
+            work_rate INTEGER,
+            self_discipline INTEGER,
+            ambition INTEGER,
+            -- 新しいシステムのPhysical（フィジカル面）能力値
+            acceleration INTEGER,
+            agility INTEGER,
+            balance INTEGER,
+            jumping_reach INTEGER,
+            natural_fitness INTEGER,
+            injury_proneness INTEGER,
+            stamina_new INTEGER,
+            strength INTEGER,
+            pace INTEGER
           )
         ''');
         
@@ -74,6 +108,7 @@ class DataService {
           CREATE TABLE PlayerPotentials (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             player_id INTEGER,
+            -- 古いシステムのポテンシャル
             control_potential INTEGER,
             stamina_potential INTEGER,
             break_avg_potential INTEGER,
@@ -83,6 +118,43 @@ class DataService {
             field_potential INTEGER,
             arm_potential INTEGER,
             fastball_velo_potential INTEGER,
+            -- 新しいシステムのTechnical（技術面）ポテンシャル
+            contact_potential INTEGER,
+            power_potential INTEGER,
+            plate_discipline_potential INTEGER,
+            bunt_potential INTEGER,
+            opposite_field_hitting_potential INTEGER,
+            pull_hitting_potential INTEGER,
+            bat_control_new_potential INTEGER,
+            swing_speed_potential INTEGER,
+            fielding_potential INTEGER,
+            throwing_potential INTEGER,
+            catcher_ability_potential INTEGER,
+            control_new_potential INTEGER,
+            fastball_potential INTEGER,
+            breaking_ball_potential INTEGER,
+            pitch_movement_potential INTEGER,
+            -- 新しいシステムのMental（メンタル面）ポテンシャル
+            concentration_potential INTEGER,
+            anticipation_potential INTEGER,
+            vision_potential INTEGER,
+            composure_potential INTEGER,
+            aggression_potential INTEGER,
+            bravery_potential INTEGER,
+            leadership_potential INTEGER,
+            work_rate_potential INTEGER,
+            self_discipline_potential INTEGER,
+            ambition_potential INTEGER,
+            -- 新しいシステムのPhysical（フィジカル面）ポテンシャル
+            acceleration_potential INTEGER,
+            agility_potential INTEGER,
+            balance_potential INTEGER,
+            jumping_reach_potential INTEGER,
+            natural_fitness_potential INTEGER,
+            injury_proneness_potential INTEGER,
+            stamina_new_potential INTEGER,
+            strength_potential INTEGER,
+            pace_potential INTEGER,
             FOREIGN KEY (player_id) REFERENCES Player (id)
           )
         ''');

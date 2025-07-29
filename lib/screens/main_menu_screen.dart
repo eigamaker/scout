@@ -6,6 +6,7 @@ import 'slot_select_screen.dart';
 import 'slot_copy_screen.dart';
 import 'package:sqflite/sqflite.dart';
 import 'game_screen.dart'; // Added import for GameScreen
+import '../config/debug_config.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -136,6 +137,29 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 }
               },
               child: const Text('セーブデータコピー'),
+            ),
+            const SizedBox(height: 20),
+            // デバッグモード切り替えボタン
+            ElevatedButton(
+              onPressed: () {
+                DebugConfig.toggleAllDebugFeatures();
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      DebugConfig.isDebugMode 
+                        ? 'デバッグモードを有効にしました' 
+                        : 'デバッグモードを無効にしました'
+                    ),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DebugConfig.isDebugMode ? Colors.orange : null,
+              ),
+              child: Text(
+                DebugConfig.isDebugMode ? 'デバッグモード: ON' : 'デバッグモード: OFF'
+              ),
             ),
 
           ],
