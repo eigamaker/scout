@@ -9,22 +9,18 @@ class PlayerGenerator {
   // テスト用の選手データを生成
   static List<Player> generateTestPlayers() {
     return [
-      // 超有名選手（U-15日本代表 + 全国大会優勝）
+      // 超有名選手（怪物級）
       Player(
         name: '田中 翔太',
         school: '甲子園高校',
         grade: 1,
         position: '投手',
-        personality: '真面目',
+        personality: 'リーダー',
         trustLevel: 80,
         fame: 100,
         isWatched: true,
         isDiscovered: true,
         isPubliclyKnown: true,
-        fastballVelo: 155,
-        control: 85,
-        stamina: 90,
-        breakAvg: 80,
         technicalAbilities: generateTechnicalAbilities(5, '投手'),
         mentalAbilities: generateMentalAbilities(5),
         physicalAbilities: generatePhysicalAbilities(5, '投手'),
@@ -34,6 +30,7 @@ class PlayerGenerator {
         positionFit: {'投手': 95, '野手': 30},
         talent: 5,
         growthType: '早期型',
+        individualPotentials: generateIndividualPotentials(5, '投手'),
         achievements: [
           Achievement.create(
             type: AchievementType.u15NationalTeam,
@@ -68,11 +65,6 @@ class PlayerGenerator {
         isWatched: true,
         isDiscovered: true,
         isPubliclyKnown: true,
-        batPower: 90,
-        batControl: 85,
-        run: 95,
-        field: 80,
-        arm: 85,
         technicalAbilities: generateTechnicalAbilities(4, '外野手'),
         mentalAbilities: generateMentalAbilities(4),
         physicalAbilities: generatePhysicalAbilities(4, '外野手'),
@@ -82,6 +74,7 @@ class PlayerGenerator {
         positionFit: {'外野手': 90, '内野手': 70, '投手': 20},
         talent: 4,
         growthType: '標準型',
+        individualPotentials: generateIndividualPotentials(4, '外野手'),
         achievements: [
           Achievement.create(
             type: AchievementType.u18NationalTeam,
@@ -110,10 +103,6 @@ class PlayerGenerator {
         isWatched: false,
         isDiscovered: true,
         isPubliclyKnown: false,
-        fastballVelo: 145,
-        control: 75,
-        stamina: 80,
-        breakAvg: 70,
         technicalAbilities: generateTechnicalAbilities(3, '投手'),
         mentalAbilities: generateMentalAbilities(3),
         physicalAbilities: generatePhysicalAbilities(3, '投手'),
@@ -123,6 +112,7 @@ class PlayerGenerator {
         positionFit: {'投手': 85, '野手': 25},
         talent: 3,
         growthType: '晩成型',
+        individualPotentials: generateIndividualPotentials(3, '投手'),
         achievements: [
           Achievement.create(
             type: AchievementType.regionalChampionship,
@@ -151,11 +141,6 @@ class PlayerGenerator {
         isWatched: false,
         isDiscovered: false,
         isPubliclyKnown: false,
-        batPower: 70,
-        batControl: 75,
-        run: 80,
-        field: 85,
-        arm: 70,
         technicalAbilities: generateTechnicalAbilities(2, '内野手'),
         mentalAbilities: generateMentalAbilities(2),
         physicalAbilities: generatePhysicalAbilities(2, '内野手'),
@@ -165,6 +150,7 @@ class PlayerGenerator {
         positionFit: {'内野手': 80, '外野手': 60, '投手': 15},
         talent: 2,
         growthType: '標準型',
+        individualPotentials: generateIndividualPotentials(2, '内野手'),
         achievements: [
           Achievement.create(
             type: AchievementType.leagueChampionship,
@@ -187,10 +173,6 @@ class PlayerGenerator {
         isWatched: false,
         isDiscovered: false,
         isPubliclyKnown: false,
-        fastballVelo: 135,
-        control: 60,
-        stamina: 65,
-        breakAvg: 55,
         technicalAbilities: generateTechnicalAbilities(1, '投手'),
         mentalAbilities: generateMentalAbilities(1),
         physicalAbilities: generatePhysicalAbilities(1, '投手'),
@@ -200,6 +182,7 @@ class PlayerGenerator {
         positionFit: {'投手': 70, '野手': 20},
         talent: 1,
         growthType: '晩成型',
+        individualPotentials: generateIndividualPotentials(1, '投手'),
         achievements: [],
       ),
 
@@ -215,11 +198,6 @@ class PlayerGenerator {
         isWatched: false,
         isDiscovered: false,
         isPubliclyKnown: false,
-        batPower: 60,
-        batControl: 65,
-        run: 95,
-        field: 70,
-        arm: 75,
         technicalAbilities: generateTechnicalAbilities(4, '外野手'),
         mentalAbilities: generateMentalAbilities(4),
         physicalAbilities: generatePhysicalAbilities(4, '外野手'),
@@ -229,6 +207,7 @@ class PlayerGenerator {
         positionFit: {'外野手': 90, '内野手': 60, '投手': 30},
         talent: 4,
         growthType: '晩成型',
+        individualPotentials: generateIndividualPotentials(4, '外野手'),
         achievements: [],
       ),
 
@@ -244,10 +223,6 @@ class PlayerGenerator {
         isWatched: true,
         isDiscovered: true,
         isPubliclyKnown: false,
-        fastballVelo: 140,
-        control: 70,
-        stamina: 75,
-        breakAvg: 65,
         technicalAbilities: generateTechnicalAbilities(2, '投手'),
         mentalAbilities: generateMentalAbilities(2),
         physicalAbilities: generatePhysicalAbilities(2, '投手'),
@@ -257,6 +232,7 @@ class PlayerGenerator {
         positionFit: {'投手': 80, '野手': 25},
         talent: 2,
         growthType: '標準型',
+        individualPotentials: generateIndividualPotentials(2, '投手'),
         achievements: [],
       ),
 
@@ -272,11 +248,6 @@ class PlayerGenerator {
         isWatched: true,
         isDiscovered: true,
         isPubliclyKnown: false,
-        batPower: 75,
-        batControl: 80,
-        run: 85,
-        field: 90,
-        arm: 70,
         technicalAbilities: generateTechnicalAbilities(3, '内野手'),
         mentalAbilities: generateMentalAbilities(3),
         physicalAbilities: generatePhysicalAbilities(3, '内野手'),
@@ -286,6 +257,7 @@ class PlayerGenerator {
         positionFit: {'内野手': 85, '外野手': 65, '投手': 20},
         talent: 3,
         growthType: '早期型',
+        individualPotentials: generateIndividualPotentials(3, '内野手'),
         achievements: [],
       ),
     ];
@@ -368,7 +340,9 @@ class PlayerGenerator {
         }
       }
       
-      abilities[ability] = baseValue.clamp(25, 100);
+      // 怪物級（才能ランク6）は上限90
+      final maxValue = talent == 6 ? 90 : 100;
+      abilities[ability] = baseValue.clamp(25, maxValue);
     }
     
     return abilities;
@@ -376,13 +350,13 @@ class PlayerGenerator {
   
   static int _getBaseAbilityByTalent(int talent) {
     switch (talent) {
-      case 1: return 35;
-      case 2: return 45;
-      case 3: return 55;
-      case 4: return 65;
-      case 5: return 75;
-      case 6: return 85; // 怪物級の基本能力値
-      default: return 45;
+      case 1: return 25; // 25-45（高校生全体の下限）
+      case 2: return 35; // 35-55
+      case 3: return 45; // 45-65
+      case 4: return 55; // 55-75
+      case 5: return 65; // 65-85
+      case 6: return 75; // 75-90（怪物級は上限90）
+      default: return 35;
     }
   }
   
@@ -401,7 +375,9 @@ class PlayerGenerator {
       // ランダムな変動
       baseValue += _random.nextInt(11) - 5; // -5から+5の変動
       
-      abilities[ability] = baseValue.clamp(25, 100);
+      // 怪物級（才能ランク6）は上限90
+      final maxValue = talent == 6 ? 90 : 100;
+      abilities[ability] = baseValue.clamp(25, maxValue);
     }
     
     return abilities;
@@ -438,7 +414,9 @@ class PlayerGenerator {
           break;
       }
       
-      abilities[ability] = baseValue.clamp(25, 100);
+      // 怪物級（才能ランク6）は上限90
+      final maxValue = talent == 6 ? 90 : 100;
+      abilities[ability] = baseValue.clamp(25, maxValue);
     }
     
     return abilities;
@@ -555,13 +533,38 @@ class PlayerGenerator {
   
   static int _getBasePotentialByTalent(int talent) {
     switch (talent) {
-      case 1: return 65;
-      case 2: return 75;
-      case 3: return 85;
-      case 4: return 95;
-      case 5: return 105;
-      case 6: return 130; // 怪物級のポテンシャル
-      default: return 75;
+      case 1: return 75; // 75-95（現在値25-45を確実に上回る）
+      case 2: return 85; // 85-105
+      case 3: return 95; // 95-115
+      case 4: return 105; // 105-125
+      case 5: return 115; // 115-135
+      case 6: return 140; // 140-150（怪物級の伝説級ポテンシャル）
+      default: return 85;
     }
   }
-} 
+  
+  // 能力値システムに対応した個別ポテンシャル生成
+  static Map<String, int> generateIndividualPotentials(int talent, String position) {
+    final potentials = <String, int>{};
+    
+    // Technical（技術面）能力値ポテンシャル
+    final technicalPotentials = generateTechnicalPotentials(talent, position);
+    for (final entry in technicalPotentials.entries) {
+      potentials[entry.key.name] = entry.value;
+    }
+    
+    // Mental（メンタル面）能力値ポテンシャル
+    final mentalPotentials = generateMentalPotentials(talent);
+    for (final entry in mentalPotentials.entries) {
+      potentials[entry.key.name] = entry.value;
+    }
+    
+    // Physical（フィジカル面）能力値ポテンシャル
+    final physicalPotentials = generatePhysicalPotentials(talent, position);
+    for (final entry in physicalPotentials.entries) {
+      potentials[entry.key.name] = entry.value;
+    }
+    
+    return potentials;
+  }
+}

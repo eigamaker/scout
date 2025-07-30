@@ -89,10 +89,10 @@ class Player {
     required this.positionFit,
     required this.talent,
     required this.growthType,
-          this.individualPotentials,
-      Map<TechnicalAbility, int>? technicalPotentials,
-      Map<MentalAbility, int>? mentalPotentials,
-      Map<PhysicalAbility, int>? physicalPotentials,
+    this.individualPotentials,
+    Map<TechnicalAbility, int>? technicalPotentials,
+    Map<MentalAbility, int>? mentalPotentials,
+    Map<PhysicalAbility, int>? physicalPotentials,
     this.scoutEvaluation,
     this.scoutNotes,
     Map<String, int>? abilityKnowledge,
@@ -211,17 +211,11 @@ class Player {
     return technicalAbilities[ability] ?? 25;
   }
   
-  // 球速を実際のkm/hに変換（新しい能力値システム用）
+  // 球速を実際のkm/hに変換
   int getFastballVelocityKmh() {
     final fastballAbility = getTechnicalAbility(TechnicalAbility.fastball);
     // 100段階の能力値を125-155km/hの範囲に変換
     return 125 + ((fastballAbility - 25) * 30 / 75).round();
-  }
-  
-  // 球速を実際のkm/hに変換（古いシステム用）
-  int getFastballVelocityKmhOld() {
-    // 古いシステムは削除されたため、新しいシステムの値を返す
-    return getFastballVelocityKmh();
   }
   
   int getMentalAbility(MentalAbility ability) {

@@ -1,6 +1,8 @@
 import 'dart:math';
 import '../player/player.dart';
 import '../player/pitch.dart';
+import '../player/player_abilities.dart';
+import '../../services/player_generator.dart';
 
 // 高校クラス
 class School {
@@ -18,103 +20,76 @@ class School {
     required this.coachName,
   });
   
-  // 新しい選手を生成（個別ポテンシャルシステムを使用）
-  Player generateNewPlayer(int grade) {
-    final names = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
-    final personalities = ['真面目', '明るい', 'クール', 'リーダー', '努力家'];
+  School copyWith({
+    String? name,
+    String? location,
+    List<Player>? players,
+    int? coachTrust,
+    String? coachName,
+  }) {
+    return School(
+      name: name ?? this.name,
+      location: location ?? this.location,
+      players: players ?? this.players,
+      coachTrust: coachTrust ?? this.coachTrust,
+      coachName: coachName ?? this.coachName,
+    );
+  }
+
+  // 選手を生成（個別ポテンシャルシステムを使用）
+  Player generatePlayer({
+    required String position,
+    required String personality,
+    required int talentRank,
+    required Random random,
+  }) {
+    // 能力値システムの生成
+    final technicalAbilities = PlayerGenerator.generateTechnicalAbilities(talentRank, position);
+    final mentalAbilities = PlayerGenerator.generateMentalAbilities(talentRank);
+    final physicalAbilities = PlayerGenerator.generatePhysicalAbilities(talentRank, position);
     
-    // 現実的なポジション分布でランダムポジション決定
-    final position = _randomPosition();
-    final personality = personalities[Random().nextInt(personalities.length)];
-    final name = names[Random().nextInt(names.length)] + 
-                (Random().nextInt(999) + 1).toString().padLeft(3, '0');
+    // 個別ポテンシャルの生成
+    final individualPotentials = _generateIndividualPotentials(talentRank, random);
     
-    // GameManagerのgeneratePlayerメソッドを使用して選手を生成
-    // 注意: このメソッドはGameManagerのインスタンスが必要ですが、
-    // Schoolクラスからは直接アクセスできないため、簡易版を実装
+    // 球種の生成（投手のみ）
+    final pitches = position == '投手' ? _generatePitches(talentRank, random) : <Pitch>[];
     
-    final random = Random();
+    // 隠し能力値の生成
+    final mentalGrit = 0.5 + random.nextDouble() * 0.3; // 0.5-0.8
+    final growthRate = 0.9 + random.nextDouble() * 0.3; // 0.9-1.2
+    final peakAbility = _getMinPotentialByTalent(talentRank) + random.nextInt(_getMaxPotentialByTalent(talentRank) - _getMinPotentialByTalent(talentRank));
     
-    // 才能ランク（1〜5）
-    final talent = _randomTalent(random);
-    // 成長タイプ
-    final growthType = _randomGrowthType(random);
-    // 全ポジション適性
-    final positionFit = _randomPositionFit(position, random);
-    // メンタル・成長率
-    final mentalGrit = 0.5 + (random.nextDouble() * 0.3); // 0.5-0.8
-    final growthRate = 0.9 + (random.nextDouble() * 0.3); // 0.9-1.2
+    // 成長タイプの決定
+    final growthType = _determineGrowthType(random);
     
-    // 1. 個別ポテンシャルを生成
-    final individualPotentials = _generateIndividualPotentials(talent, random);
+    // 知名度の決定
+    final fame = _determineFame(talentRank, random);
     
-    // 2. 能力バランスを調整
-    final balancedPotentials = _adjustPotentialsForBalance(individualPotentials, talent, random);
-    
-    // 3. 初期能力値を生成
-    final initialAbilities = _generateInitialAbilities(balancedPotentials, grade, mentalGrit, growthRate, talent, growthType, random);
-    
-    // 4. 学年別確率調整を適用
-    final adjustedAbilities = _applyGradeAdjustments(initialAbilities, grade, random);
-    
-    // 5. ポジション別調整を適用
-    final finalAbilities = _applyPositionAdjustments(adjustedAbilities, position, random);
-    
-    // 球種を生成（投手の場合）
-    final pitches = <Pitch>[];
-    if (position == '投手') {
-      final pitchTypes = ['直球', 'カーブ', 'スライダー', 'フォーク', 'チェンジアップ'];
-      
-      // 直球は必ず習得
-      pitches.add(Pitch(
-        type: '直球',
-        breakAmount: 0, // 直球に変化量は不要
-        breakPot: 15 + random.nextInt(26), // 15-40
-        unlocked: true,
-      ));
-      
-      // 他の球種はランダムに習得
-      for (final type in pitchTypes.skip(1)) {
-        if (random.nextBool()) {
-          pitches.add(Pitch(
-            type: type,
-            breakAmount: 20 + random.nextInt(41), // 20-60
-            breakPot: 25 + random.nextInt(51), // 25-75
-            unlocked: true,
-          ));
-        }
-      }
-    }
-    
-    final player = Player(
-      name: name,
-      school: this.name,
-      grade: grade,
+    return Player(
+      name: _generateName(random),
+      school: name,
+      grade: _generateGrade(random),
       position: position,
       personality: personality,
-      fastballVelo: finalAbilities['fastballVelo'] ?? 125,
-      control: finalAbilities['control'] ?? 25,
-      stamina: finalAbilities['stamina'] ?? 25,
-      breakAvg: finalAbilities['breakAvg'] ?? 25,
+      trustLevel: 0,
+      fame: fame,
+      isWatched: false,
+      isDiscovered: false,
+      isPubliclyKnown: false,
+      type: PlayerType.highSchool,
+      yearsAfterGraduation: 0,
       pitches: pitches,
-      batPower: finalAbilities['batPower'] ?? 25,
-      batControl: finalAbilities['batControl'] ?? 25,
-      run: finalAbilities['run'] ?? 25,
-      field: finalAbilities['field'] ?? 25,
-      arm: finalAbilities['arm'] ?? 25,
+      technicalAbilities: technicalAbilities,
+      mentalAbilities: mentalAbilities,
+      physicalAbilities: physicalAbilities,
       mentalGrit: mentalGrit,
       growthRate: growthRate,
-      peakAbility: balancedPotentials.values.reduce((a, b) => a + b) ~/ balancedPotentials.length, // 平均ポテンシャル
-      positionFit: positionFit,
-      talent: talent,
+      peakAbility: peakAbility,
+      positionFit: _generatePositionFit(position, random),
+      talent: talentRank,
       growthType: growthType,
-      individualPotentials: balancedPotentials, // 個別ポテンシャルを保存
+      individualPotentials: individualPotentials,
     );
-    
-    // 知名度を計算
-    player.calculateInitialFame();
-    
-    return player;
   }
   
   // 個別ポテンシャル生成システム（簡易版）
@@ -139,6 +114,40 @@ class School {
     
     // 球速（全選手が持つ）
     potentials['fastballVelo'] = _generateFastballPotential(talentRank, random);
+    
+    // 新しいTechnical（技術面）能力値ポテンシャル
+    final technicalAbilities = [
+      'contact', 'power', 'plateDiscipline', 'bunt', 'oppositeFieldHitting', 
+      'pullHitting', 'batControl', 'swingSpeed', 'fielding', 'throwing', 
+      'catcherAbility', 'control', 'fastball', 'breakingBall', 'pitchMovement'
+    ];
+    
+    // 新しいMental（メンタル面）能力値ポテンシャル
+    final mentalAbilities = [
+      'concentration', 'anticipation', 'vision', 'composure', 'aggression', 
+      'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
+      'teamwork', 'positioning', 'pressureHandling', 'clutchAbility',
+      'naturalFitness', 'injuryProneness'
+    ];
+    
+    // 新しいPhysical（フィジカル面）能力値ポテンシャル
+    final physicalAbilities = [
+      'acceleration', 'agility', 'balance', 'jumpingReach', 'flexibility',
+      'naturalFitness', 'injuryProneness', 'stamina', 'strength', 'pace'
+    ];
+    
+    // 各カテゴリのポテンシャルを生成
+    for (final ability in technicalAbilities) {
+      potentials[ability] = _generateAbilityPotential(averagePotential, talentRank, random);
+    }
+    
+    for (final ability in mentalAbilities) {
+      potentials[ability] = _generateAbilityPotential(averagePotential, talentRank, random);
+    }
+    
+    for (final ability in physicalAbilities) {
+      potentials[ability] = _generateAbilityPotential(averagePotential, talentRank, random);
+    }
     
     return potentials;
   }
@@ -203,32 +212,34 @@ class School {
   }
   
   int _generateFastballPotential(int talentRank, Random random) {
-    // 球速は全選手が持つ（km/h単位）
-    final baseVelocity = _getBaseFastballVelocityByTalent(talentRank);
+    // 球速は100段階で管理（0-100）
+    final basePotential = _getBaseFastballPotentialByTalent(talentRank);
     final variation = random.nextInt(_getFastballVariationByTalent(talentRank));
     
-    return baseVelocity + variation;
+    return (basePotential + variation).clamp(50, 100);
   }
   
-  int _getBaseFastballVelocityByTalent(int talentRank) {
+  int _getBaseFastballPotentialByTalent(int talentRank) {
     switch (talentRank) {
-      case 1: return 135; // 135 km/h基準
-      case 2: return 140; // 140 km/h基準
-      case 3: return 145; // 145 km/h基準
-      case 4: return 150; // 150 km/h基準
-      case 5: return 155; // 155 km/h基準
-      default: return 140;
+      case 1: return 70; // 70-90（現在値25-45を確実に上回る）
+      case 2: return 80; // 80-100
+      case 3: return 85; // 85-100
+      case 4: return 90; // 90-100
+      case 5: return 95; // 95-100
+      case 6: return 98; // 98-100（怪物級の球速ポテンシャル）
+      default: return 80;
     }
   }
   
   int _getFastballVariationByTalent(int talentRank) {
     switch (talentRank) {
-      case 1: return 10; // ±5 km/h
-      case 2: return 15; // ±7.5 km/h
-      case 3: return 20; // ±10 km/h
-      case 4: return 25; // ±12.5 km/h
-      case 5: return 30; // ±15 km/h
-      default: return 15;
+      case 1: return 20; // ±10
+      case 2: return 20; // ±10
+      case 3: return 15; // ±7.5
+      case 4: return 10; // ±5
+      case 5: return 5;  // ±2.5
+      case 6: return 2;  // ±1（怪物級）
+      default: return 20;
     }
   }
   
@@ -511,12 +522,12 @@ class School {
   
   int _randomTalent(Random random) {
     final r = random.nextInt(1000000); // より細かい確率制御のため1000000を使用
-    if (r < 499000) return 1;      // 49.9%
-    if (r < 749000) return 2;      // 25%
-    if (r < 949000) return 3;      // 20%
-    if (r < 999000) return 4;      // 5%
-    if (r < 999996) return 5;      // 0.0996%
-    return 6;                      // 0.0004% (10年に1人程度)
+    if (r < 600000) return 1;      // 60% (ランク1が主流)
+    if (r < 850000) return 2;      // 25% (ランク2)
+    if (r < 980000) return 3;      // 13% (ランク3)
+    if (r < 999500) return 4;      // 1.95% (ランク4)
+    if (r < 999990) return 5;      // 0.049% (ランク5)
+    return 6;                      // 0.001% (1000年に1人程度)
   }
   
   String _randomGrowthType(Random random) {
@@ -537,20 +548,79 @@ class School {
     return fit;
   }
 
-  School copyWith({
-    String? name,
-    String? location,
-    List<Player>? players,
-    int? coachTrust,
-    String? coachName,
-  }) {
-    return School(
-      name: name ?? this.name,
-      location: location ?? this.location,
-      players: players ?? this.players,
-      coachTrust: coachTrust ?? this.coachTrust,
-      coachName: coachName ?? this.coachName,
-    );
+  // 球種の生成
+  List<Pitch> _generatePitches(int talentRank, Random random) {
+    final pitches = <Pitch>[];
+    
+    // 直球は必ず習得
+    pitches.add(Pitch(
+      type: '直球',
+      breakAmount: 0,
+      breakPot: 15 + random.nextInt(26), // 15-40
+      unlocked: true,
+    ));
+    
+    // 他の球種はランダムに習得
+    final pitchTypes = ['カーブ', 'スライダー', 'フォーク', 'チェンジアップ'];
+    for (final type in pitchTypes) {
+      if (random.nextBool()) {
+        pitches.add(Pitch(
+          type: type,
+          breakAmount: 20 + random.nextInt(41), // 20-60
+          breakPot: 25 + random.nextInt(51), // 25-75
+          unlocked: true,
+        ));
+      }
+    }
+    
+    return pitches;
+  }
+  
+  // 成長タイプの決定
+  String _determineGrowthType(Random random) {
+    final types = ['early', 'normal', 'late', 'spurt'];
+    return types[random.nextInt(types.length)];
+  }
+  
+  // 知名度の決定
+  int _determineFame(int talentRank, Random random) {
+    switch (talentRank) {
+      case 1: return random.nextBool() ? 1 : 2;
+      case 2: return 2 + random.nextInt(2); // 2-3
+      case 3: return 3 + random.nextInt(2); // 3-4
+      case 4: return 4 + random.nextInt(2); // 4-5
+      case 5: return 5;
+      case 6: return 5; // 怪物級
+      default: return 2;
+    }
+  }
+  
+  // 名前の生成
+  String _generateName(Random random) {
+    final names = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
+    return names[random.nextInt(names.length)] + 
+           (random.nextInt(999) + 1).toString().padLeft(3, '0');
+  }
+  
+  // 学年の決定
+  int _generateGrade(Random random) {
+    return 1 + random.nextInt(3); // 1-3年生
+  }
+  
+  // デフォルトポジション適性の生成
+  Map<String, int> _generatePositionFit(String position, Random random) {
+    final fits = <String, int>{};
+    final positions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '外野手'];
+    
+    for (final pos in positions) {
+      if (pos == position) {
+        fits[pos] = 70 + Random().nextInt(21); // 70-90
+      } else {
+        fits[pos] = 40 + Random().nextInt(31); // 40-70
+      }
+    }
+    
+    return fits;
   }
 
   Map<String, dynamic> toJson() => {

@@ -28,182 +28,151 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 7,
       onCreate: (db, version) async {
-        // Personテーブル
-        await db.execute('''
-          CREATE TABLE Person (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            birth_date TEXT,
-            gender TEXT,
-            hometown TEXT,
-            personality TEXT
-          )
-        ''');
-        // Playerテーブル
-        await db.execute('''
-          CREATE TABLE Player (
-            id INTEGER PRIMARY KEY,
-            school_id INTEGER,
-            grade INTEGER,
-            position TEXT,
-            fame INTEGER,
-            fastball_velo INTEGER,
-            control INTEGER,
-            stamina INTEGER,
-            break_avg INTEGER,
-            batting_power INTEGER,
-            bat_control INTEGER,
-            running_speed INTEGER,
-            defense INTEGER,
-            arm INTEGER,
-            growth_rate REAL,
-            talent INTEGER,
-            growth_type TEXT,
-            mental_grit REAL,
-            peak_ability INTEGER,
-            -- 新しいシステムのTechnical（技術面）能力値
-            contact INTEGER,
-            power INTEGER,
-            plate_discipline INTEGER,
-            bunt INTEGER,
-            opposite_field_hitting INTEGER,
-            pull_hitting INTEGER,
-            bat_control_new INTEGER,
-            swing_speed INTEGER,
-            fielding INTEGER,
-            throwing INTEGER,
-            catcher_ability INTEGER,
-            control_new INTEGER,
-            fastball INTEGER,
-            breaking_ball INTEGER,
-            pitch_movement INTEGER,
-            -- 新しいシステムのMental（メンタル面）能力値
-            concentration INTEGER,
-            anticipation INTEGER,
-            vision INTEGER,
-            composure INTEGER,
-            aggression INTEGER,
-            bravery INTEGER,
-            leadership INTEGER,
-            work_rate INTEGER,
-            self_discipline INTEGER,
-            ambition INTEGER,
-            -- 新しいシステムのPhysical（フィジカル面）能力値
-            acceleration INTEGER,
-            agility INTEGER,
-            balance INTEGER,
-            jumping_reach INTEGER,
-            natural_fitness INTEGER,
-            injury_proneness INTEGER,
-            stamina_new INTEGER,
-            strength INTEGER,
-            pace INTEGER
-          )
-        ''');
-        
-        // PlayerPotentialsテーブル（個別ポテンシャル保存）
-        await db.execute('''
-          CREATE TABLE PlayerPotentials (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            player_id INTEGER,
-            -- 古いシステムのポテンシャル
-            control_potential INTEGER,
-            stamina_potential INTEGER,
-            break_avg_potential INTEGER,
-            bat_power_potential INTEGER,
-            bat_control_potential INTEGER,
-            run_potential INTEGER,
-            field_potential INTEGER,
-            arm_potential INTEGER,
-            fastball_velo_potential INTEGER,
-            -- 新しいシステムのTechnical（技術面）ポテンシャル
-            contact_potential INTEGER,
-            power_potential INTEGER,
-            plate_discipline_potential INTEGER,
-            bunt_potential INTEGER,
-            opposite_field_hitting_potential INTEGER,
-            pull_hitting_potential INTEGER,
-            bat_control_new_potential INTEGER,
-            swing_speed_potential INTEGER,
-            fielding_potential INTEGER,
-            throwing_potential INTEGER,
-            catcher_ability_potential INTEGER,
-            control_new_potential INTEGER,
-            fastball_potential INTEGER,
-            breaking_ball_potential INTEGER,
-            pitch_movement_potential INTEGER,
-            -- 新しいシステムのMental（メンタル面）ポテンシャル
-            concentration_potential INTEGER,
-            anticipation_potential INTEGER,
-            vision_potential INTEGER,
-            composure_potential INTEGER,
-            aggression_potential INTEGER,
-            bravery_potential INTEGER,
-            leadership_potential INTEGER,
-            work_rate_potential INTEGER,
-            self_discipline_potential INTEGER,
-            ambition_potential INTEGER,
-            -- 新しいシステムのPhysical（フィジカル面）ポテンシャル
-            acceleration_potential INTEGER,
-            agility_potential INTEGER,
-            balance_potential INTEGER,
-            jumping_reach_potential INTEGER,
-            natural_fitness_potential INTEGER,
-            injury_proneness_potential INTEGER,
-            stamina_new_potential INTEGER,
-            strength_potential INTEGER,
-            pace_potential INTEGER,
-            FOREIGN KEY (player_id) REFERENCES Player (id)
-          )
-        ''');
-        // Coachテーブル
-        await db.execute('''
-          CREATE TABLE Coach (
-            id INTEGER PRIMARY KEY,
-            team_id INTEGER,
-            trust INTEGER,
-            leadership INTEGER,
-            strategy INTEGER,
-            training_skill INTEGER
-          )
-        ''');
-        // Scoutテーブル
-        await db.execute('''
-          CREATE TABLE Scout (
-            id INTEGER PRIMARY KEY,
-            organization_id INTEGER,
-            scout_skill INTEGER,
-            negotiation INTEGER,
-            network INTEGER
-          )
-        ''');
-        // Careerテーブル
-        await db.execute('''
-          CREATE TABLE Career (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            person_id INTEGER,
-            role TEXT,
-            organization_id INTEGER,
-            start_year INTEGER,
-            end_year INTEGER
-          )
-        ''');
-        // Organizationテーブル
-        await db.execute('''
-          CREATE TABLE Organization (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            type TEXT,
-            location TEXT,
-            school_strength INTEGER,
-            last_year_strength INTEGER,
-            scouting_popularity INTEGER
-          )
-        ''');
+        // 既存のテーブル作成処理を流用
+        await _createAllTables(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // 新しい能力値システムのカラムを追加
+          await _addNewAbilityColumns(db);
+          await _addNewPotentialColumns(db);
+        }
+        if (oldVersion < 3) {
+          // バージョン3では新しいスキーマを使用するため、データベースファイルを削除して再作成
+          // 既存のデータは失われますが、新しいスキーマで正しく動作します
+          print('データベーススキーマを更新中...');
+        }
+        if (oldVersion < 4) {
+          // バージョン4では古いカラムを削除した新しいスキーマを使用
+          print('データベーススキーマを更新中（バージョン4）...');
+        }
+        if (oldVersion < 5) {
+          // バージョン5では強制的に新しいスキーマで再作成
+          print('データベーススキーマを強制更新中（バージョン5）...');
+          // 既存のテーブルを削除して再作成
+          await db.execute('DROP TABLE IF EXISTS Player');
+          await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+          await db.execute('DROP TABLE IF EXISTS Person');
+          await _createAllTables(db);
+        }
+        if (oldVersion < 6) {
+          // バージョン6では新しい能力値（natural_fitness, injury_proneness）を含むスキーマで再作成
+          print('データベーススキーマを強制更新中（バージョン6）...');
+          // 既存のテーブルを削除して再作成
+          await db.execute('DROP TABLE IF EXISTS Player');
+          await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+          await db.execute('DROP TABLE IF EXISTS Person');
+          await _createAllTables(db);
+        }
+        if (oldVersion < 7) {
+          // バージョン7では新しいポテンシャル生成を含むスキーマで再作成
+          print('データベーススキーマを強制更新中（バージョン7）...');
+          // 既存のテーブルを削除して再作成
+          await db.execute('DROP TABLE IF EXISTS Player');
+          await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+          await db.execute('DROP TABLE IF EXISTS Person');
+          await _createAllTables(db);
+        }
       },
     );
+  }
+
+  // 新しい能力値システムのカラムを追加
+  Future<void> _addNewAbilityColumns(Database db) async {
+    // Technical abilities
+    await db.execute('ALTER TABLE Player ADD COLUMN contact INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN power INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN plate_discipline INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN bunt INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN opposite_field_hitting INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN pull_hitting INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN bat_control_new INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN swing_speed INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN fielding INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN throwing INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN catcher_ability INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN control_new INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN fastball INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN breaking_ball INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN pitch_movement INTEGER DEFAULT 25');
+    
+    // Mental abilities
+    await db.execute('ALTER TABLE Player ADD COLUMN concentration INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN anticipation INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN vision INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN composure INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN aggression INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN bravery INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN leadership INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN work_rate INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN self_discipline INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN ambition INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN teamwork INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN positioning INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN pressure_handling INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN clutch_ability INTEGER DEFAULT 25');
+    
+    // Physical abilities
+    await db.execute('ALTER TABLE Player ADD COLUMN acceleration INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN agility INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN balance INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN jumping_reach INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN natural_fitness INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN injury_proneness INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN stamina_new INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN strength INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN pace INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN flexibility INTEGER DEFAULT 25');
+  }
+
+  // 新しいポテンシャルシステムのカラムを追加
+  Future<void> _addNewPotentialColumns(Database db) async {
+    // Technical potentials
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN contact_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN power_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN plate_discipline_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN bunt_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN opposite_field_hitting_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN pull_hitting_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN bat_control_new_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN swing_speed_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN fielding_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN throwing_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN catcher_ability_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN control_new_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN fastball_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN breaking_ball_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN pitch_movement_potential INTEGER DEFAULT 50');
+    
+    // Mental potentials
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN concentration_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN anticipation_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN vision_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN composure_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN aggression_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN bravery_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN leadership_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN work_rate_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN self_discipline_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN ambition_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN teamwork_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN positioning_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN pressure_handling_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN clutch_ability_potential INTEGER DEFAULT 50');
+    
+    // Physical potentials
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN acceleration_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN agility_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN balance_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN jumping_reach_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN natural_fitness_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN injury_proneness_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN stamina_new_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN strength_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN pace_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN flexibility_potential INTEGER DEFAULT 50');
   }
 
   String _slotKey(dynamic slot) {
@@ -276,13 +245,59 @@ class DataService {
     final path = join(dbPath, dbName);
     return await openDatabase(
       path,
-      version: 1,
+      version: 4, // バージョンを更新
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
       },
-
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // 新しいポテンシャルカラムを追加
+          await _addNewPotentialColumns(db);
+        }
+      },
     );
+  }
+  
+  // スロット用DBファイルを削除
+  Future<void> deleteDatabaseWithSlot(String slot) async {
+    final dbPath = await getDatabasesPath();
+    final dbName = slot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(slot)}.db';
+    final path = join(dbPath, dbName);
+    await deleteDatabaseAtPath(path);
+    print('DB削除: $path, exists= ${await File(path).exists()}');
+  }
+
+  // データベースファイルを削除（新しいスキーマで再作成するため）
+  Future<void> deleteDatabase() async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, 'scout_game.db');
+    await deleteDatabaseAtPath(path);
+  }
+
+  // 指定されたパスのデータベースファイルを削除
+  Future<void> deleteDatabaseAtPath(String path) async {
+    await databaseFactory.deleteDatabase(path);
+    print('データベースファイルを削除しました: $path');
+  }
+
+  // スロット間でDBファイルをコピー
+  Future<void> copyDatabaseBetweenSlots(String fromSlot, String toSlot) async {
+    final dbPath = await getDatabasesPath();
+    final fromDbName = fromSlot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(fromSlot)}.db';
+    final toDbName = toSlot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(toSlot)}.db';
+    final fromPath = join(dbPath, fromDbName);
+    final toPath = join(dbPath, toDbName);
+    final fromFile = File(fromPath);
+    final toFile = File(toPath);
+    if (await toFile.exists()) {
+      await toFile.delete();
+    }
+    if (await fromFile.exists()) {
+      await fromFile.copy(toPath);
+    }
+    // DBキャッシュをリセット
+    _db = null;
   }
 
   // スロット名から番号を取得
@@ -312,23 +327,53 @@ class DataService {
         grade INTEGER,
         position TEXT,
         fame INTEGER,
-        fastball_velo INTEGER,
-        control INTEGER,
-        stamina INTEGER,
-        break_avg INTEGER,
-        batting_power INTEGER,
-        bat_control INTEGER,
-        running_speed INTEGER,
-        defense INTEGER,
-        arm INTEGER,
         growth_rate REAL,
         talent INTEGER,
         growth_type TEXT,
         mental_grit REAL,
         peak_ability INTEGER,
-        technical_abilities TEXT,
-        mental_abilities TEXT,
-        physical_abilities TEXT
+        -- Technical（技術面）能力値
+        contact INTEGER,
+        power INTEGER,
+        plate_discipline INTEGER,
+        bunt INTEGER,
+        opposite_field_hitting INTEGER,
+        pull_hitting INTEGER,
+        bat_control_new INTEGER,
+        swing_speed INTEGER,
+        fielding INTEGER,
+        throwing INTEGER,
+        catcher_ability INTEGER,
+        control_new INTEGER,
+        fastball INTEGER,
+        breaking_ball INTEGER,
+        pitch_movement INTEGER,
+        -- Mental（メンタル面）能力値
+        concentration INTEGER,
+        anticipation INTEGER,
+        vision INTEGER,
+        composure INTEGER,
+        aggression INTEGER,
+        bravery INTEGER,
+        leadership INTEGER,
+        work_rate INTEGER,
+        self_discipline INTEGER,
+        ambition INTEGER,
+        teamwork INTEGER,
+        positioning INTEGER,
+        pressure_handling INTEGER,
+        clutch_ability INTEGER,
+        -- Physical（フィジカル面）能力値
+        acceleration INTEGER,
+        agility INTEGER,
+        balance INTEGER,
+        jumping_reach INTEGER,
+        natural_fitness INTEGER,
+        injury_proneness INTEGER,
+        stamina_new INTEGER,
+        strength INTEGER,
+        pace INTEGER,
+        flexibility INTEGER
       )
     ''');
     
@@ -336,15 +381,48 @@ class DataService {
       CREATE TABLE PlayerPotentials (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         player_id INTEGER,
-        control_potential INTEGER,
-        stamina_potential INTEGER,
-        break_avg_potential INTEGER,
-        bat_power_potential INTEGER,
-        bat_control_potential INTEGER,
-        run_potential INTEGER,
-        field_potential INTEGER,
-        arm_potential INTEGER,
-        fastball_velo_potential INTEGER,
+        -- Technical（技術面）ポテンシャル
+        contact_potential INTEGER,
+        power_potential INTEGER,
+        plate_discipline_potential INTEGER,
+        bunt_potential INTEGER,
+        opposite_field_hitting_potential INTEGER,
+        pull_hitting_potential INTEGER,
+        bat_control_new_potential INTEGER,
+        swing_speed_potential INTEGER,
+        fielding_potential INTEGER,
+        throwing_potential INTEGER,
+        catcher_ability_potential INTEGER,
+        control_new_potential INTEGER,
+        fastball_potential INTEGER,
+        breaking_ball_potential INTEGER,
+        pitch_movement_potential INTEGER,
+        -- Mental（メンタル面）ポテンシャル
+        concentration_potential INTEGER,
+        anticipation_potential INTEGER,
+        vision_potential INTEGER,
+        composure_potential INTEGER,
+        aggression_potential INTEGER,
+        bravery_potential INTEGER,
+        leadership_potential INTEGER,
+        work_rate_potential INTEGER,
+        self_discipline_potential INTEGER,
+        ambition_potential INTEGER,
+        teamwork_potential INTEGER,
+        positioning_potential INTEGER,
+        pressure_handling_potential INTEGER,
+        clutch_ability_potential INTEGER,
+        -- Physical（フィジカル面）ポテンシャル
+        acceleration_potential INTEGER,
+        agility_potential INTEGER,
+        balance_potential INTEGER,
+        jumping_reach_potential INTEGER,
+        natural_fitness_potential INTEGER,
+        injury_proneness_potential INTEGER,
+        stamina_new_potential INTEGER,
+        strength_potential INTEGER,
+        pace_potential INTEGER,
+        flexibility_potential INTEGER,
         FOREIGN KEY (player_id) REFERENCES Player (id)
       )
     ''');
@@ -388,33 +466,5 @@ class DataService {
         scouting_popularity INTEGER
       )
     ''');
-  }
-
-  // スロット用DBファイルを削除
-  Future<void> deleteDatabaseWithSlot(String slot) async {
-    final dbPath = await getDatabasesPath();
-    final dbName = slot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(slot)}.db';
-    final path = join(dbPath, dbName);
-    await deleteDatabase(path);
-    print('DB削除: $path, exists= ${await File(path).exists()}');
-  }
-
-  // スロット間でDBファイルをコピー
-  Future<void> copyDatabaseBetweenSlots(String fromSlot, String toSlot) async {
-    final dbPath = await getDatabasesPath();
-    final fromDbName = fromSlot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(fromSlot)}.db';
-    final toDbName = toSlot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(toSlot)}.db';
-    final fromPath = join(dbPath, fromDbName);
-    final toPath = join(dbPath, toDbName);
-    final fromFile = File(fromPath);
-    final toFile = File(toPath);
-    if (await toFile.exists()) {
-      await toFile.delete();
-    }
-    if (await fromFile.exists()) {
-      await fromFile.copy(toPath);
-    }
-    // DBキャッシュをリセット
-    _db = null;
   }
 } 

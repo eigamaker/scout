@@ -65,7 +65,11 @@ enum PhysicalAbility {
   stamina('持久力', '体力の持続性'),
   strength('筋力', '筋力'),
   flexibility('柔軟性', '体の柔軟性'),
-  jumpingReach('ジャンプ力', '跳躍力');
+  jumpingReach('ジャンプ力', '跳躍力'),
+  
+  // 体質・健康
+  naturalFitness('自然体力', '生まれ持った体力'),
+  injuryProneness('怪我しやすさ', '怪我のしやすさ（低いほど良い）');
 
   const PhysicalAbility(this.displayName, this.description);
   final String displayName;
@@ -125,7 +129,9 @@ enum AbilityType {
   stamina(PhysicalAbility.stamina, AbilityCategory.physical),
   strength(PhysicalAbility.strength, AbilityCategory.physical),
   flexibility(PhysicalAbility.flexibility, AbilityCategory.physical),
-  jumpingReach(PhysicalAbility.jumpingReach, AbilityCategory.physical);
+  jumpingReach(PhysicalAbility.jumpingReach, AbilityCategory.physical),
+  naturalFitness(PhysicalAbility.naturalFitness, AbilityCategory.physical),
+  injuryProneness(PhysicalAbility.injuryProneness, AbilityCategory.physical);
 
   const AbilityType(this.ability, this.category);
   final dynamic ability;

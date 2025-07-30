@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/player/player.dart';
+import 'package:scout_game/models/player/player.dart';
+import 'package:scout_game/models/player/player_abilities.dart';
 
 class PlayerCard extends StatelessWidget {
   final Player player;
@@ -170,58 +171,35 @@ class PlayerCard extends StatelessWidget {
 
   // 能力値表示
   Widget _buildAbilityDisplay(BuildContext context) {
-    if (player.isPitcher) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (player.fastballVelo != null)
-                _buildAbilityChip('球速', '${player.fastballVelo}km/h'),
-              if (player.control != null)
-                _buildAbilityChip('制球', '${player.control}'),
-              if (player.stamina != null)
-                _buildAbilityChip('スタミナ', '${player.stamina}'),
-            ],
-          ),
-          if (player.breakAvg != null) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                _buildAbilityChip('変化球', '${player.breakAvg}'),
-              ],
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 投手能力値
+        if (player.isPitcher) ...[
+          _buildAbilityChip('球速', '${player.getFastballVelocityKmh()}km/h'),
+          _buildAbilityChip('制球', '${player.getTechnicalAbility(TechnicalAbility.control)}'),
+          _buildAbilityChip('スタミナ', '${player.getPhysicalAbility(PhysicalAbility.stamina)}'),
         ],
-      );
-    } else {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (player.batPower != null)
-                _buildAbilityChip('パワー', '${player.batPower}'),
-              if (player.batControl != null)
-                _buildAbilityChip('バットコントロール', '${player.batControl}'),
-              if (player.run != null)
-                _buildAbilityChip('走力', '${player.run}'),
-            ],
-          ),
-          if (player.field != null || player.arm != null) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                if (player.field != null)
-                  _buildAbilityChip('守備', '${player.field}'),
-                if (player.arm != null)
-                  _buildAbilityChip('肩', '${player.arm}'),
-              ],
-            ),
-          ],
+        
+        // 投手能力値（変化球）
+        if (player.isPitcher) ...[
+          _buildAbilityChip('変化球', '${player.getTechnicalAbility(TechnicalAbility.breakingBall)}'),
         ],
-      );
-    }
+        
+        // 野手能力値
+        if (!player.isPitcher) ...[
+          _buildAbilityChip('パワー', '${player.getTechnicalAbility(TechnicalAbility.power)}'),
+          _buildAbilityChip('バットコントロール', '${player.getTechnicalAbility(TechnicalAbility.batControl)}'),
+          _buildAbilityChip('走力', '${player.getPhysicalAbility(PhysicalAbility.pace)}'),
+        ],
+        
+        // 守備能力値
+        if (!player.isPitcher) ...[
+          _buildAbilityChip('守備', '${player.getTechnicalAbility(TechnicalAbility.fielding)}'),
+          _buildAbilityChip('肩', '${player.getTechnicalAbility(TechnicalAbility.throwing)}'),
+        ],
+      ],
+    );
   }
 
   Widget _buildAbilityChip(String label, String value) {

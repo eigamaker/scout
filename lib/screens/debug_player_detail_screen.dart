@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/player/player.dart';
-import '../models/player/player_abilities.dart';
-import '../config/debug_config.dart';
+import 'package:scout_game/config/debug_config.dart';
+import 'package:scout_game/models/player/player.dart';
+import 'package:scout_game/models/player/player_abilities.dart';
 
 class DebugPlayerDetailScreen extends StatefulWidget {
   final Player player;
@@ -187,18 +187,24 @@ class _DebugPlayerDetailScreenState extends State<DebugPlayerDetailScreen> {
             ),
             const SizedBox(height: 12),
             if (widget.player.isPitcher) ...[
-              _buildAbilityComparisonRow('球速（古いシステム）', widget.player.getFastballVelocityKmhOld(), widget.player.getFastballVelocityKmhOld(), textColor, primaryColor),
-              _buildAbilityComparisonRow('球速（新しいシステム）', widget.player.getTechnicalAbility(TechnicalAbility.fastball), widget.player.getFastballVelocityKmh(), textColor, primaryColor),
-              _buildAbilityComparisonRow('球速比較', widget.player.getFastballVelocityKmhOld(), widget.player.getFastballVelocityKmh(), textColor, primaryColor),
-              _buildAbilityComparisonRow('制球', widget.player.control ?? 0, widget.player.getVisibleAbility('control', scoutSkill), textColor, primaryColor),
-              _buildAbilityComparisonRow('スタミナ', widget.player.stamina ?? 0, widget.player.getVisibleAbility('stamina', scoutSkill), textColor, primaryColor),
-              _buildAbilityComparisonRow('変化', widget.player.breakAvg ?? 0, widget.player.getVisibleAbility('breakAvg', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('球速', widget.player.getFastballVelocityKmh(), widget.player.getFastballVelocityKmh(), textColor, primaryColor),
+              _buildAbilityComparisonRow('球速比較', widget.player.getFastballVelocityKmh(), widget.player.getFastballVelocityKmh(), textColor, primaryColor),
+              _buildAbilityComparisonRow('制球', widget.player.getTechnicalAbility(TechnicalAbility.control), widget.player.getVisibleAbility('control', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('スタミナ', widget.player.getPhysicalAbility(PhysicalAbility.stamina), widget.player.getVisibleAbility('stamina', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('変化球', widget.player.getTechnicalAbility(TechnicalAbility.breakingBall), widget.player.getVisibleAbility('breakingBall', scoutSkill), textColor, primaryColor),
+              
+              // 野手能力値
+              _buildAbilityComparisonRow('パワー', widget.player.getTechnicalAbility(TechnicalAbility.power), widget.player.getVisibleAbility('power', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('バットコントロール', widget.player.getTechnicalAbility(TechnicalAbility.batControl), widget.player.getVisibleAbility('batControl', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('走力', widget.player.getPhysicalAbility(PhysicalAbility.pace), widget.player.getVisibleAbility('pace', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('守備', widget.player.getTechnicalAbility(TechnicalAbility.fielding), widget.player.getVisibleAbility('fielding', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('肩', widget.player.getTechnicalAbility(TechnicalAbility.throwing), widget.player.getVisibleAbility('throwing', scoutSkill), textColor, primaryColor),
             ] else ...[
-              _buildAbilityComparisonRow('パワー', widget.player.batPower ?? 0, widget.player.getVisibleAbility('batPower', scoutSkill), textColor, primaryColor),
-              _buildAbilityComparisonRow('バットコントロール', widget.player.batControl ?? 0, widget.player.getVisibleAbility('batControl', scoutSkill), textColor, primaryColor),
-              _buildAbilityComparisonRow('走力', widget.player.run ?? 0, widget.player.getVisibleAbility('run', scoutSkill), textColor, primaryColor),
-              _buildAbilityComparisonRow('守備', widget.player.field ?? 0, widget.player.getVisibleAbility('field', scoutSkill), textColor, primaryColor),
-              _buildAbilityComparisonRow('肩', widget.player.arm ?? 0, widget.player.getVisibleAbility('arm', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('パワー', widget.player.getTechnicalAbility(TechnicalAbility.power), widget.player.getVisibleAbility('power', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('バットコントロール', widget.player.getTechnicalAbility(TechnicalAbility.batControl), widget.player.getVisibleAbility('batControl', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('走力', widget.player.getPhysicalAbility(PhysicalAbility.pace), widget.player.getVisibleAbility('pace', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('守備', widget.player.getTechnicalAbility(TechnicalAbility.fielding), widget.player.getVisibleAbility('fielding', scoutSkill), textColor, primaryColor),
+              _buildAbilityComparisonRow('肩', widget.player.getTechnicalAbility(TechnicalAbility.throwing), widget.player.getVisibleAbility('throwing', scoutSkill), textColor, primaryColor),
             ],
           ],
         ),
@@ -343,11 +349,71 @@ class _DebugPlayerDetailScreenState extends State<DebugPlayerDetailScreen> {
             ),
             const SizedBox(height: 12),
             if (widget.player.individualPotentials != null) ...[
-              ...widget.player.individualPotentials!.entries.map((entry) {
-                final ability = entry.key;
-                final value = entry.value;
-                return _buildInfoRow(ability, '$value', textColor);
-              }).toList(),
+              // 古いシステムの能力値ポテンシャル
+              Text(
+                '基本能力値',
+                style: TextStyle(
+                  color: textColor.withOpacity(0.8),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...widget.player.individualPotentials!.entries
+                  .where((entry) => ['control', 'stamina', 'breakAvg', 'batPower', 'batControl', 'run', 'field', 'arm', 'fastballVelo'].contains(entry.key))
+                  .map((entry) => _buildInfoRow(_getAbilityDisplayName(entry.key), '${entry.value}', textColor))
+                  .toList(),
+              
+              const SizedBox(height: 16),
+              
+              // 新しいTechnical（技術面）能力値ポテンシャル
+              Text(
+                '技術面能力値',
+                style: TextStyle(
+                  color: textColor.withOpacity(0.8),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...widget.player.individualPotentials!.entries
+                  .where((entry) => ['contact', 'power', 'plateDiscipline', 'bunt', 'oppositeFieldHitting', 'pullHitting', 'batControl', 'swingSpeed', 'fielding', 'throwing', 'catcherAbility', 'fastball', 'breakingBall', 'pitchMovement'].contains(entry.key))
+                  .map((entry) => _buildInfoRow(_getAbilityDisplayName(entry.key), '${entry.value}', textColor))
+                  .toList(),
+              
+              const SizedBox(height: 16),
+              
+              // 新しいMental（メンタル面）能力値ポテンシャル
+              Text(
+                'メンタル面能力値',
+                style: TextStyle(
+                  color: textColor.withOpacity(0.8),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...widget.player.individualPotentials!.entries
+                  .where((entry) => ['concentration', 'anticipation', 'vision', 'composure', 'aggression', 'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition', 'teamwork', 'positioning', 'pressureHandling', 'clutchAbility'].contains(entry.key))
+                  .map((entry) => _buildInfoRow(_getAbilityDisplayName(entry.key), '${entry.value}', textColor))
+                  .toList(),
+              
+              const SizedBox(height: 16),
+              
+              // 新しいPhysical（フィジカル面）能力値ポテンシャル
+              Text(
+                'フィジカル面能力値',
+                style: TextStyle(
+                  color: textColor.withOpacity(0.8),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...widget.player.individualPotentials!.entries
+                  .where((entry) => ['acceleration', 'agility', 'balance', 'jumpingReach', 'flexibility', 'strength'].contains(entry.key))
+                  .map((entry) => _buildInfoRow(_getAbilityDisplayName(entry.key), '${entry.value}', textColor))
+                  .toList(),
             ] else ...[
               Text(
                 'ポテンシャル情報なし',
@@ -358,6 +424,62 @@ class _DebugPlayerDetailScreenState extends State<DebugPlayerDetailScreen> {
         ),
       ),
     );
+  }
+  
+  // 能力値名を日本語表示名に変換
+  String _getAbilityDisplayName(String abilityName) {
+    switch (abilityName) {
+      case 'fastballVelo': return '球速';
+      case 'control': return '制球';
+      case 'stamina': return 'スタミナ';
+      case 'breakAvg': return '変化球';
+      case 'batPower': return 'パワー';
+      case 'batControl': return 'バットコントロール';
+      case 'run': return '走力';
+      case 'field': return '守備';
+      case 'arm': return '肩';
+      
+      // Technical abilities
+      case 'contact': return 'ミート';
+      case 'power': return 'パワー';
+      case 'plateDiscipline': return '選球眼';
+      case 'bunt': return 'バント';
+      case 'oppositeFieldHitting': return '流し打ち';
+      case 'pullHitting': return 'プルヒッティング';
+      case 'swingSpeed': return 'スイングスピード';
+      case 'fielding': return '捕球';
+      case 'throwing': return '送球';
+      case 'catcherAbility': return '捕手リード';
+      case 'fastball': return '球速';
+      case 'breakingBall': return '変化球';
+      case 'pitchMovement': return '球種変化量';
+      
+      // Mental abilities
+      case 'concentration': return '集中力';
+      case 'anticipation': return '予測力';
+      case 'vision': return '視野';
+      case 'composure': return '冷静さ';
+      case 'aggression': return '積極性';
+      case 'bravery': return '勇敢さ';
+      case 'leadership': return 'リーダーシップ';
+      case 'workRate': return '勤勉さ';
+      case 'selfDiscipline': return '自己管理';
+      case 'ambition': return '野心';
+      case 'teamwork': return 'チームワーク';
+      case 'positioning': return 'ポジショニング';
+      case 'pressureHandling': return 'プレッシャー耐性';
+      case 'clutchAbility': return '勝負強さ';
+      
+      // Physical abilities
+      case 'acceleration': return '加速力';
+      case 'agility': return '敏捷性';
+      case 'balance': return 'バランス';
+      case 'jumpingReach': return 'ジャンプ力';
+      case 'flexibility': return '柔軟性';
+      case 'strength': return '筋力';
+      
+      default: return abilityName;
+    }
   }
 
   Widget _buildInfoRow(String label, String value, Color textColor) {

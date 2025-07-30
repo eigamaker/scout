@@ -1039,7 +1039,7 @@ class PlayerDetailScreen extends StatelessWidget {
     
     // デバッグモードの場合、真の値も表示
     final debugInfo = DebugConfig.showTrueValues ? 
-      (isFastball ? ' (真: ${player.getFastballVelocityKmhOld()}km/h)' : ' (真: $value)') : '';
+      (isFastball ? ' (球速: ${player.getFastballVelocityKmh()}km/h)' : ' (球速: $value)') : '';
     
     // ポテンシャル値を取得
     int? potentialValue;
