@@ -6,6 +6,7 @@ import '../../services/player_generator.dart';
 
 // 高校クラス
 class School {
+  final int? id; // データベースのID
   final String name;
   final String location;
   final List<Player> players;
@@ -13,6 +14,7 @@ class School {
   final String coachName;
   
   School({
+    this.id,
     required this.name,
     required this.location,
     required this.players,
@@ -21,6 +23,7 @@ class School {
   });
   
   School copyWith({
+    int? id,
     String? name,
     String? location,
     List<Player>? players,
@@ -28,6 +31,7 @@ class School {
     String? coachName,
   }) {
     return School(
+      id: id ?? this.id,
       name: name ?? this.name,
       location: location ?? this.location,
       players: players ?? this.players,
@@ -632,6 +636,7 @@ class School {
   };
 
   factory School.fromJson(Map<String, dynamic> json) => School(
+    id: json['id'],
     name: json['name'],
     location: json['location'],
     players: (json['players'] as List).map((p) => Player.fromJson(p)).toList(),

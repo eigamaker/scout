@@ -440,8 +440,9 @@ class GameManager {
             'personality': personality,
           });
           
+          print('デバッグ: 選手 ${player.name} を学校 ${school.name} (ID: ${school.id}) に割り当て');
           playerBatch.add({
-            'school_id': updatedSchools.length + 1, // 仮: schoolIdは1始まりで順次
+            'school_id': school.id, // 正しい学校IDを使用
             'grade': grade,
             'position': position,
             'fame': player.fame,
@@ -492,18 +493,18 @@ class GameManager {
             'stamina': player.getPhysicalAbility(PhysicalAbility.stamina),
             'strength': player.getPhysicalAbility(PhysicalAbility.strength),
             'pace': player.getPhysicalAbility(PhysicalAbility.pace),
-            
-            // デバッグログ: 保存される値を確認
-            if (player.name.contains('田中')) {
-              print('デバッグ: 選手保存時の能力値');
-              print('contact: ${player.getTechnicalAbility(TechnicalAbility.contact)}');
-              print('power: ${player.getTechnicalAbility(TechnicalAbility.power)}');
-              print('fastball: ${player.getTechnicalAbility(TechnicalAbility.fastball)}');
-              print('naturalFitness: ${player.getPhysicalAbility(PhysicalAbility.naturalFitness)}');
-              print('injuryProneness: ${player.getPhysicalAbility(PhysicalAbility.injuryProneness)}');
-              print('talent: ${player.talent}');
-            }
           });
+          
+          // デバッグログ: 保存される値を確認
+          if (player.name.contains('田中')) {
+            print('デバッグ: 選手保存時の能力値');
+            print('contact: ${player.getTechnicalAbility(TechnicalAbility.contact)}');
+            print('power: ${player.getTechnicalAbility(TechnicalAbility.power)}');
+            print('fastball: ${player.getTechnicalAbility(TechnicalAbility.fastball)}');
+            print('naturalFitness: ${player.getPhysicalAbility(PhysicalAbility.naturalFitness)}');
+            print('injuryProneness: ${player.getPhysicalAbility(PhysicalAbility.injuryProneness)}');
+            print('talent: ${player.talent}');
+          }
           
           // PlayerPotentialsテーブル用データを準備
           if (player.individualPotentials != null) {
@@ -619,6 +620,7 @@ class GameManager {
     // 学校リスト取得
     final schoolMaps = await db.query('Organization', where: 'type = ?', whereArgs: ['高校']);
     final schools = schoolMaps.map((m) => School(
+      id: m['id'] as int,
       name: m['name'] as String,
       location: m['location'] as String,
       players: [], // 後で選手を割り当て
@@ -788,8 +790,9 @@ class GameManager {
           'personality': personality,
         });
         
-        playerBatch.add({
-          'school_id': updatedSchools.length + 1, // 仮: schoolIdは1始まりで順次
+        print('デバッグ: 選手 ${player.name} を学校 ${school.name} (ID: ${school.id}) に割り当て');
+                  playerBatch.add({
+            'school_id': school.id, // 正しい学校IDを使用
           'grade': 1,
           'position': position,
           'growth_rate': player.growthRate,
@@ -804,12 +807,12 @@ class GameManager {
           'bunt': player.getTechnicalAbility(TechnicalAbility.bunt),
           'opposite_field_hitting': player.getTechnicalAbility(TechnicalAbility.oppositeFieldHitting),
           'pull_hitting': player.getTechnicalAbility(TechnicalAbility.pullHitting),
-                      'bat_control': player.getTechnicalAbility(TechnicalAbility.batControl),
-            'swing_speed': player.getTechnicalAbility(TechnicalAbility.swingSpeed),
-            'fielding': player.getTechnicalAbility(TechnicalAbility.fielding),
-            'throwing': player.getTechnicalAbility(TechnicalAbility.throwing),
-            'catcher_ability': player.getTechnicalAbility(TechnicalAbility.catcherAbility),
-            'control': player.getTechnicalAbility(TechnicalAbility.control),
+          'bat_control': player.getTechnicalAbility(TechnicalAbility.batControl),
+          'swing_speed': player.getTechnicalAbility(TechnicalAbility.swingSpeed),
+          'fielding': player.getTechnicalAbility(TechnicalAbility.fielding),
+          'throwing': player.getTechnicalAbility(TechnicalAbility.throwing),
+          'catcher_ability': player.getTechnicalAbility(TechnicalAbility.catcherAbility),
+          'control': player.getTechnicalAbility(TechnicalAbility.control),
           'fastball': player.getTechnicalAbility(TechnicalAbility.fastball),
           'breaking_ball': player.getTechnicalAbility(TechnicalAbility.breakingBall),
           'pitch_movement': player.getTechnicalAbility(TechnicalAbility.pitchMovement),
@@ -834,7 +837,9 @@ class GameManager {
           'balance': player.getPhysicalAbility(PhysicalAbility.balance),
           'jumping_reach': player.getPhysicalAbility(PhysicalAbility.jumpingReach),
           'flexibility': player.getPhysicalAbility(PhysicalAbility.flexibility),
-                      'stamina': player.getPhysicalAbility(PhysicalAbility.stamina),
+          'natural_fitness': player.getPhysicalAbility(PhysicalAbility.naturalFitness),
+          'injury_proneness': player.getPhysicalAbility(PhysicalAbility.injuryProneness),
+          'stamina': player.getPhysicalAbility(PhysicalAbility.stamina),
           'strength': player.getPhysicalAbility(PhysicalAbility.strength),
           'pace': player.getPhysicalAbility(PhysicalAbility.pace),
         });
@@ -1485,6 +1490,16 @@ class GameManager {
     if (_currentGame == null) return;
     final db = await dataService.database;
     final playerMaps = await db.query('Player');
+    print('デバッグ: データベースから ${playerMaps.length} 人の選手を読み込み');
+    
+    // school_idの分布を確認
+    final schoolIdCounts = <int, int>{};
+    for (final p in playerMaps) {
+      final schoolId = p['school_id'] as int? ?? 0;
+      schoolIdCounts[schoolId] = (schoolIdCounts[schoolId] ?? 0) + 1;
+    }
+    print('デバッグ: school_id分布: $schoolIdCounts');
+    
     final personIds = playerMaps.map((p) => p['id'] as int).toList();
     final persons = <int, Map<String, dynamic>>{};
     if (personIds.isNotEmpty) {
@@ -1547,7 +1562,8 @@ class GameManager {
     
     // 学校ごとにplayersを再構築
     final updatedSchools = _currentGame!.schools.map((school) {
-      final schoolPlayers = playerMaps.where((p) => school.name == school.name).map((p) {
+      print('デバッグ: 学校 ${school.name} (ID: ${school.id}) の選手を検索中');
+      final schoolPlayers = playerMaps.where((p) => p['school_id'] == school.id).map((p) {
         final person = persons[p['id'] as int] ?? {};
         final playerId = p['id'] as int;
         final individualPotentials = potentials[playerId];
@@ -1637,6 +1653,7 @@ class GameManager {
         );
         return player;
       }).toList();
+      print('デバッグ: 学校 ${school.name} で ${schoolPlayers.length} 人の選手を発見');
       return school.copyWith(players: schoolPlayers.cast<Player>());
     }).toList();
     _currentGame = _currentGame!.copyWith(schools: updatedSchools);
