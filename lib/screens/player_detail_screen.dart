@@ -191,7 +191,7 @@ class PlayerDetailScreen extends StatelessWidget {
                 _buildBasicInfoCard(context, textColor, cardBg),
                 const SizedBox(height: 16),
                 
-                // 新しい能力値システム
+                // 能力値システム
                 if (player.isDiscovered || player.fameLevel >= 2) ...[
                   _buildNewAbilityCard(context, textColor, cardBg, primaryColor),
                   const SizedBox(height: 16),
@@ -761,7 +761,7 @@ class PlayerDetailScreen extends StatelessWidget {
     return Colors.red;
   }
   
-  // 新しい能力値システムカード
+  // 能力値システムカード
   Widget _buildNewAbilityCard(BuildContext context, Color textColor, Color cardBg, Color primaryColor) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

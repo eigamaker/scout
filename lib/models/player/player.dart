@@ -36,7 +36,7 @@ class Player {
   // 球種（投手のみ）
   List<Pitch>? pitches;
   
-  // 新しい能力値システム
+  // 能力値システム
   final Map<TechnicalAbility, int> technicalAbilities; // 技術面能力値
   final Map<MentalAbility, int> mentalAbilities; // メンタル面能力値
   final Map<PhysicalAbility, int> physicalAbilities; // フィジカル面能力値
@@ -206,7 +206,7 @@ class Player {
     return fastballAbility;
   }
   
-  // 新しい能力値システムのゲッター
+  // 能力値システムのゲッター
   int getTechnicalAbility(TechnicalAbility ability) {
     return technicalAbilities[ability] ?? 25;
   }
@@ -244,7 +244,7 @@ class Player {
   
   // 真の総合能力値を計算（0-100）
   int get _trueTotalAbility {
-    // 新しい能力値システムに基づく総合能力値計算
+    // 能力値システムに基づく総合能力値計算
     final technicalAvg = getAverageTechnicalAbility();
     final mentalAvg = getAverageMentalAbility();
     final physicalAvg = getAveragePhysicalAbility();
@@ -310,7 +310,7 @@ class Player {
     return (trueValue + error).clamp(0, 100);
   }
   
-  // 真の能力値を取得（新しい能力値システム）
+  // 真の能力値を取得（能力値システム）
   int? _getAbilityValue(String abilityName) {
     switch (abilityName) {
       case 'fastballVelo':
@@ -433,7 +433,7 @@ class Player {
   }
   
   void _growPitcher() {
-    // 新しい能力値システムに基づく成長
+    // 能力値システムに基づく成長
     // 技術面能力値の成長
     for (final ability in [TechnicalAbility.control, TechnicalAbility.fastball, TechnicalAbility.breakingBall, TechnicalAbility.pitchMovement]) {
       final currentValue = technicalAbilities[ability] ?? 25;
@@ -452,7 +452,7 @@ class Player {
   }
   
   void _growBatter() {
-    // 新しい能力値システムに基づく成長
+    // 能力値システムに基づく成長
     // 技術面能力値の成長
     for (final ability in [TechnicalAbility.contact, TechnicalAbility.power, TechnicalAbility.batControl, TechnicalAbility.fielding, TechnicalAbility.throwing]) {
       final currentValue = technicalAbilities[ability] ?? 25;

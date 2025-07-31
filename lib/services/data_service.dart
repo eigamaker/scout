@@ -45,7 +45,7 @@ class DataService {
           print('データベーススキーマを更新中...');
         }
         if (oldVersion < 4) {
-          // バージョン4では古いカラムを削除した新しいスキーマを使用
+          // バージョン4ではスキーマを更新
           print('データベーススキーマを更新中（バージョン4）...');
         }
         if (oldVersion < 5) {
@@ -79,7 +79,7 @@ class DataService {
     );
   }
 
-  // 新しい能力値システムのカラムを追加
+  // 能力値システムのカラムを追加
   Future<void> _addNewAbilityColumns(Database db) async {
     // Technical abilities
     await db.execute('ALTER TABLE Player ADD COLUMN contact INTEGER DEFAULT 25');
@@ -88,12 +88,12 @@ class DataService {
     await db.execute('ALTER TABLE Player ADD COLUMN bunt INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN opposite_field_hitting INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN pull_hitting INTEGER DEFAULT 25');
-    await db.execute('ALTER TABLE Player ADD COLUMN bat_control_new INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN bat_control INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN swing_speed INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN fielding INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN throwing INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN catcher_ability INTEGER DEFAULT 25');
-    await db.execute('ALTER TABLE Player ADD COLUMN control_new INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN control INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN fastball INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN breaking_ball INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN pitch_movement INTEGER DEFAULT 25');
@@ -121,13 +121,13 @@ class DataService {
     await db.execute('ALTER TABLE Player ADD COLUMN jumping_reach INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN natural_fitness INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN injury_proneness INTEGER DEFAULT 25');
-    await db.execute('ALTER TABLE Player ADD COLUMN stamina_new INTEGER DEFAULT 25');
+    await db.execute('ALTER TABLE Player ADD COLUMN stamina INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN strength INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN pace INTEGER DEFAULT 25');
     await db.execute('ALTER TABLE Player ADD COLUMN flexibility INTEGER DEFAULT 25');
   }
 
-  // 新しいポテンシャルシステムのカラムを追加
+  // ポテンシャルシステムのカラムを追加
   Future<void> _addNewPotentialColumns(Database db) async {
     // Technical potentials
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN contact_potential INTEGER DEFAULT 50');
@@ -136,12 +136,12 @@ class DataService {
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN bunt_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN opposite_field_hitting_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN pull_hitting_potential INTEGER DEFAULT 50');
-    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN bat_control_new_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN bat_control_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN swing_speed_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN fielding_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN throwing_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN catcher_ability_potential INTEGER DEFAULT 50');
-    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN control_new_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN control_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN fastball_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN breaking_ball_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN pitch_movement_potential INTEGER DEFAULT 50');
@@ -169,7 +169,7 @@ class DataService {
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN jumping_reach_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN natural_fitness_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN injury_proneness_potential INTEGER DEFAULT 50');
-    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN stamina_new_potential INTEGER DEFAULT 50');
+    await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN stamina_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN strength_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN pace_potential INTEGER DEFAULT 50');
     await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN flexibility_potential INTEGER DEFAULT 50');
@@ -252,7 +252,7 @@ class DataService {
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
-          // 新しいポテンシャルカラムを追加
+          // ポテンシャルカラムを追加
           await _addNewPotentialColumns(db);
         }
       },
@@ -339,12 +339,12 @@ class DataService {
         bunt INTEGER,
         opposite_field_hitting INTEGER,
         pull_hitting INTEGER,
-        bat_control_new INTEGER,
+        bat_control INTEGER,
         swing_speed INTEGER,
         fielding INTEGER,
         throwing INTEGER,
         catcher_ability INTEGER,
-        control_new INTEGER,
+        control INTEGER,
         fastball INTEGER,
         breaking_ball INTEGER,
         pitch_movement INTEGER,
@@ -370,7 +370,7 @@ class DataService {
         jumping_reach INTEGER,
         natural_fitness INTEGER,
         injury_proneness INTEGER,
-        stamina_new INTEGER,
+        stamina INTEGER,
         strength INTEGER,
         pace INTEGER,
         flexibility INTEGER
@@ -388,12 +388,12 @@ class DataService {
         bunt_potential INTEGER,
         opposite_field_hitting_potential INTEGER,
         pull_hitting_potential INTEGER,
-        bat_control_new_potential INTEGER,
+        bat_control_potential INTEGER,
         swing_speed_potential INTEGER,
         fielding_potential INTEGER,
         throwing_potential INTEGER,
         catcher_ability_potential INTEGER,
-        control_new_potential INTEGER,
+        control_potential INTEGER,
         fastball_potential INTEGER,
         breaking_ball_potential INTEGER,
         pitch_movement_potential INTEGER,
@@ -419,7 +419,7 @@ class DataService {
         jumping_reach_potential INTEGER,
         natural_fitness_potential INTEGER,
         injury_proneness_potential INTEGER,
-        stamina_new_potential INTEGER,
+        stamina_potential INTEGER,
         strength_potential INTEGER,
         pace_potential INTEGER,
         flexibility_potential INTEGER,

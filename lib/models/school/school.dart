@@ -115,14 +115,14 @@ class School {
     // 球速（全選手が持つ）
     potentials['fastballVelo'] = _generateFastballPotential(talentRank, random);
     
-    // 新しいTechnical（技術面）能力値ポテンシャル
+    // Technical（技術面）能力値ポテンシャル
     final technicalAbilities = [
       'contact', 'power', 'plateDiscipline', 'bunt', 'oppositeFieldHitting', 
       'pullHitting', 'batControl', 'swingSpeed', 'fielding', 'throwing', 
       'catcherAbility', 'control', 'fastball', 'breakingBall', 'pitchMovement'
     ];
     
-    // 新しいMental（メンタル面）能力値ポテンシャル
+    // Mental（メンタル面）能力値ポテンシャル
     final mentalAbilities = [
       'concentration', 'anticipation', 'vision', 'composure', 'aggression', 
       'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
@@ -130,7 +130,7 @@ class School {
       'naturalFitness', 'injuryProneness'
     ];
     
-    // 新しいPhysical（フィジカル面）能力値ポテンシャル
+    // Physical（フィジカル面）能力値ポテンシャル
     final physicalAbilities = [
       'acceleration', 'agility', 'balance', 'jumpingReach', 'flexibility',
       'naturalFitness', 'injuryProneness', 'stamina', 'strength', 'pace'

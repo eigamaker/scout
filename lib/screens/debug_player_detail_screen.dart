@@ -349,7 +349,6 @@ class _DebugPlayerDetailScreenState extends State<DebugPlayerDetailScreen> {
             ),
             const SizedBox(height: 12),
             if (widget.player.individualPotentials != null) ...[
-              // 古いシステムの能力値ポテンシャル
               Text(
                 '基本能力値',
                 style: TextStyle(
@@ -366,7 +365,7 @@ class _DebugPlayerDetailScreenState extends State<DebugPlayerDetailScreen> {
               
               const SizedBox(height: 16),
               
-              // 新しいTechnical（技術面）能力値ポテンシャル
+              // Technical（技術面）能力値ポテンシャル
               Text(
                 '技術面能力値',
                 style: TextStyle(
@@ -383,7 +382,7 @@ class _DebugPlayerDetailScreenState extends State<DebugPlayerDetailScreen> {
               
               const SizedBox(height: 16),
               
-              // 新しいMental（メンタル面）能力値ポテンシャル
+              // Mental（メンタル面）能力値ポテンシャル
               Text(
                 'メンタル面能力値',
                 style: TextStyle(
@@ -400,7 +399,7 @@ class _DebugPlayerDetailScreenState extends State<DebugPlayerDetailScreen> {
               
               const SizedBox(height: 16),
               
-              // 新しいPhysical（フィジカル面）能力値ポテンシャル
+              // Physical（フィジカル面）能力値ポテンシャル
               Text(
                 'フィジカル面能力値',
                 style: TextStyle(

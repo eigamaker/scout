@@ -295,7 +295,7 @@ class PlayerGenerator {
     }
   }
   
-  // 新しい能力値システムの生成メソッド
+  // 能力値システムの生成メソッド
   static Map<TechnicalAbility, int> generateTechnicalAbilities(int talent, String position) {
     final abilities = <TechnicalAbility, int>{};
     
@@ -422,7 +422,7 @@ class PlayerGenerator {
     return abilities;
   }
   
-  // 新しい能力値システムのポテンシャル生成メソッド
+  // 能力値システムのポテンシャル生成メソッド
   static Map<TechnicalAbility, int> generateTechnicalPotentials(int talent, String position) {
     final potentials = <TechnicalAbility, int>{};
     
