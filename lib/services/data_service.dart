@@ -245,7 +245,7 @@ class DataService {
     final path = join(dbPath, dbName);
     return await openDatabase(
       path,
-      version: 4, // バージョンを更新
+      version: 7, // バージョンを7に更新
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
@@ -254,6 +254,15 @@ class DataService {
         if (oldVersion < 2) {
           // ポテンシャルカラムを追加
           await _addNewPotentialColumns(db);
+        }
+        if (oldVersion < 7) {
+          // バージョン7では新しいポテンシャル生成を含むスキーマで再作成
+          print('データベーススキーマを強制更新中（バージョン7）...');
+          // 既存のテーブルを削除して再作成
+          await db.execute('DROP TABLE IF EXISTS Player');
+          await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+          await db.execute('DROP TABLE IF EXISTS Person');
+          await _createAllTables(db);
         }
       },
     );
@@ -464,6 +473,60 @@ class DataService {
         school_strength INTEGER,
         last_year_strength INTEGER,
         scouting_popularity INTEGER
+      )
+    ''');
+    
+    // スカウト分析の仮の値を保存するテーブル
+    await db.execute('''
+      CREATE TABLE ScoutAnalysis (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER,
+        scout_id TEXT,
+        analysis_date TEXT,
+        accuracy REAL,
+        -- Technical（技術面）仮の能力値
+        contact_scouted INTEGER,
+        power_scouted INTEGER,
+        plate_discipline_scouted INTEGER,
+        bunt_scouted INTEGER,
+        opposite_field_hitting_scouted INTEGER,
+        pull_hitting_scouted INTEGER,
+        bat_control_scouted INTEGER,
+        swing_speed_scouted INTEGER,
+        fielding_scouted INTEGER,
+        throwing_scouted INTEGER,
+        catcher_ability_scouted INTEGER,
+        control_scouted INTEGER,
+        fastball_scouted INTEGER,
+        breaking_ball_scouted INTEGER,
+        pitch_movement_scouted INTEGER,
+        -- Mental（メンタル面）仮の能力値
+        concentration_scouted INTEGER,
+        anticipation_scouted INTEGER,
+        vision_scouted INTEGER,
+        composure_scouted INTEGER,
+        aggression_scouted INTEGER,
+        bravery_scouted INTEGER,
+        leadership_scouted INTEGER,
+        work_rate_scouted INTEGER,
+        self_discipline_scouted INTEGER,
+        ambition_scouted INTEGER,
+        teamwork_scouted INTEGER,
+        positioning_scouted INTEGER,
+        pressure_handling_scouted INTEGER,
+        clutch_ability_scouted INTEGER,
+        -- Physical（フィジカル面）仮の能力値
+        acceleration_scouted INTEGER,
+        agility_scouted INTEGER,
+        balance_scouted INTEGER,
+        jumping_reach_scouted INTEGER,
+        natural_fitness_scouted INTEGER,
+        injury_proneness_scouted INTEGER,
+        stamina_scouted INTEGER,
+        strength_scouted INTEGER,
+        pace_scouted INTEGER,
+        flexibility_scouted INTEGER,
+        FOREIGN KEY (player_id) REFERENCES Player (id)
       )
     ''');
   }

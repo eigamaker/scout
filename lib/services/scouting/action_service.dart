@@ -5,6 +5,7 @@ import '../../models/scouting/scouting_history.dart';
 import 'accuracy_calculator.dart';
 import '../../models/school/school.dart';
 import '../../models/player/player.dart';
+import 'scout_analysis_service.dart';
 
 class SchoolScoutResult {
   final Player? discoveredPlayer;
@@ -183,6 +184,11 @@ class ActionService {
     // 取得情報の生成
     final obtainedInfo = _generateObtainedInfo(action, accuracy, isSuccessful);
 
+    // スカウト分析データの保存（成功時のみ）
+    if (isSuccessful && targetType == 'player') {
+      _saveScoutAnalysis(targetId, scout, accuracy);
+    }
+
     // 視察記録の作成
     final record = ScoutingRecord(
       actionId: action.type.name,
@@ -203,6 +209,14 @@ class ActionService {
       accuracy: accuracy,
       obtainedInfo: obtainedInfo,
     );
+  }
+
+  /// スカウト分析データを保存
+  static void _saveScoutAnalysis(String playerId, Scout scout, double accuracy) {
+    // プレイヤーIDからプレイヤーオブジェクトを取得する必要がある
+    // この実装では、GameManagerからプレイヤー情報を取得する必要がある
+    // 簡易的な実装として、後でGameManagerから呼び出される際にプレイヤー情報を渡す
+    print('スカウト分析データ保存: プレイヤーID $playerId, 精度 $accuracy');
   }
 
   /// 取得情報の生成

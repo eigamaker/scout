@@ -8,6 +8,7 @@ enum PlayerType { highSchool, college, social }
 
 // 選手クラス
 class Player {
+  final int? id; // データベースのID
   final String name;
   final String school;
   int grade; // 1年生、2年生、3年生（高校生の場合）
@@ -62,6 +63,7 @@ class Player {
   final int totalFamePoints; // 総知名度ポイント
   
   Player({
+    this.id,
     required this.name,
     required this.school,
     required this.grade,
@@ -542,6 +544,7 @@ class Player {
   );
 
   Player copyWith({
+    int? id,
     String? name,
     String? school,
     int? grade,
@@ -572,6 +575,7 @@ class Player {
     String? scoutNotes,
   }) {
     return Player(
+      id: id ?? this.id,
       name: name ?? this.name,
       school: school ?? this.school,
       grade: grade ?? this.grade,

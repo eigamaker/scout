@@ -10,6 +10,7 @@ import 'news_service.dart';
 import 'data_service.dart';
 import 'player_generator.dart';
 import 'scouting/action_service.dart' as scouting;
+import 'scouting/scout_analysis_service.dart';
 
 // 個別ポテンシャル生成システム
 class IndividualPotentialGenerator {
@@ -391,35 +392,21 @@ class GameManager {
 
   // ニューゲーム時に全学校に1〜3年生を生成・配属（DBにもinsert）
   Future<void> generateInitialStudentsForAllSchoolsDb(DataService dataService) async {
-    print('generateInitialStudentsForAllSchoolsDb: 開始');
-    if (_currentGame == null) {
-      print('generateInitialStudentsForAllSchoolsDb: _currentGameがnull');
-      return;
-    }
-    print('generateInitialStudentsForAllSchoolsDb: 学校数: ${_currentGame!.schools.length}');
     final db = await dataService.database;
     final updatedSchools = <School>[];
     
-    // バッチ処理用のリスト
-    final personBatch = <Map<String, dynamic>>[];
-    final playerBatch = <Map<String, dynamic>>[];
-    final potentialBatch = <Map<String, dynamic>>[];
-    
     for (final school in _currentGame!.schools) {
       final newPlayers = <Player>[];
+      
+      // 各学校に1〜3年生を生成（各学年1〜3人）
       for (int grade = 1; grade <= 3; grade++) {
-        final numNew = 10 + (Random().nextInt(6)); // 10〜15人
-        for (int i = 0; i < numNew; i++) {
-          final isFamous = i == 0 && (Random().nextInt(3) == 0);
+        final playerCount = 1 + Random().nextInt(3); // 1〜3人
+        
+        for (int i = 0; i < playerCount; i++) {
           final name = _generateRandomName();
           final personality = _randomPersonality();
-          
-          // 才能ランクを先に決定（ポジション決定に使用）
-          final talent = _randomTalent();
-          final random = Random();
           final position = _randomPosition();
           
-          // generatePlayerメソッドを使用して選手を生成
           final player = generatePlayer(
             name: name,
             school: school.name,
@@ -430,183 +417,14 @@ class GameManager {
           
           // 知名度を計算
           player.calculateInitialFame();
-          
-          // バッチ用データを準備
-          personBatch.add({
-            'name': name,
-            'birth_date': '20${6 + Random().nextInt(10)}-04-01',
-            'gender': '男',
-            'hometown': school.location,
-            'personality': personality,
-          });
-          
-          print('デバッグ: 選手 ${player.name} を学校 ${school.name} (ID: ${school.id}) に割り当て');
-          playerBatch.add({
-            'school_id': school.id, // 正しい学校IDを使用
-            'grade': grade,
-            'position': position,
-            'fame': player.fame,
-            'growth_rate': player.growthRate,
-            'talent': player.talent,
-            'growth_type': player.growthType,
-            'mental_grit': player.mentalGrit,
-            'peak_ability': player.peakAbility,
-            // Technical（技術面）能力値
-            'contact': player.getTechnicalAbility(TechnicalAbility.contact),
-            'power': player.getTechnicalAbility(TechnicalAbility.power),
-            'plate_discipline': player.getTechnicalAbility(TechnicalAbility.plateDiscipline),
-            'bunt': player.getTechnicalAbility(TechnicalAbility.bunt),
-            'opposite_field_hitting': player.getTechnicalAbility(TechnicalAbility.oppositeFieldHitting),
-            'pull_hitting': player.getTechnicalAbility(TechnicalAbility.pullHitting),
-            'bat_control': player.getTechnicalAbility(TechnicalAbility.batControl),
-            'swing_speed': player.getTechnicalAbility(TechnicalAbility.swingSpeed),
-            'fielding': player.getTechnicalAbility(TechnicalAbility.fielding),
-            'throwing': player.getTechnicalAbility(TechnicalAbility.throwing),
-            'catcher_ability': player.getTechnicalAbility(TechnicalAbility.catcherAbility),
-            'control': player.getTechnicalAbility(TechnicalAbility.control),
-            'fastball': player.getTechnicalAbility(TechnicalAbility.fastball),
-            'breaking_ball': player.getTechnicalAbility(TechnicalAbility.breakingBall),
-            'pitch_movement': player.getTechnicalAbility(TechnicalAbility.pitchMovement),
-            // Mental（メンタル面）能力値
-            'concentration': player.getMentalAbility(MentalAbility.concentration),
-            'anticipation': player.getMentalAbility(MentalAbility.anticipation),
-            'vision': player.getMentalAbility(MentalAbility.vision),
-            'composure': player.getMentalAbility(MentalAbility.composure),
-            'aggression': player.getMentalAbility(MentalAbility.aggression),
-            'bravery': player.getMentalAbility(MentalAbility.bravery),
-            'leadership': player.getMentalAbility(MentalAbility.leadership),
-            'work_rate': player.getMentalAbility(MentalAbility.workRate),
-            'self_discipline': player.getMentalAbility(MentalAbility.selfDiscipline),
-            'ambition': player.getMentalAbility(MentalAbility.ambition),
-            'teamwork': player.getMentalAbility(MentalAbility.teamwork),
-            'positioning': player.getMentalAbility(MentalAbility.positioning),
-            'pressure_handling': player.getMentalAbility(MentalAbility.pressureHandling),
-            'clutch_ability': player.getMentalAbility(MentalAbility.clutchAbility),
-            // Physical（フィジカル面）能力値
-            'acceleration': player.getPhysicalAbility(PhysicalAbility.acceleration),
-            'agility': player.getPhysicalAbility(PhysicalAbility.agility),
-            'balance': player.getPhysicalAbility(PhysicalAbility.balance),
-            'jumping_reach': player.getPhysicalAbility(PhysicalAbility.jumpingReach),
-            'flexibility': player.getPhysicalAbility(PhysicalAbility.flexibility),
-            'natural_fitness': player.getPhysicalAbility(PhysicalAbility.naturalFitness),
-            'injury_proneness': player.getPhysicalAbility(PhysicalAbility.injuryProneness),
-            'stamina': player.getPhysicalAbility(PhysicalAbility.stamina),
-            'strength': player.getPhysicalAbility(PhysicalAbility.strength),
-            'pace': player.getPhysicalAbility(PhysicalAbility.pace),
-          });
-          
-          // デバッグログ: 保存される値を確認
-          if (player.name.contains('田中')) {
-            print('デバッグ: 選手保存時の能力値');
-            print('contact: ${player.getTechnicalAbility(TechnicalAbility.contact)}');
-            print('power: ${player.getTechnicalAbility(TechnicalAbility.power)}');
-            print('fastball: ${player.getTechnicalAbility(TechnicalAbility.fastball)}');
-            print('naturalFitness: ${player.getPhysicalAbility(PhysicalAbility.naturalFitness)}');
-            print('injuryProneness: ${player.getPhysicalAbility(PhysicalAbility.injuryProneness)}');
-            print('talent: ${player.talent}');
-          }
-          
-          // PlayerPotentialsテーブル用データを準備
-          if (player.individualPotentials != null) {
-            potentialBatch.add({
-              // Technical（技術面）ポテンシャル
-              'contact_potential': player.individualPotentials!['contact'] ?? 0,
-              'power_potential': player.individualPotentials!['power'] ?? 0,
-              'plate_discipline_potential': player.individualPotentials!['plateDiscipline'] ?? 0,
-              'bunt_potential': player.individualPotentials!['bunt'] ?? 0,
-              'opposite_field_hitting_potential': player.individualPotentials!['oppositeFieldHitting'] ?? 0,
-              'pull_hitting_potential': player.individualPotentials!['pullHitting'] ?? 0,
-              'bat_control_potential': player.individualPotentials!['batControl'] ?? 0,
-              'swing_speed_potential': player.individualPotentials!['swingSpeed'] ?? 0,
-              'fielding_potential': player.individualPotentials!['fielding'] ?? 0,
-              'throwing_potential': player.individualPotentials!['throwing'] ?? 0,
-              'catcher_ability_potential': player.individualPotentials!['catcherAbility'] ?? 0,
-              'control_potential': player.individualPotentials!['control'] ?? 0,
-              'fastball_potential': player.individualPotentials!['fastball'] ?? 0,
-              'breaking_ball_potential': player.individualPotentials!['breakingBall'] ?? 0,
-              'pitch_movement_potential': player.individualPotentials!['pitchMovement'] ?? 0,
-              // Mental（メンタル面）ポテンシャル
-              'concentration_potential': player.individualPotentials!['concentration'] ?? 0,
-              'anticipation_potential': player.individualPotentials!['anticipation'] ?? 0,
-              'vision_potential': player.individualPotentials!['vision'] ?? 0,
-              'composure_potential': player.individualPotentials!['composure'] ?? 0,
-              'aggression_potential': player.individualPotentials!['aggression'] ?? 0,
-              'bravery_potential': player.individualPotentials!['bravery'] ?? 0,
-              'leadership_potential': player.individualPotentials!['leadership'] ?? 0,
-              'work_rate_potential': player.individualPotentials!['workRate'] ?? 0,
-              'self_discipline_potential': player.individualPotentials!['selfDiscipline'] ?? 0,
-              'ambition_potential': player.individualPotentials!['ambition'] ?? 0,
-              'teamwork_potential': player.individualPotentials!['teamwork'] ?? 0,
-              'positioning_potential': player.individualPotentials!['positioning'] ?? 0,
-              'pressure_handling_potential': player.individualPotentials!['pressureHandling'] ?? 0,
-              'clutch_ability_potential': player.individualPotentials!['clutchAbility'] ?? 0,
-              // Physical（フィジカル面）ポテンシャル
-              'acceleration_potential': player.individualPotentials!['acceleration'] ?? 0,
-              'agility_potential': player.individualPotentials!['agility'] ?? 0,
-              'balance_potential': player.individualPotentials!['balance'] ?? 0,
-              'jumping_reach_potential': player.individualPotentials!['jumpingReach'] ?? 0,
-              'natural_fitness_potential': player.individualPotentials!['naturalFitness'] ?? 0,
-              'injury_proneness_potential': player.individualPotentials!['injuryProneness'] ?? 0,
-              'stamina_potential': player.individualPotentials!['stamina'] ?? 0,
-              'strength_potential': player.individualPotentials!['strength'] ?? 0,
-              'pace_potential': player.individualPotentials!['pace'] ?? 0,
-              'flexibility_potential': player.individualPotentials!['flexibility'] ?? 0,
-            });
-          }
-          
           newPlayers.add(player);
-          if (isFamous) {
-            _currentGame = _currentGame!.discoverPlayer(player);
-          }
         }
       }
+      
       updatedSchools.add(school.copyWith(players: newPlayers));
     }
     
-    // バッチ挿入を実行
-    print('generateInitialStudentsForAllSchoolsDb: バッチ挿入開始 - Person: ${personBatch.length}, Player: ${playerBatch.length}, Potential: ${potentialBatch.length}');
-    
-    // ポジション分布を確認
-    final positionCounts = <String, int>{};
-    for (final school in updatedSchools) {
-      for (final player in school.players) {
-        positionCounts[player.position] = (positionCounts[player.position] ?? 0) + 1;
-      }
-    }
-    print('ポジション分布: $positionCounts');
-    
-    await db.transaction((txn) async {
-      // Personテーブルをバッチ挿入
-      for (final personData in personBatch) {
-        final personId = await txn.insert('Person', personData);
-        
-        // 対応するPlayerデータにpersonIdを設定
-        final playerIndex = personBatch.indexOf(personData);
-        if (playerIndex < playerBatch.length) {
-          playerBatch[playerIndex]['id'] = personId;
-          
-          // 対応するPotentialデータにplayerIdを設定
-          if (playerIndex < potentialBatch.length) {
-            potentialBatch[playerIndex]['player_id'] = personId;
-          }
-        }
-      }
-      
-      // Playerテーブルをバッチ挿入
-      for (final playerData in playerBatch) {
-        await txn.insert('Player', playerData);
-      }
-      
-      // PlayerPotentialsテーブルをバッチ挿入
-      for (final potentialData in potentialBatch) {
-        await txn.insert('PlayerPotentials', potentialData);
-      }
-    });
-    
     _currentGame = _currentGame!.copyWith(schools: updatedSchools);
-    for (final s in updatedSchools) {
-      print('updatedSchools: name= [32m${s.name} [0m, players=${s.players.length}');
-    }
   }
 
   Future<void> startNewGameWithDb(String scoutName, DataService dataService) async {
@@ -1191,7 +1009,7 @@ class GameManager {
     }
     
     // 個別ポテンシャル生成（才能ランクに基づく）
-    final individualPotentials = _generateSimplifiedPotentials(talent, random);
+    final individualPotentials = PlayerGenerator.generateIndividualPotentials(talent, position);
     
     // 能力値システムを生成
     final technicalAbilities = _generateTechnicalAbilities(talent, grade, position, random);
@@ -1514,6 +1332,17 @@ class GameManager {
     final potentials = <int, Map<String, int>>{};
     for (final p in potentialMaps) {
       final playerId = p['player_id'] as int;
+      
+      // デバッグログ: ポテンシャルデータの確認
+      if (playerId == 1) {
+        print('デバッグ: 選手ID 1のポテンシャルデータ読み込み');
+        print('teamwork_potential: ${p['teamwork_potential']}');
+        print('positioning_potential: ${p['positioning_potential']}');
+        print('pressure_handling_potential: ${p['pressure_handling_potential']}');
+        print('clutch_ability_potential: ${p['clutch_ability_potential']}');
+        print('flexibility_potential: ${p['flexibility_potential']}');
+      }
+      
       potentials[playerId] = {
         // Technical（技術面）ポテンシャル
         'contact': p['contact_potential'] as int? ?? 0,
@@ -1621,6 +1450,23 @@ class GameManager {
         // デバッグログ: 最初の選手の能力値を確認
         if (p['id'] == 1) {
           print('デバッグ: 選手ID 1の能力値読み込み');
+          print('contact: ${p['contact']} (型: ${p['contact'].runtimeType})');
+          print('power: ${p['power']} (型: ${p['power'].runtimeType})');
+          print('fastball: ${p['fastball']} (型: ${p['fastball'].runtimeType})');
+          print('natural_fitness: ${p['natural_fitness']} (型: ${p['natural_fitness'].runtimeType})');
+          print('injury_proneness: ${p['injury_proneness']} (型: ${p['injury_proneness'].runtimeType})');
+          print('flexibility: ${p['flexibility']} (型: ${p['flexibility'].runtimeType})');
+          print('復元後のcontact: ${technicalAbilities[TechnicalAbility.contact]}');
+          print('復元後のpower: ${technicalAbilities[TechnicalAbility.power]}');
+          print('復元後のfastball: ${technicalAbilities[TechnicalAbility.fastball]}');
+          print('復元後のnaturalFitness: ${physicalAbilities[PhysicalAbility.naturalFitness]}');
+          print('復元後のinjuryProneness: ${physicalAbilities[PhysicalAbility.injuryProneness]}');
+          print('復元後のflexibility: ${physicalAbilities[PhysicalAbility.flexibility]}');
+        }
+        
+        // デバッグログ: 最初の選手の能力値を確認
+        if (p['id'] == 1) {
+          print('デバッグ: 選手ID 1の能力値読み込み');
           print('contact: ${p['contact']}');
           print('power: ${p['power']}');
           print('fastball: ${p['fastball']}');
@@ -1633,7 +1479,18 @@ class GameManager {
           print('復元後のinjuryProneness: ${physicalAbilities[PhysicalAbility.injuryProneness]}');
         }
         
+        // デバッグログ: ポテンシャルの確認
+        if (p['id'] == 1 && individualPotentials != null) {
+          print('デバッグ: 選手ID 1のポテンシャル読み込み');
+          print('teamwork_potential: ${individualPotentials['teamwork']}');
+          print('positioning_potential: ${individualPotentials['positioning']}');
+          print('pressure_handling_potential: ${individualPotentials['pressureHandling']}');
+          print('clutch_ability_potential: ${individualPotentials['clutchAbility']}');
+          print('flexibility_potential: ${individualPotentials['flexibility']}');
+        }
+        
         final player = Player(
+          id: p['id'] as int?,
           name: person['name'] as String? ?? '名無し',
           school: school.name,
           grade: p['grade'] as int? ?? 1,
@@ -1722,6 +1579,13 @@ class GameManager {
       _currentGame = _currentGame!.advanceWeek();
       // 必要に応じて週遷移時のイベントをここに追加
       triggerRandomEvent(newsService);
+      
+      // スカウトアクションを実行
+      final scoutResults = await executeScoutActions(dataService);
+      if (scoutResults.isNotEmpty) {
+        print('スカウトアクション実行結果: ${scoutResults.join(', ')}');
+      }
+      
       // オートセーブ
       await saveGame(dataService);
     }
@@ -1784,24 +1648,55 @@ class GameManager {
       return results;
     }
     
-    // スカウトシステムでは、週送り時の自動実行は行わない
-    // スカウトアクションは手動で実行する必要がある
+    final scoutAnalysisService = ScoutAnalysisService(dataService);
+    
     for (final action in _currentGame!.weeklyActions) {
       if (action.type == 'SCOUT_SCHOOL') {
-        // 学校視察アクションの実行（簡易版）
+        // 学校視察アクションの実行
         final schoolIndex = action.schoolId;
         if (schoolIndex < _currentGame!.schools.length) {
           final school = _currentGame!.schools[schoolIndex];
           
-          // 簡易的な選手発掘ロジック
+          // 未発掘選手リスト
           final undiscoveredPlayers = school.players.where((p) => !p.isDiscovered).toList();
           if (undiscoveredPlayers.isNotEmpty) {
-            final randomPlayer = undiscoveredPlayers[Random().nextInt(undiscoveredPlayers.length)];
-            randomPlayer.isDiscovered = true;
-            discoverPlayer(randomPlayer);
-            results.add('🏫 ${school.name}の視察: 新しい選手「${randomPlayer.name}」を発見しました！');
+            // 未発掘選手がいればランダムで1人発掘
+            final player = undiscoveredPlayers[Random().nextInt(undiscoveredPlayers.length)];
+            player.isDiscovered = true;
+            player.discoveredAt = DateTime.now();
+            player.discoveredCount = 1;
+            player.scoutedDates.add(DateTime.now());
+            
+            // 能力値把握度を初期値（20～40%）に
+            player.abilityKnowledge.updateAll((k, v) => 20 + Random().nextInt(21));
+            
+            // スカウト分析データを保存
+            final scoutId = 'default_scout'; // 仮のスカウトID
+            final accuracy = 0.6 + (Random().nextDouble() * 0.3); // 60-90%の精度
+            await scoutAnalysisService.saveScoutAnalysis(player, scoutId, accuracy);
+            
+            discoverPlayer(player);
+            results.add('🏫 ${school.name}の視察: 新しい選手「${player.name}」を発見しました！');
           } else {
-            results.add('🏫 ${school.name}の視察: 特に新しい発見はありませんでした。');
+            // すでに全員発掘済み→ランダムで1人の把握度アップ
+            final discovered = school.players.where((p) => p.isDiscovered).toList();
+            if (discovered.isNotEmpty) {
+              final player = discovered[Random().nextInt(discovered.length)];
+              player.discoveredCount += 1;
+              player.scoutedDates.add(DateTime.now());
+              
+              // 能力値把握度を+10～+20%アップ（最大80%）
+              player.abilityKnowledge.updateAll((k, v) => (v + 10 + Random().nextInt(11)).clamp(0, 80));
+              
+              // スカウト分析データを更新
+              final scoutId = 'default_scout';
+              final accuracy = 0.7 + (Random().nextDouble() * 0.2); // 70-90%の精度（既知選手は精度が高い）
+              await scoutAnalysisService.saveScoutAnalysis(player, scoutId, accuracy);
+              
+              results.add('🏫 ${school.name}の視察: 「${player.name}」の能力値の把握度が上がった！');
+            } else {
+              results.add('🏫 ${school.name}の視察: 特に新しい発見はありませんでした。');
+            }
           }
         }
       }
