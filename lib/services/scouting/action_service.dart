@@ -14,6 +14,20 @@ class SchoolScoutResult {
   SchoolScoutResult({this.discoveredPlayer, this.improvedPlayer, required this.message});
 }
 
+class ScoutActionResult {
+  final bool success;
+  final String message;
+  final Player? discoveredPlayer;
+  final Player? improvedPlayer;
+
+  ScoutActionResult({
+    required this.success,
+    required this.message,
+    this.discoveredPlayer,
+    this.improvedPlayer,
+  });
+}
+
 class ActionService {
   static final Random _random = Random();
 
@@ -85,7 +99,7 @@ class ActionService {
       return SchoolScoutResult(
         discoveredPlayer: player,
         improvedPlayer: null,
-        message: '新しい選手「${player.name}」が気になりました！',
+        message: '🏫 ${school.name}の視察: 新しい選手「${player.name}」を発見しました！',
       );
     } else {
       // すでに全員発掘済み→ランダムで1人の把握度アップ
@@ -94,7 +108,7 @@ class ActionService {
         return SchoolScoutResult(
           discoveredPlayer: null,
           improvedPlayer: null,
-          message: 'この学校には選手がいません。',
+          message: '🏫 ${school.name}の視察: この学校には選手がいません。',
         );
       }
       final player = discovered[Random().nextInt(discovered.length)];
@@ -105,9 +119,136 @@ class ActionService {
       return SchoolScoutResult(
         discoveredPlayer: null,
         improvedPlayer: player,
-        message: '「${player.name}」の能力値の把握度が上がった！',
+        message: '🏫 ${school.name}の視察: 「${player.name}」の能力値の把握度が上がった！',
       );
     }
+  }
+
+  /// 練習視察アクション
+  static ScoutActionResult practiceWatch({
+    required School school,
+    required Player? targetPlayer,
+    required Map<String, int> scoutSkills,
+    required int currentWeek,
+  }) {
+    // 練習視察の具体的な処理
+    if (targetPlayer != null) {
+      // 特定選手の練習視察
+      final knowledgeIncrease = 15 + Random().nextInt(16); // 15-30%増加
+      targetPlayer.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 90));
+      
+      return ScoutActionResult(
+        success: true,
+        message: '🏃 ${school.name}の練習視察: 「${targetPlayer.name}」の技術面を詳しく観察できました',
+        discoveredPlayer: null,
+        improvedPlayer: targetPlayer,
+      );
+    } else {
+      // 学校全体の練習視察
+      final undiscovered = school.players.where((p) => !p.isDiscovered).toList();
+      if (undiscovered.isNotEmpty) {
+        final player = undiscovered[Random().nextInt(undiscovered.length)];
+        player.isDiscovered = true;
+        player.discoveredAt = DateTime.now();
+        player.discoveredCount = 1;
+        player.scoutedDates.add(DateTime.now());
+        player.abilityKnowledge.updateAll((k, v) => 25 + Random().nextInt(16)); // 25-40%
+        
+        return ScoutActionResult(
+          success: true,
+          message: '🏃 ${school.name}の練習視察: 「${player.name}」の練習態度が目立ちました',
+          discoveredPlayer: player,
+          improvedPlayer: null,
+        );
+      }
+      
+      return ScoutActionResult(
+        success: true,
+        message: '🏃 ${school.name}の練習視察: 特に目立った選手はいませんでした',
+        discoveredPlayer: null,
+        improvedPlayer: null,
+      );
+    }
+  }
+
+  /// 試合観戦アクション
+  static ScoutActionResult gameWatch({
+    required School school,
+    required Player? targetPlayer,
+    required Map<String, int> scoutSkills,
+    required int currentWeek,
+  }) {
+    // 試合観戦の具体的な処理
+    if (targetPlayer != null) {
+      // 特定選手の試合観戦
+      final knowledgeIncrease = 20 + Random().nextInt(21); // 20-40%増加
+      targetPlayer.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 95));
+      
+      return ScoutActionResult(
+        success: true,
+        message: '⚾ ${school.name}の試合観戦: 「${targetPlayer.name}」の試合での活躍を確認できました',
+        discoveredPlayer: null,
+        improvedPlayer: targetPlayer,
+      );
+    } else {
+      // 学校全体の試合観戦
+      final allPlayers = school.players.where((p) => p.isDiscovered).toList();
+      if (allPlayers.isNotEmpty) {
+        final player = allPlayers[Random().nextInt(allPlayers.length)];
+        final knowledgeIncrease = 10 + Random().nextInt(11); // 10-20%増加
+        player.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 85));
+        
+        return ScoutActionResult(
+          success: true,
+          message: '⚾ ${school.name}の試合観戦: 「${player.name}」の試合での印象が強く残りました',
+          discoveredPlayer: null,
+          improvedPlayer: player,
+        );
+      }
+      
+      return ScoutActionResult(
+        success: true,
+        message: '⚾ ${school.name}の試合観戦: 試合は見応えがありましたが、特に印象的な選手はいませんでした',
+        discoveredPlayer: null,
+        improvedPlayer: null,
+      );
+    }
+  }
+
+  /// インタビューアクション
+  static ScoutActionResult interview({
+    required Player targetPlayer,
+    required Map<String, int> scoutSkills,
+    required int currentWeek,
+  }) {
+    // インタビューの具体的な処理
+    final knowledgeIncrease = 25 + Random().nextInt(26); // 25-50%増加
+    targetPlayer.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 95));
+    
+    return ScoutActionResult(
+      success: true,
+      message: '🎤 「${targetPlayer.name}」へのインタビュー: 選手の本音を聞くことができました',
+      discoveredPlayer: null,
+      improvedPlayer: targetPlayer,
+    );
+  }
+
+  /// ビデオ分析アクション
+  static ScoutActionResult videoAnalyze({
+    required Player targetPlayer,
+    required Map<String, int> scoutSkills,
+    required int currentWeek,
+  }) {
+    // ビデオ分析の具体的な処理
+    final knowledgeIncrease = 30 + Random().nextInt(21); // 30-50%増加
+    targetPlayer.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 95));
+    
+    return ScoutActionResult(
+      success: true,
+      message: '📹 「${targetPlayer.name}」のビデオ分析: 技術的な詳細を分析できました',
+      discoveredPlayer: null,
+      improvedPlayer: targetPlayer,
+    );
   }
 
   /// 前提条件チェック

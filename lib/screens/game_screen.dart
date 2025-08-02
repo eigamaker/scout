@@ -93,7 +93,7 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                 );
                 if (slot != null) {
-                  await dataService.saveGameDataToSlot(gameManager.currentGame!.toJson(), slot);
+                  await gameManager.saveGame();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('スロット$slotにセーブしました')),
                   );
@@ -104,8 +104,7 @@ class _GameScreenState extends State<GameScreen> {
               leading: const Icon(Icons.folder_open),
               title: const Text('ロード'),
               onTap: () async {
-                final dataService = Provider.of<DataService>(context, listen: false);
-                final loaded = await gameManager.loadGame(dataService);
+                final loaded = await gameManager.loadGame(1); // デフォルトスロット1を使用
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(loaded ? 'ロードしました' : 'セーブデータがありません')),
                 );

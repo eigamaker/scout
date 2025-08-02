@@ -21,11 +21,11 @@ class _LoadGameScreenState extends State<LoadGameScreen> {
   }
 
   Future<void> _checkSlots() async {
-    final dataService = Provider.of<DataService>(context, listen: false);
+    final gameManager = Provider.of<GameManager>(context, listen: false);
     for (int i = 0; i < 3; i++) {
-      _hasData[i] = await dataService.hasGameDataInSlot(i + 1);
+      _hasData[i] = await gameManager.hasGameData(i + 1);
     }
-    _hasData[3] = await dataService.hasGameDataInSlot('autosave');
+    _hasData[3] = await gameManager.hasGameData('autosave');
     setState(() {
       _loading = false;
     });
@@ -55,17 +55,9 @@ class _LoadGameScreenState extends State<LoadGameScreen> {
                       onPressed: _hasData[index]
                           ? () async {
                               final slot = isAuto ? 'autosave' : (index + 1);
-                              final dataService = Provider.of<DataService>(context, listen: false);
                               final gameManager = Provider.of<GameManager>(context, listen: false);
-                              final json = await dataService.loadGameDataFromSlot(slot);
-                              if (json == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('セーブデータがありません')),
-                                );
-                                return;
-                              }
-                              gameManager.loadGameFromJson(json);
-                              if (gameManager.currentGame != null) {
+                              final loaded = await gameManager.loadGame(slot);
+                              if (loaded) {
                                 Navigator.pushReplacementNamed(context, '/game');
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
