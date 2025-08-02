@@ -21,8 +21,9 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   final DataService _dataService = DataService();
   final ScoutAnalysisService _scoutAnalysisService = ScoutAnalysisService(DataService());
   bool _isLoading = true;
+  Map<String, int>? _scoutAnalysisData;
 
-  // 静的マップを使用して表示名から列挙型名への変換
+  // 表示名から列挙型名への変換マップ
   static final Map<String, String> _displayNameToEnumName = {
     // Technical abilities
     'ミート': 'contact',
@@ -70,64 +71,78 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     '怪我しやすさ': 'injuryProneness',
   };
 
-  // スカウトスキル（仮の値、本来は実際のスカウトから取得）
-  Map<String, int> get _scoutSkills => {
-    'observation': 5,
-    'analysis': 4,
-    'insight': 3,
-    'communication': 4,
-    'exploration': 3,
-  };
-
-  /// スカウトされた能力値を取得（優先順位: スカウト分析データ > 真の能力値）
-  Future<int> _getScoutedAbility(String abilityName) async {
-    if (DebugConfig.showTrueValues) {
-      return _getTrueAbilityValue(abilityName);
-    }
-    
-    // PlayerオブジェクトのscoutAnalysisDataを使用
-    if (widget.player.scoutAnalysisData != null && 
-        widget.player.scoutAnalysisData!.containsKey(abilityName)) {
-      return widget.player.scoutAnalysisData![abilityName]!;
-    }
-    
-    // スカウト分析データがない場合は、真の能力値を返す
-    return _getTrueAbilityValue(abilityName);
-  }
-  
-  // スカウト精度を考慮した能力値取得（従来の方法）
-  int _getVisibleAbility(String abilityName, int scoutSkill) {
-    final trueValue = _getTrueAbilityValue(abilityName);
-    final baseKnowledge = widget.player.abilityKnowledge[abilityName] ?? 0;
-    final scoutKnowledge = scoutSkill;
-    final combinedKnowledge = (baseKnowledge + scoutKnowledge) / 2;
-    
-    final range = _getVisibleAbilityRange(combinedKnowledge.round());
-    final error = Random().nextInt(range * 2 + 1) - range;
-    return (trueValue + error).clamp(0, 100);
+  @override
+  void initState() {
+    super.initState();
+    _loadScoutAnalysisData();
   }
 
-  // 真の能力値を取得
+  /// スカウト分析データを読み込み
+  Future<void> _loadScoutAnalysisData() async {
+    if (widget.player.id != null) {
+      try {
+        final scoutId = 'default_scout'; // 現在のスカウトID
+        final analysisData = await _scoutAnalysisService.getLatestScoutAnalysis(
+          widget.player.id!, 
+          scoutId
+        );
+        
+        setState(() {
+          _scoutAnalysisData = analysisData;
+          _isLoading = false;
+        });
+      } catch (e) {
+        print('スカウト分析データの読み込みエラー: $e');
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// 表示用能力値を取得（常にスカウト分析データを優先、デバッグでは真の値も併記）
+  int _getDisplayAbility(String abilityName) {
+    // スカウト分析データを優先（_scoutAnalysisDataまたはwidget.player.scoutAnalysisData）
+    final scoutData = _scoutAnalysisData ?? widget.player.scoutAnalysisData;
+    
+    if (scoutData != null && scoutData.containsKey(abilityName)) {
+      return scoutData[abilityName]!;
+    }
+    
+    // スカウト分析データがない場合は分析不足として25を返す
+    return 25;
+  }
+
+  /// 技術面能力値を取得
+  int _getDisplayTechnicalAbility(TechnicalAbility ability) {
+    final abilityName = _getTechnicalAbilityName(ability);
+    if (abilityName == null) return 25;
+    return _getDisplayAbility(abilityName);
+  }
+
+  /// メンタル面能力値を取得
+  int _getDisplayMentalAbility(MentalAbility ability) {
+    final abilityName = _getMentalAbilityName(ability);
+    if (abilityName == null) return 25;
+    return _getDisplayAbility(abilityName);
+  }
+
+  /// フィジカル面能力値を取得
+  int _getDisplayPhysicalAbility(PhysicalAbility ability) {
+    final abilityName = _getPhysicalAbilityName(ability);
+    if (abilityName == null) return 25;
+    return _getDisplayAbility(abilityName);
+  }
+
+  /// 真の能力値を取得
   int _getTrueAbilityValue(String abilityName) {
     switch (abilityName) {
       case 'fastballVelo':
         return widget.player.veloScore;
-      case 'control':
-        return widget.player.getTechnicalAbility(TechnicalAbility.control);
-      case 'stamina':
-        return widget.player.getPhysicalAbility(PhysicalAbility.stamina);
-      case 'breakAvg':
-        return widget.player.getTechnicalAbility(TechnicalAbility.breakingBall);
-      case 'batPower':
-        return widget.player.getTechnicalAbility(TechnicalAbility.power);
-      case 'batControl':
-        return widget.player.getTechnicalAbility(TechnicalAbility.batControl);
-      case 'run':
-        return widget.player.getPhysicalAbility(PhysicalAbility.pace);
-      case 'field':
-        return widget.player.getTechnicalAbility(TechnicalAbility.fielding);
-      case 'arm':
-        return widget.player.getTechnicalAbility(TechnicalAbility.throwing);
       case 'contact':
         return widget.player.getTechnicalAbility(TechnicalAbility.contact);
       case 'power':
@@ -140,44 +155,24 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         return widget.player.getTechnicalAbility(TechnicalAbility.oppositeFieldHitting);
       case 'pullHitting':
         return widget.player.getTechnicalAbility(TechnicalAbility.pullHitting);
+      case 'batControl':
+        return widget.player.getTechnicalAbility(TechnicalAbility.batControl);
       case 'swingSpeed':
         return widget.player.getTechnicalAbility(TechnicalAbility.swingSpeed);
+      case 'fielding':
+        return widget.player.getTechnicalAbility(TechnicalAbility.fielding);
+      case 'throwing':
+        return widget.player.getTechnicalAbility(TechnicalAbility.throwing);
       case 'catcherAbility':
         return widget.player.getTechnicalAbility(TechnicalAbility.catcherAbility);
+      case 'control':
+        return widget.player.getTechnicalAbility(TechnicalAbility.control);
       case 'fastball':
         return widget.player.getTechnicalAbility(TechnicalAbility.fastball);
       case 'breakingBall':
         return widget.player.getTechnicalAbility(TechnicalAbility.breakingBall);
       case 'pitchMovement':
         return widget.player.getTechnicalAbility(TechnicalAbility.pitchMovement);
-      case 'naturalFitness':
-        return widget.player.getPhysicalAbility(PhysicalAbility.naturalFitness);
-      case 'injuryProneness':
-        return widget.player.getPhysicalAbility(PhysicalAbility.injuryProneness);
-      case 'flexibility':
-        return widget.player.getPhysicalAbility(PhysicalAbility.flexibility);
-      case 'strength':
-        return widget.player.getPhysicalAbility(PhysicalAbility.strength);
-      case 'pace':
-        return widget.player.getPhysicalAbility(PhysicalAbility.pace);
-      case 'acceleration':
-        return widget.player.getPhysicalAbility(PhysicalAbility.acceleration);
-      case 'agility':
-        return widget.player.getPhysicalAbility(PhysicalAbility.agility);
-      case 'balance':
-        return widget.player.getPhysicalAbility(PhysicalAbility.balance);
-      case 'jumpingReach':
-        return widget.player.getPhysicalAbility(PhysicalAbility.jumpingReach);
-      case 'teamwork':
-        return widget.player.getMentalAbility(MentalAbility.teamwork);
-      case 'positioning':
-        return widget.player.getMentalAbility(MentalAbility.positioning);
-      case 'pressureHandling':
-        return widget.player.getMentalAbility(MentalAbility.pressureHandling);
-      case 'clutchAbility':
-        return widget.player.getMentalAbility(MentalAbility.clutchAbility);
-      case 'leadership':
-        return widget.player.getMentalAbility(MentalAbility.leadership);
       case 'concentration':
         return widget.player.getMentalAbility(MentalAbility.concentration);
       case 'anticipation':
@@ -190,123 +185,163 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         return widget.player.getMentalAbility(MentalAbility.aggression);
       case 'bravery':
         return widget.player.getMentalAbility(MentalAbility.bravery);
+      case 'leadership':
+        return widget.player.getMentalAbility(MentalAbility.leadership);
       case 'workRate':
         return widget.player.getMentalAbility(MentalAbility.workRate);
       case 'selfDiscipline':
         return widget.player.getMentalAbility(MentalAbility.selfDiscipline);
       case 'ambition':
         return widget.player.getMentalAbility(MentalAbility.ambition);
+      case 'teamwork':
+        return widget.player.getMentalAbility(MentalAbility.teamwork);
+      case 'positioning':
+        return widget.player.getMentalAbility(MentalAbility.positioning);
+      case 'pressureHandling':
+        return widget.player.getMentalAbility(MentalAbility.pressureHandling);
+      case 'clutchAbility':
+        return widget.player.getMentalAbility(MentalAbility.clutchAbility);
+      case 'acceleration':
+        return widget.player.getPhysicalAbility(PhysicalAbility.acceleration);
+      case 'agility':
+        return widget.player.getPhysicalAbility(PhysicalAbility.agility);
+      case 'balance':
+        return widget.player.getPhysicalAbility(PhysicalAbility.balance);
+      case 'pace':
+        return widget.player.getPhysicalAbility(PhysicalAbility.pace);
+      case 'stamina':
+        return widget.player.getPhysicalAbility(PhysicalAbility.stamina);
+      case 'strength':
+        return widget.player.getPhysicalAbility(PhysicalAbility.strength);
+      case 'flexibility':
+        return widget.player.getPhysicalAbility(PhysicalAbility.flexibility);
+      case 'jumpingReach':
+        return widget.player.getPhysicalAbility(PhysicalAbility.jumpingReach);
+      case 'naturalFitness':
+        return widget.player.getPhysicalAbility(PhysicalAbility.naturalFitness);
+      case 'injuryProneness':
+        return widget.player.getPhysicalAbility(PhysicalAbility.injuryProneness);
       default:
-        // デバッグ用: 未知の能力値名をログ出力
-        print('警告: 未知の能力値名 "$abilityName" が指定されました');
         return 25;
     }
   }
 
-  // スカウトスキルに基づく能力値の表示範囲を取得
-  int _getVisibleAbilityRange(int scoutSkill) {
-    if (scoutSkill >= 80) return 5; // ±5の誤差
-    if (scoutSkill >= 60) return 10; // ±10の誤差
-    if (scoutSkill >= 40) return 20; // ±20の誤差
-    if (scoutSkill >= 20) return 30; // ±30の誤差
-    return 50; // ±50の誤差（ほぼ見えない）
+  /// ポテンシャル値を取得
+  int? _getPotentialValue(String abilityName) {
+    if (!DebugConfig.showPotentials || widget.player.individualPotentials == null) {
+    return null;
+  }
+      return widget.player.individualPotentials![abilityName];
   }
 
-  // スカウト精度を考慮した才能ランク取得
-  int _getVisibleTalent() {
+  /// 技術面能力値名を取得
+  String? _getTechnicalAbilityName(TechnicalAbility ability) {
+    switch (ability) {
+      case TechnicalAbility.contact: return 'contact';
+      case TechnicalAbility.power: return 'power';
+      case TechnicalAbility.plateDiscipline: return 'plateDiscipline';
+      case TechnicalAbility.bunt: return 'bunt';
+      case TechnicalAbility.oppositeFieldHitting: return 'oppositeFieldHitting';
+      case TechnicalAbility.pullHitting: return 'pullHitting';
+      case TechnicalAbility.batControl: return 'batControl';
+      case TechnicalAbility.swingSpeed: return 'swingSpeed';
+      case TechnicalAbility.fielding: return 'fielding';
+      case TechnicalAbility.throwing: return 'throwing';
+      case TechnicalAbility.catcherAbility: return 'catcherAbility';
+      case TechnicalAbility.control: return 'control';
+      case TechnicalAbility.fastball: return 'fastball';
+      case TechnicalAbility.breakingBall: return 'breakingBall';
+      case TechnicalAbility.pitchMovement: return 'pitchMovement';
+    }
+  }
+
+  /// メンタル面能力値名を取得
+  String? _getMentalAbilityName(MentalAbility ability) {
+    switch (ability) {
+      case MentalAbility.concentration: return 'concentration';
+      case MentalAbility.anticipation: return 'anticipation';
+      case MentalAbility.vision: return 'vision';
+      case MentalAbility.composure: return 'composure';
+      case MentalAbility.aggression: return 'aggression';
+      case MentalAbility.bravery: return 'bravery';
+      case MentalAbility.leadership: return 'leadership';
+      case MentalAbility.workRate: return 'workRate';
+      case MentalAbility.selfDiscipline: return 'selfDiscipline';
+      case MentalAbility.ambition: return 'ambition';
+      case MentalAbility.teamwork: return 'teamwork';
+      case MentalAbility.positioning: return 'positioning';
+      case MentalAbility.pressureHandling: return 'pressureHandling';
+      case MentalAbility.clutchAbility: return 'clutchAbility';
+    }
+  }
+
+  /// フィジカル面能力値名を取得
+  String? _getPhysicalAbilityName(PhysicalAbility ability) {
+    switch (ability) {
+      case PhysicalAbility.acceleration: return 'acceleration';
+      case PhysicalAbility.agility: return 'agility';
+      case PhysicalAbility.balance: return 'balance';
+      case PhysicalAbility.jumpingReach: return 'jumpingReach';
+      case PhysicalAbility.flexibility: return 'flexibility';
+      case PhysicalAbility.naturalFitness: return 'naturalFitness';
+      case PhysicalAbility.injuryProneness: return 'injuryProneness';
+      case PhysicalAbility.stamina: return 'stamina';
+      case PhysicalAbility.strength: return 'strength';
+      case PhysicalAbility.pace: return 'pace';
+    }
+  }
+
+  /// 表示用才能ランクを取得
+  int _getDisplayTalent() {
     if (DebugConfig.showTrueValues) {
       return widget.player.talent;
     }
-    
-    final scoutSkill = _scoutSkills['analysis'] ?? 4;
-    final baseKnowledge = widget.player.abilityKnowledge['talent'] ?? 0;
-    final combinedKnowledge = (baseKnowledge + scoutSkill) / 2;
-    
-    final range = _getVisibleAbilityRange(combinedKnowledge.round());
-    final error = Random().nextInt(range * 2 + 1) - range;
-    final visibleTalent = (widget.player.talent + error).clamp(1, 6);
-    return visibleTalent;
+    return widget.player.talent; // 簡素化: スカウト分析データがない場合は真の値を使用
   }
 
-  // スカウト精度を考慮した成長タイプ取得
-  String _getVisibleGrowthType() {
+  /// 表示用成長タイプを取得
+  String _getDisplayGrowthType() {
     if (DebugConfig.showTrueValues) {
       return widget.player.growthType;
     }
-    
-    final scoutSkill = _scoutSkills['insight'] ?? 3;
-    final baseKnowledge = widget.player.abilityKnowledge['growthType'] ?? 0;
-    final combinedKnowledge = (baseKnowledge + scoutSkill) / 2;
-    
-    // 成長タイプは完全に正確か、完全に間違っているかのどちらか
-    if (combinedKnowledge >= 60) {
-      return widget.player.growthType;
-    } else {
-      final types = ['early', 'normal', 'late', 'spurt'];
-      final random = Random();
-      return types[random.nextInt(types.length)];
-    }
+    return widget.player.growthType; // 簡素化: スカウト分析データがない場合は真の値を使用
   }
 
-  // スカウト精度を考慮した精神力取得
-  int _getVisibleMentalGrit() {
+  /// 表示用精神力を取得
+  int _getDisplayMentalGrit() {
     if (DebugConfig.showTrueValues) {
       return (widget.player.mentalGrit * 100).round();
     }
-    
-    final scoutSkill = _scoutSkills['insight'] ?? 3;
-    final baseKnowledge = widget.player.abilityKnowledge['mentalGrit'] ?? 0;
-    final combinedKnowledge = (baseKnowledge + scoutSkill) / 2;
-    
-    final range = _getVisibleAbilityRange(combinedKnowledge.round());
-    final error = Random().nextInt(range * 2 + 1) - range;
-    final trueValue = (widget.player.mentalGrit * 100).round();
-    return (trueValue + error).clamp(0, 100);
+    return (widget.player.mentalGrit * 100).round(); // 簡素化: スカウト分析データがない場合は真の値を使用
   }
 
-  // スカウト精度を考慮したポテンシャル取得
-  int _getVisiblePeakAbility() {
+  /// 表示用ポテンシャルを取得
+  int _getDisplayPeakAbility() {
     if (DebugConfig.showTrueValues) {
       return widget.player.peakAbility;
     }
-    
-    final scoutSkill = _scoutSkills['analysis'] ?? 4;
-    final baseKnowledge = widget.player.abilityKnowledge['peakAbility'] ?? 0;
-    final combinedKnowledge = (baseKnowledge + scoutSkill) / 2;
-    
-    final range = _getVisibleAbilityRange(combinedKnowledge.round());
-    final error = Random().nextInt(range * 2 + 1) - range;
-    return (widget.player.peakAbility + error).clamp(50, 150);
+    return widget.player.peakAbility; // 簡素化: スカウト分析データがない場合は真の値を使用
   }
 
   @override
-  void initState() {
-    super.initState();
-    // スカウト分析データはPlayerオブジェクトのscoutAnalysisDataフィールドから取得するため、
-    // 個別の読み込み処理は不要
-    setState(() {
-      _isLoading = false;
-    });
-  }
-  
-  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('${widget.player.name}の詳細'),
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+        ),
+        backgroundColor: Colors.black,
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     final textColor = Colors.white;
     final cardBg = Colors.grey[900]!;
     final primaryColor = Colors.blue[400]!;
-    
-    // デバッグログ: プレイヤーのスカウト分析データを確認
-    print('=== PlayerDetailScreen デバッグ ===');
-    print('プレイヤーID: ${widget.player.id}');
-    print('プレイヤー名: ${widget.player.name}');
-    print('scoutAnalysisData: ${widget.player.scoutAnalysisData}');
-    if (widget.player.scoutAnalysisData != null) {
-      print('スカウト分析データの内容:');
-      widget.player.scoutAnalysisData!.forEach((key, value) {
-        print('  $key: $value');
-      });
-    }
-    print('=== PlayerDetailScreen デバッグ終了 ===');
     
     return Scaffold(
       appBar: AppBar(
@@ -355,7 +390,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 _buildHeaderCard(context, textColor, cardBg, primaryColor),
                 const SizedBox(height: 16),
                 
-                // 基本情報カード（横に広げて表示）
+                // 基本情報カード
                 _buildBasicInfoCard(context, textColor, cardBg),
                 const SizedBox(height: 16),
                 
@@ -364,25 +399,22 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                   _buildNewAbilityCard(context, textColor, cardBg, primaryColor),
                   const SizedBox(height: 16),
                 ],
-                const SizedBox(height: 16),
                 
-
-                
-
-                
-                // 球種情報（発掘済みまたは知名度が高い場合のみ表示）
-                if ((widget.player.isDiscovered || widget.player.fameLevel >= 3) && widget.player.isPitcher && widget.player.pitches != null && widget.player.pitches!.isNotEmpty) ...[
+                // 球種情報
+                if ((widget.player.isDiscovered || widget.player.fameLevel >= 3) && 
+                    widget.player.isPitcher && widget.player.pitches != null && 
+                    widget.player.pitches!.isNotEmpty) ...[
                   _buildPitchesCard(context, textColor, cardBg),
                   const SizedBox(height: 16),
                 ],
                 
-                // ポジション適性（発掘済みまたは知名度が高い場合のみ表示）
+                // ポジション適性
                 if (widget.player.isDiscovered || widget.player.fameLevel >= 3) ...[
                   _buildPositionFitCard(context, textColor, cardBg, primaryColor),
                   const SizedBox(height: 16),
                 ],
                 
-                // スカウト評価・メモ（発掘済みの場合のみ表示）
+                // スカウト評価・メモ
                 if (widget.player.isDiscovered) ...[
                   _buildScoutNotesCard(context, textColor, cardBg),
                   const SizedBox(height: 16),
@@ -524,7 +556,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildCompactInfoRow('才能', 'ランク${_getVisibleTalent()}', textColor),
+                  child: _buildCompactInfoRow('才能', 'ランク${_getDisplayTalent()}', textColor),
                 ),
               ],
             ),
@@ -532,15 +564,15 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _buildCompactInfoRow('成長', _getVisibleGrowthType(), textColor),
+                  child: _buildCompactInfoRow('成長', _getDisplayGrowthType(), textColor),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildCompactInfoRow('精神力', '${_getVisibleMentalGrit()}%', textColor),
+                  child: _buildCompactInfoRow('精神力', '${_getDisplayMentalGrit()}%', textColor),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildCompactInfoRow('ポテンシャル', '${_getVisiblePeakAbility()}', textColor),
+                  child: _buildCompactInfoRow('ポテンシャル', '${_getDisplayPeakAbility()}', textColor),
                 ),
               ],
             ),
@@ -549,9 +581,28 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       ),
     );
   }
-
-  // 能力値カード
-  Widget _buildAbilityCard(BuildContext context, Color textColor, Color cardBg, Color primaryColor) {
+  
+  // 能力値システムカード
+  Widget _buildNewAbilityCard(BuildContext context, Color textColor, Color cardBg, Color primaryColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 技術面能力値
+        _buildTechnicalAbilitiesCard(context, textColor, cardBg, primaryColor),
+        const SizedBox(height: 16),
+        
+        // メンタル面能力値
+        _buildMentalAbilitiesCard(context, textColor, cardBg, Colors.green),
+        const SizedBox(height: 16),
+        
+        // フィジカル面能力値
+        _buildPhysicalAbilitiesCard(context, textColor, cardBg, Colors.orange),
+      ],
+    );
+  }
+  
+  // 技術面能力値カード
+  Widget _buildTechnicalAbilitiesCard(BuildContext context, Color textColor, Color cardBg, Color primaryColor) {
     return Card(
       color: cardBg,
       child: Padding(
@@ -560,59 +611,387 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '能力値',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: textColor,
+              '技術面',
+              style: TextStyle(
+                color: primaryColor,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 12),
-            if (widget.player.isDiscovered || widget.player.fameLevel >= 2) ...[
-              // 投手能力値
-              Text(
-                '投手',
-                style: TextStyle(
-                  color: textColor.withOpacity(0.8),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildAbilityBar('球速', _getVisibleAbility('fastballVelo', _scoutSkills['observation'] ?? 4), textColor),
-              _buildAbilityBar('制球', _getVisibleAbility('control', _scoutSkills['analysis'] ?? 4), textColor),
-              _buildAbilityBar('スタミナ', _getVisibleAbility('stamina', _scoutSkills['analysis'] ?? 4), textColor),
-              _buildAbilityBar('変化', _getVisibleAbility('breakAvg', _scoutSkills['analysis'] ?? 4), textColor),
-              const SizedBox(height: 16),
-              // 野手能力値
-              Text(
-                '野手',
-                style: TextStyle(
-                  color: textColor.withOpacity(0.8),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildAbilityBar('パワー', _getVisibleAbility('batPower', _scoutSkills['analysis'] ?? 4), textColor),
-              _buildAbilityBar('バットコントロール', _getVisibleAbility('batControl', _scoutSkills['analysis'] ?? 4), textColor),
-              _buildAbilityBar('走力', _getVisibleAbility('run', _scoutSkills['observation'] ?? 4), textColor),
-              _buildAbilityBar('守備', _getVisibleAbility('field', _scoutSkills['observation'] ?? 4), textColor),
-              _buildAbilityBar('肩', _getVisibleAbility('arm', _scoutSkills['observation'] ?? 4), textColor),
-            ] else ...[
-              Text(
-                '情報不足のため能力値を表示できません',
-                style: TextStyle(color: textColor.withOpacity(0.6)),
-              ),
-            ],
+            const SizedBox(height: 16),
+            
+            // 投手技術
+            _buildAbilitySubCategory(
+              context, 
+              textColor, 
+              primaryColor, 
+              '投手技術', 
+              [
+                TechnicalAbility.control,
+                TechnicalAbility.fastball,
+                TechnicalAbility.breakingBall,
+                TechnicalAbility.pitchMovement,
+              ].map((ability) => 
+                _buildAbilityRow(ability.displayName, _getDisplayTechnicalAbility(ability), textColor, primaryColor)
+              ).toList(),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // 打撃技術
+            _buildAbilitySubCategory(
+              context, 
+              textColor, 
+              primaryColor, 
+              '打撃技術', 
+              [
+                TechnicalAbility.contact,
+                TechnicalAbility.power,
+                TechnicalAbility.plateDiscipline,
+                TechnicalAbility.bunt,
+                TechnicalAbility.oppositeFieldHitting,
+                TechnicalAbility.pullHitting,
+                TechnicalAbility.batControl,
+                TechnicalAbility.swingSpeed,
+              ].map((ability) => 
+                _buildAbilityRow(ability.displayName, _getDisplayTechnicalAbility(ability), textColor, primaryColor)
+              ).toList(),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // 守備技術
+            _buildAbilitySubCategory(
+              context, 
+              textColor, 
+              primaryColor, 
+              '守備技術', 
+              [
+                TechnicalAbility.fielding,
+                TechnicalAbility.throwing,
+                TechnicalAbility.catcherAbility,
+              ].map((ability) => 
+                _buildAbilityRow(ability.displayName, _getDisplayTechnicalAbility(ability), textColor, primaryColor)
+              ).toList(),
+            ),
           ],
         ),
       ),
     );
   }
+  
+  // メンタル面能力値カード
+  Widget _buildMentalAbilitiesCard(BuildContext context, Color textColor, Color cardBg, Color categoryColor) {
+    return Card(
+      color: cardBg,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'メンタル面',
+              style: TextStyle(
+                color: categoryColor,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // 集中力・判断力
+            _buildAbilitySubCategory(
+              context, 
+              textColor, 
+              categoryColor, 
+              '集中力・判断力', 
+              [
+                MentalAbility.concentration,
+                MentalAbility.anticipation,
+                MentalAbility.vision,
+                MentalAbility.composure,
+              ].map((ability) => 
+                _buildAbilityRow(ability.displayName, _getDisplayMentalAbility(ability), textColor, categoryColor)
+              ).toList(),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // 性格・精神面
+            _buildAbilitySubCategory(
+              context, 
+              textColor, 
+              categoryColor, 
+              '性格・精神面', 
+              [
+                MentalAbility.aggression,
+                MentalAbility.bravery,
+                MentalAbility.leadership,
+                MentalAbility.workRate,
+                MentalAbility.selfDiscipline,
+                MentalAbility.ambition,
+              ].map((ability) => 
+                _buildAbilityRow(ability.displayName, _getDisplayMentalAbility(ability), textColor, categoryColor)
+              ).toList(),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // チームプレー
+            _buildAbilitySubCategory(
+              context, 
+              textColor, 
+              categoryColor, 
+              'チームプレー', 
+              [
+                MentalAbility.teamwork,
+                MentalAbility.positioning,
+                MentalAbility.pressureHandling,
+                MentalAbility.clutchAbility,
+              ].map((ability) => 
+                _buildAbilityRow(ability.displayName, _getDisplayMentalAbility(ability), textColor, categoryColor)
+              ).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // フィジカル面能力値カード
+  Widget _buildPhysicalAbilitiesCard(BuildContext context, Color textColor, Color cardBg, Color categoryColor) {
+    return Card(
+      color: cardBg,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'フィジカル面',
+              style: TextStyle(
+                color: categoryColor,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // 運動能力
+            _buildAbilitySubCategory(
+              context, 
+              textColor, 
+              categoryColor, 
+              '運動能力', 
+              [
+                PhysicalAbility.acceleration,
+                PhysicalAbility.agility,
+                PhysicalAbility.balance,
+                PhysicalAbility.pace,
+              ].map((ability) => 
+                _buildAbilityRow(ability.displayName, _getDisplayPhysicalAbility(ability), textColor, categoryColor)
+              ).toList(),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // 体力・筋力
+            _buildAbilitySubCategory(
+              context, 
+              textColor, 
+              categoryColor, 
+              '体力・筋力', 
+              [
+                PhysicalAbility.stamina,
+                PhysicalAbility.strength,
+                PhysicalAbility.flexibility,
+                PhysicalAbility.jumpingReach,
+              ].map((ability) => 
+                _buildAbilityRow(ability.displayName, _getDisplayPhysicalAbility(ability), textColor, categoryColor)
+              ).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildAbilitySubCategory(BuildContext context, Color textColor, Color primaryColor, String title, List<Widget> abilities) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: primaryColor.withOpacity(0.8),
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...abilities,
+      ],
+    );
+  }
+  
+  Widget _buildAbilityRow(String label, int value, Color textColor, Color primaryColor) {
+    // 球速の場合は実際のkm/hで表示
+    final isFastball = label == '球速';
+    final finalDisplayValue = isFastball ? 
+      (value * 1.5 + 120).round() : value;
+    final displayText = isFastball ? '${finalDisplayValue}km/h' : '$finalDisplayValue';
+    
+    // デバッグモードの場合、真の値も表示
+    final debugInfo = DebugConfig.showTrueValues ? 
+      (isFastball ? ' (真の球速: ${widget.player.getFastballVelocityKmh()}km/h)' : ' (真の値: ${_getTrueAbilityValueFromLabel(label)})') : '';
+    
+    // ポテンシャル値を取得
+    int? potentialValue;
+    if (DebugConfig.showPotentials && widget.player.individualPotentials != null) {
+      final abilityName = _getAbilityNameFromLabel(label);
+      if (isFastball) {
+        potentialValue = widget.player.individualPotentials!['fastballVelo'];
+      } else if (abilityName != null) {
+        potentialValue = widget.player.individualPotentials![abilityName];
+      }
+    }
+    
+    // スカウト分析データがない場合の表示
+    final scoutData = _scoutAnalysisData ?? widget.player.scoutAnalysisData;
+    final abilityName = _getAbilityNameFromLabel(label);
+    final hasScoutData = scoutData != null && abilityName != null && scoutData.containsKey(abilityName);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 120,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.8),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              if (!isFastball) ...[
+                Expanded(
+                  child: Container(
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: hasScoutData ? Colors.red.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: finalDisplayValue / 100.0,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: hasScoutData ? primaryColor : Colors.grey,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              SizedBox(
+                width: isFastball ? 60 : 30,
+                child: Text(
+                  displayText,
+                  style: TextStyle(
+                    color: hasScoutData ? textColor : Colors.grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (DebugConfig.showTrueValues) ...[
+                const SizedBox(width: 8),
+                Text(
+                  debugInfo,
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 10,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        // スカウト分析データがない場合のメッセージ
+        if (!hasScoutData) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 120, right: 8),
+            child: Text(
+              '分析不足',
+              style: TextStyle(
+                color: Colors.orange,
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+        // デバッグモードでポテンシャルを表示
+        if (DebugConfig.showPotentials && potentialValue != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 120, right: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: potentialValue / 100.0,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.purple,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'ポテンシャル: $potentialValue',
+                  style: TextStyle(
+                    color: Colors.purple,
+                    fontSize: 10,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+  
+  // ラベルから能力値名を取得
+  String? _getAbilityNameFromLabel(String label) {
+    return _displayNameToEnumName[label];
+  }
 
-
-
-
+  // ラベルから真の能力値を取得
+  int _getTrueAbilityValueFromLabel(String label) {
+    final abilityName = _getAbilityNameFromLabel(label);
+    if (abilityName == null) return 0;
+    return _getTrueAbilityValue(abilityName);
+  }
 
   // 球種カード
   Widget _buildPitchesCard(BuildContext context, Color textColor, Color cardBg) {
@@ -629,7 +1008,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 color: textColor,
                 fontWeight: FontWeight.bold,
               ),
-                    ),
+            ),
             const SizedBox(height: 12),
             ...widget.player.pitches!.map((pitch) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -694,9 +1073,9 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       color: cardBg,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
               'スカウトメモ',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -737,48 +1116,19 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
               children: [
                 Icon(Icons.info_outline, color: Colors.orange),
                 const SizedBox(width: 8),
-                        Text(
-                          '情報不足',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.orange),
+                Text(
+                  '情報不足',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.orange),
                 ),
               ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'この選手についての情報が不足しています。\nスカウト活動を行って情報を収集してください。',
-                          style: TextStyle(color: textColor),
-                        ),
-                      ],
-                    ),
-                  ),
-    );
-  }
-
-  // ヘルパーメソッド
-  Widget _buildInfoRow(String label, String value, Color textColor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: textColor.withOpacity(0.7),
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              color: textColor,
-              fontWeight: FontWeight.w500,
-              fontSize: 16,
+            const SizedBox(height: 8),
+            Text(
+              'この選手についての情報が不足しています。\nスカウト活動を行って情報を収集してください。',
+              style: TextStyle(color: textColor),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -806,58 +1156,6 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
               fontSize: 14,
             ),
             overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAbilityBar(String label, int value, Color textColor) {
-    final percentage = value / 100.0;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: textColor.withOpacity(0.9),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              Text(
-                '$value/100',
-                style: TextStyle(
-                  color: textColor,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Container(
-            height: 12,
-            decoration: BoxDecoration(
-              color: Colors.red[700],
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: percentage.clamp(0.0, 1.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.green[400],
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -902,8 +1200,6 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     );
   }
 
-
-
   Color _getFameColor(int fameLevel) {
     switch (fameLevel) {
       case 1: return Colors.grey;
@@ -927,452 +1223,5 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     if (fit >= 6) return Colors.blue;
     if (fit >= 4) return Colors.orange;
     return Colors.red;
-  }
-  
-  // 能力値システムカード
-  Widget _buildNewAbilityCard(BuildContext context, Color textColor, Color cardBg, Color primaryColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 技術面能力値（投手、打者、守備に分けて表示）
-        _buildTechnicalAbilitiesCard(context, textColor, cardBg, primaryColor),
-        const SizedBox(height: 16),
-        
-        // メンタル面能力値（緑色）
-        _buildMentalAbilitiesCard(context, textColor, cardBg, Colors.green),
-        const SizedBox(height: 16),
-        
-        // フィジカル面能力値（オレンジ色）
-        _buildPhysicalAbilitiesCard(context, textColor, cardBg, Colors.orange),
-      ],
-    );
-  }
-  
-  // 技術面能力値カード
-  Widget _buildTechnicalAbilitiesCard(BuildContext context, Color textColor, Color cardBg, Color primaryColor) {
-    return Card(
-      color: cardBg,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '技術面',
-              style: TextStyle(
-                color: primaryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // 投手技術
-            _buildAbilitySubCategory(
-              context, 
-              textColor, 
-              primaryColor, 
-              '投手技術', 
-              [
-                TechnicalAbility.control,
-                TechnicalAbility.fastball,
-                TechnicalAbility.breakingBall,
-                TechnicalAbility.pitchMovement,
-              ].map((ability) => 
-                _buildAbilityRow(ability.displayName, widget.player.getTechnicalAbility(ability), textColor, primaryColor)
-              ).toList(),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 打撃技術
-            _buildAbilitySubCategory(
-              context, 
-              textColor, 
-              primaryColor, 
-              '打撃技術', 
-              [
-                TechnicalAbility.contact,
-                TechnicalAbility.power,
-                TechnicalAbility.plateDiscipline,
-                TechnicalAbility.bunt,
-                TechnicalAbility.oppositeFieldHitting,
-                TechnicalAbility.pullHitting,
-                TechnicalAbility.batControl,
-                TechnicalAbility.swingSpeed,
-              ].map((ability) => 
-                _buildAbilityRow(ability.displayName, widget.player.getTechnicalAbility(ability), textColor, primaryColor)
-              ).toList(),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 守備技術
-            _buildAbilitySubCategory(
-              context, 
-              textColor, 
-              primaryColor, 
-              '守備技術', 
-              [
-                TechnicalAbility.fielding,
-                TechnicalAbility.throwing,
-                TechnicalAbility.catcherAbility,
-              ].map((ability) => 
-                _buildAbilityRow(ability.displayName, widget.player.getTechnicalAbility(ability), textColor, primaryColor)
-              ).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  // メンタル面能力値カード
-  Widget _buildMentalAbilitiesCard(BuildContext context, Color textColor, Color cardBg, Color categoryColor) {
-    return Card(
-      color: cardBg,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'メンタル面',
-              style: TextStyle(
-                color: categoryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // 集中力・判断力
-            _buildAbilitySubCategory(
-              context, 
-              textColor, 
-              categoryColor, 
-              '集中力・判断力', 
-              [
-                MentalAbility.concentration,
-                MentalAbility.anticipation,
-                MentalAbility.vision,
-                MentalAbility.composure,
-              ].map((ability) => 
-                _buildAbilityRow(ability.displayName, widget.player.getMentalAbility(ability), textColor, categoryColor)
-              ).toList(),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 性格・精神面
-            _buildAbilitySubCategory(
-              context, 
-              textColor, 
-              categoryColor, 
-              '性格・精神面', 
-              [
-                MentalAbility.aggression,
-                MentalAbility.bravery,
-                MentalAbility.leadership,
-                MentalAbility.workRate,
-                MentalAbility.selfDiscipline,
-                MentalAbility.ambition,
-              ].map((ability) => 
-                _buildAbilityRow(ability.displayName, widget.player.getMentalAbility(ability), textColor, categoryColor)
-              ).toList(),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // チームプレー
-            _buildAbilitySubCategory(
-              context, 
-              textColor, 
-              categoryColor, 
-              'チームプレー', 
-              [
-                MentalAbility.teamwork,
-                MentalAbility.positioning,
-                MentalAbility.pressureHandling,
-                MentalAbility.clutchAbility,
-              ].map((ability) => 
-                _buildAbilityRow(ability.displayName, widget.player.getMentalAbility(ability), textColor, categoryColor)
-              ).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  // フィジカル面能力値カード
-  Widget _buildPhysicalAbilitiesCard(BuildContext context, Color textColor, Color cardBg, Color categoryColor) {
-    return Card(
-      color: cardBg,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'フィジカル面',
-              style: TextStyle(
-                color: categoryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // 運動能力
-            _buildAbilitySubCategory(
-              context, 
-              textColor, 
-              categoryColor, 
-              '運動能力', 
-              [
-                PhysicalAbility.acceleration,
-                PhysicalAbility.agility,
-                PhysicalAbility.balance,
-                PhysicalAbility.pace,
-              ].map((ability) => 
-                _buildAbilityRow(ability.displayName, widget.player.getPhysicalAbility(ability), textColor, categoryColor)
-              ).toList(),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 体力・筋力
-            _buildAbilitySubCategory(
-              context, 
-              textColor, 
-              categoryColor, 
-              '体力・筋力', 
-              [
-                PhysicalAbility.stamina,
-                PhysicalAbility.strength,
-                PhysicalAbility.flexibility,
-                PhysicalAbility.jumpingReach,
-              ].map((ability) => 
-                _buildAbilityRow(ability.displayName, widget.player.getPhysicalAbility(ability), textColor, categoryColor)
-              ).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildAbilityCategory(BuildContext context, Color textColor, Color primaryColor, String title, List<Widget> abilities) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: primaryColor,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        ...abilities,
-      ],
-    );
-  }
-  
-  Widget _buildAbilitySubCategory(BuildContext context, Color textColor, Color primaryColor, String title, List<Widget> abilities) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: primaryColor.withOpacity(0.8),
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        ...abilities,
-      ],
-    );
-  }
-  
-  Widget _buildAbilityRow(String label, int value, Color textColor, Color primaryColor) {
-    // デバッグログを追加
-    print('=== _buildAbilityRow デバッグ ===');
-    print('ラベル: $label');
-    print('渡された値: $value');
-    print('プレイヤーID: ${widget.player.id}');
-    
-    // スカウト分析データから値を取得
-    final abilityName = _getAbilityNameFromLabel(label);
-    int displayValue = value; // 渡された値をデフォルトとして使用
-    
-    // PlayerオブジェクトのscoutAnalysisDataを使用
-    if (abilityName != null && widget.player.scoutAnalysisData != null && 
-        widget.player.scoutAnalysisData!.containsKey(abilityName)) {
-      displayValue = widget.player.scoutAnalysisData![abilityName]!;
-      print('スカウト分析データから取得: $abilityName = $displayValue');
-      
-      // 真の能力値と比較
-      final trueValue = _getTrueAbilityValue(abilityName);
-      print('真の能力値 ($abilityName): $trueValue');
-      print('スカウト分析データ ($abilityName): $displayValue');
-      print('差分: ${displayValue - trueValue}');
-    } else {
-      print('スカウト分析データなし、渡された値を使用: $abilityName = $value');
-    }
-    
-    // 真の能力値を直接取得してデバッグ
-    if (abilityName != null) {
-      final trueValue = _getTrueAbilityValue(abilityName);
-      print('真の能力値 ($abilityName): $trueValue');
-      print('Player.getTechnicalAbility(contact): ${widget.player.getTechnicalAbility(TechnicalAbility.contact)}');
-      print('Player.getTechnicalAbility(power): ${widget.player.getTechnicalAbility(TechnicalAbility.power)}');
-      print('Player.getTechnicalAbility(fastball): ${widget.player.getTechnicalAbility(TechnicalAbility.fastball)}');
-    }
-    
-    // 球速の場合は実際のkm/hで表示
-    final isFastball = label == '球速';
-    final finalDisplayValue = isFastball ? widget.player.getFastballVelocityKmh() : displayValue;
-    final displayText = isFastball ? '${finalDisplayValue}km/h' : '$finalDisplayValue';
-    
-    // デバッグモードの場合、真の値も表示
-    final debugInfo = DebugConfig.showTrueValues ? 
-      (isFastball ? ' (真の球速: ${widget.player.getFastballVelocityKmh()}km/h)' : ' (真の値: $value)') : '';
-    
-    // ポテンシャル値を取得
-    int? potentialValue;
-    if (DebugConfig.showPotentials && widget.player.individualPotentials != null) {
-      if (isFastball) {
-        potentialValue = widget.player.individualPotentials!['fastballVelo'];
-      } else {
-        // ラベルから能力値名を取得
-        if (abilityName != null) {
-          potentialValue = widget.player.individualPotentials![abilityName];
-        }
-      }
-    }
-    
-    print('最終表示値: $finalDisplayValue');
-    print('=== _buildAbilityRow デバッグ終了 ===');
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4.0),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 120,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: textColor.withOpacity(0.8),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              if (!isFastball) ...[
-                Expanded(
-                  child: Container(
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: finalDisplayValue / 100.0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: primaryColor,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              SizedBox(
-                width: isFastball ? 60 : 30,
-                child: Text(
-                  displayText,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              if (DebugConfig.showTrueValues) ...[
-                const SizedBox(width: 8),
-                Text(
-                  debugInfo,
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontSize: 10,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        // デバッグモードでポテンシャルを表示
-        if (DebugConfig.showPotentials && potentialValue != null) ...[
-          Padding(
-            padding: const EdgeInsets.only(left: 120, right: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.purple.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: potentialValue / 100.0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.purple,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'ポテンシャル: $potentialValue',
-                  style: TextStyle(
-                    color: Colors.purple,
-                    fontSize: 10,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-  
-  // ラベルから能力値名を取得
-  String? _getAbilityNameFromLabel(String label) {
-    print('=== _getAbilityNameFromLabel デバッグ ===');
-    print('ラベル: $label');
-    
-    final result = _displayNameToEnumName[label];
-    print('結果: $result');
-    print('=== _getAbilityNameFromLabel デバッグ終了 ===');
-    return result;
   }
 } 

@@ -21,7 +21,7 @@ class PlayerDataGenerator {
       players.add(player);
     }
     
-    print('${school.name}の選手${playerCount}人を生成しました');
+
     return players;
   }
 

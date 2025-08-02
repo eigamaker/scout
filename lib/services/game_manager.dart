@@ -393,7 +393,10 @@ class GameManager {
   Future<void> _refreshPlayersFromDb(DataService dataService) async {
     try {
       print('_refreshPlayersFromDb: 開始, _currentGame = ${_currentGame != null ? "loaded" : "null"}');
-      if (_currentGame == null) return;
+      if (_currentGame == null) {
+        print('_refreshPlayersFromDb: _currentGameがnullのため終了');
+        return;
+      }
           final db = await dataService.database;
       print('_refreshPlayersFromDb: データベース接続完了');
       final playerMaps = await db.query('Player');
@@ -434,18 +437,14 @@ class GameManager {
       potentials[playerId] = playerPotentials;
     }
     
-    // スカウト分析データを取得
+    // スカウト分析データを取得（scout_idを指定して最新のデータを取得）
     final scoutAnalysisMaps = await db.query('ScoutAnalysis');
     final scoutAnalyses = <int, Map<String, int>>{};
-    print('=== スカウト分析データ読み込み開始 ===');
-    print('取得したレコード数: ${scoutAnalysisMaps.length}');
     
     for (final sa in scoutAnalysisMaps) {
       final playerId = _safeIntCast(sa['player_id']);
+      final scoutId = sa['scout_id'] as String? ?? 'default_scout';
       final scoutAnalysis = <String, int>{};
-      
-      print('プレイヤーID $playerId のスカウト分析データを処理中...');
-      print('データベースレコードのキー: ${sa.keys.toList()}');
       
       // スカウト分析データを変換
       for (final key in sa.keys) {
@@ -453,32 +452,24 @@ class GameManager {
           final abilityName = _getAbilityNameFromScoutColumn(key);
           if (abilityName != null) {
             scoutAnalysis[abilityName] = _safeIntCast(sa[key]);
-            print('スカウト分析データ変換: $key -> $abilityName = ${sa[key]}');
-          } else {
-            print('警告: カラム名 $key から能力値名を取得できませんでした');
           }
         }
       }
       
-      print('変換後のスカウト分析データ: $scoutAnalysis');
-      
-      // 最新の分析データのみを保持
+      // 最新の分析データのみを保持（同じプレイヤーIDとスカウトIDの場合）
       final currentAnalysisDate = _safeIntCast(sa['analysis_date']);
       final existingAnalysisDate = _safeIntCast(scoutAnalyses[playerId]?['_analysis_date'] ?? 0);
       if (!scoutAnalyses.containsKey(playerId) || currentAnalysisDate > existingAnalysisDate) {
         scoutAnalysis['_analysis_date'] = currentAnalysisDate;
+        scoutAnalysis['_scout_id'] = scoutId.hashCode; // スカウトIDも保存
         scoutAnalyses[playerId] = scoutAnalysis;
-        print('プレイヤーID $playerId のスカウト分析データを保存');
       }
     }
     
-    print('最終的なスカウト分析データ: $scoutAnalyses');
-    print('=== スカウト分析データ読み込み完了 ===');
+    print('デバッグ: scoutAnalysesマップの内容: $scoutAnalyses');
     
     // 学校ごとにplayersを再構築
-    print('_refreshPlayersFromDb: 学校ごとの処理開始');
     final updatedSchools = _currentGame!.schools.map((school) {
-      print('デバッグ: 学校 ${school.name} (ID: ${school.id}) の選手を検索中');
       final schoolPlayers = playerMaps.where((p) => p['school_id'] == school.id).map((p) {
         final playerId = _safeIntCast(p['id']);
         final person = persons[playerId] ?? {};
@@ -534,35 +525,13 @@ class GameManager {
         physicalAbilities[PhysicalAbility.strength] = _safeIntCast(p['strength']);
         physicalAbilities[PhysicalAbility.pace] = _safeIntCast(p['pace']);
         
-        // デバッグログ: 最初の選手の能力値を確認
-        if (_safeIntCast(p['id']) == 1) {
-          print('デバッグ: 選手ID 1の能力値読み込み');
-          print('contact: ${p['contact']} (型: ${p['contact'].runtimeType})');
-          print('power: ${p['power']} (型: ${p['power'].runtimeType})');
-          print('fastball: ${p['fastball']} (型: ${p['fastball'].runtimeType})');
-          print('natural_fitness: ${p['natural_fitness']} (型: ${p['natural_fitness'].runtimeType})');
-          print('injury_proneness: ${p['injury_proneness']} (型: ${p['injury_proneness'].runtimeType})');
-          print('flexibility: ${p['flexibility']} (型: ${p['flexibility'].runtimeType})');
-          print('復元後のcontact: ${technicalAbilities[TechnicalAbility.contact]}');
-          print('復元後のpower: ${technicalAbilities[TechnicalAbility.power]}');
-          print('復元後のfastball: ${technicalAbilities[TechnicalAbility.fastball]}');
-          print('復元後のnaturalFitness: ${physicalAbilities[PhysicalAbility.naturalFitness]}');
-          print('復元後のinjuryProneness: ${physicalAbilities[PhysicalAbility.injuryProneness]}');
-          print('復元後のflexibility: ${physicalAbilities[PhysicalAbility.flexibility]}');
-        }
+
         
-        // デバッグログ: ポテンシャルの確認
-        if (_safeIntCast(p['id']) == 1 && individualPotentials != null) {
-          print('デバッグ: 選手ID 1のポテンシャル読み込み');
-          print('teamwork_potential: ${individualPotentials['teamwork']}');
-          print('positioning_potential: ${individualPotentials['positioning']}');
-          print('pressure_handling_potential: ${individualPotentials['pressureHandling']}');
-          print('clutch_ability_potential: ${individualPotentials['clutchAbility']}');
-          print('flexibility_potential: ${individualPotentials['flexibility']}');
-        }
+        final scoutAnalysisData = scoutAnalyses[playerId];
+        print('デバッグ: プレイヤーID $playerId のscoutAnalysisData: $scoutAnalysisData');
         
         final player = Player(
-          id: _safeIntCast(p['id']),
+          id: playerId,
           name: person['name'] as String? ?? '名無し',
           school: school.name,
           grade: _safeIntCast(p['grade']),
@@ -580,27 +549,16 @@ class GameManager {
           talent: _safeIntCast(p['talent']),
           growthType: (p['growthType'] is String) ? p['growthType'] as String : (p['growthType']?.toString() ?? 'normal'),
           individualPotentials: individualPotentials,
-          scoutAnalysisData: scoutAnalyses[_safeIntCast(p['id'])], // スカウト分析データを設定
+          scoutAnalysisData: scoutAnalysisData, // スカウト分析データを設定
         );
         
-        // デバッグログ: スカウト分析データの確認
-        final currentPlayerId = _safeIntCast(p['id']);
-        final scoutData = scoutAnalyses[currentPlayerId];
-        print('プレイヤーID $currentPlayerId のスカウト分析データ: $scoutData');
-        if (scoutData != null) {
-          print('スカウト分析データの内容:');
-          scoutData.forEach((key, value) {
-            print('  $key: $value');
-          });
-        }
+
         
         return player;
       }).toList();
-      print('デバッグ: 学校 ${school.name} で ${schoolPlayers.length} 人の選手を発見');
       return school.copyWith(players: schoolPlayers.cast<Player>());
     }).toList();
     _currentGame = _currentGame!.copyWith(schools: updatedSchools);
-    print('_refreshPlayersFromDb: _currentGame updated, schools count: ${_currentGame!.schools.length}');
     } catch (e, stackTrace) {
       print('_refreshPlayersFromDb: エラーが発生しました: $e');
       print('_refreshPlayersFromDb: スタックトレース: $stackTrace');
@@ -702,12 +660,8 @@ class GameManager {
 
   // スカウト分析カラム名から能力値名を取得
   String? _getAbilityNameFromScoutColumn(String columnName) {
-    print('=== _getAbilityNameFromScoutColumn デバッグ ===');
-    print('入力カラム名: $columnName');
-    
     // _scoutedを除去
     final withoutSuffix = columnName.replaceAll('_scouted', '');
-    print('_scouted除去後: $withoutSuffix');
     
     // 逆マッピング
     final reverseMapping = {
@@ -730,20 +684,14 @@ class GameManager {
     
     // マッピングに存在する場合はそれを使用
     if (reverseMapping.containsKey(withoutSuffix)) {
-      final result = reverseMapping[withoutSuffix]!;
-      print('マッピングから取得: $result');
-      print('=== _getAbilityNameFromScoutColumn デバッグ終了 ===');
-      return result;
+      return reverseMapping[withoutSuffix]!;
     }
     
     // それ以外は通常のsnake_case → camelCase変換
-    final result = withoutSuffix.replaceAllMapped(
+    return withoutSuffix.replaceAllMapped(
       RegExp(r'_([a-z])'),
       (match) => match.group(1)!.toUpperCase()
     );
-    print('通常変換結果: $result');
-    print('=== _getAbilityNameFromScoutColumn デバッグ終了 ===');
-    return result;
   }
 
   // セーブ
@@ -756,24 +704,19 @@ class GameManager {
   // ロード
   Future<bool> loadGame(dynamic slot, DataService dataService) async {
     try {
-      print('GameManager: loadGame called with slot $slot');
+      print('GameManager: loadGame開始 - スロット: $slot');
       final game = await _gameDataManager.loadGameData(slot);
-      print('GameManager: loadGameData result = ${game != null ? "success" : "null"}');
       if (game != null) {
         _currentGame = game;
-        print('GameManager: _currentGame set successfully');
-        print('GameManager: _currentGame before refresh = ${_currentGame != null ? "loaded" : "null"}');
+        print('GameManager: ゲームデータ読み込み完了、_refreshPlayersFromDbを呼び出し');
         
         // ゲームデータをロードした後、データベースからプレイヤーデータを更新
-        print('ゲームデータをロードしました。データベースからプレイヤーデータを更新中...');
         await _refreshPlayersFromDb(dataService);
-        print('プレイヤーデータの更新が完了しました。');
-        print('GameManager: _currentGame after refresh = ${_currentGame != null ? "loaded" : "null"}');
         
-        print('GameManager: loadGame returning true');
+        print('GameManager: _refreshPlayersFromDb完了');
         return true;
       }
-      print('GameManager: loadGame returning false');
+      print('GameManager: ゲームデータが見つかりませんでした');
       return false;
     } catch (e, stackTrace) {
       print('GameManager: loadGame エラーが発生しました: $e');
@@ -883,9 +826,27 @@ class GameManager {
           // 結果をゲーム状態に反映
           if (result.discoveredPlayer != null) {
             discoverPlayer(result.discoveredPlayer!);
+            
+            // スカウト分析データを保存
+            final scoutId = 'default_scout';
+            final accuracy = 0.65 + (Random().nextDouble() * 0.25);
+            await scoutAnalysisService.saveScoutAnalysis(
+              result.discoveredPlayer!, 
+              scoutId, 
+              accuracy
+            );
           }
           if (result.improvedPlayer != null) {
             updatePlayerKnowledge(result.improvedPlayer!);
+            
+            // スカウト分析データを更新
+            final scoutId = 'default_scout';
+            final accuracy = 0.75 + (Random().nextDouble() * 0.15);
+            await scoutAnalysisService.saveScoutAnalysis(
+              result.improvedPlayer!, 
+              scoutId, 
+              accuracy
+            );
           }
           
           results.add(result.message);
@@ -916,9 +877,27 @@ class GameManager {
           // 結果をゲーム状態に反映
           if (result.discoveredPlayer != null) {
             discoverPlayer(result.discoveredPlayer!);
+            
+            // スカウト分析データを保存
+            final scoutId = 'default_scout';
+            final accuracy = 0.7 + (Random().nextDouble() * 0.2);
+            await scoutAnalysisService.saveScoutAnalysis(
+              result.discoveredPlayer!, 
+              scoutId, 
+              accuracy
+            );
           }
           if (result.improvedPlayer != null) {
             updatePlayerKnowledge(result.improvedPlayer!);
+            
+            // スカウト分析データを更新
+            final scoutId = 'default_scout';
+            final accuracy = 0.8 + (Random().nextDouble() * 0.1);
+            await scoutAnalysisService.saveScoutAnalysis(
+              result.improvedPlayer!, 
+              scoutId, 
+              accuracy
+            );
           }
           
           results.add(result.message);
@@ -947,6 +926,15 @@ class GameManager {
             
             if (result.improvedPlayer != null) {
               updatePlayerKnowledge(result.improvedPlayer!);
+              
+              // スカウト分析データを更新
+              final scoutId = 'default_scout';
+              final accuracy = 0.85 + (Random().nextDouble() * 0.1);
+              await scoutAnalysisService.saveScoutAnalysis(
+                result.improvedPlayer!, 
+                scoutId, 
+                accuracy
+              );
             }
             
             results.add(result.message);
@@ -976,6 +964,15 @@ class GameManager {
             
             if (result.improvedPlayer != null) {
               updatePlayerKnowledge(result.improvedPlayer!);
+              
+              // スカウト分析データを更新
+              final scoutId = 'default_scout';
+              final accuracy = 0.9 + (Random().nextDouble() * 0.1);
+              await scoutAnalysisService.saveScoutAnalysis(
+                result.improvedPlayer!, 
+                scoutId, 
+                accuracy
+              );
             }
             
             results.add(result.message);

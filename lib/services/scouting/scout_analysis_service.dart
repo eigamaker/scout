@@ -11,11 +11,6 @@ class ScoutAnalysisService {
   
   /// スカウト分析データを保存
   Future<void> saveScoutAnalysis(Player player, String scoutId, double accuracy) async {
-    print('=== スカウト分析データ保存開始 ===');
-    print('プレイヤー: ${player.name} (ID: ${player.id})');
-    print('スカウトID: $scoutId');
-    print('精度: $accuracy');
-    
     final random = Random();
     final errorRange = _calculateErrorRange(accuracy);
     
@@ -28,7 +23,6 @@ class ScoutAnalysisService {
       final scoutedValue = _generateScoutedValue(trueValue, errorRange, random);
       final columnName = _getColumnName(ability.name);
       scoutedAbilities[columnName] = scoutedValue;
-      print('${ability.name}: 真値=$trueValue, スカウト値=$scoutedValue, 誤差=${scoutedValue - trueValue}');
     }
     
     // 精神的能力値
@@ -37,7 +31,6 @@ class ScoutAnalysisService {
       final scoutedValue = _generateScoutedValue(trueValue, errorRange, random);
       final columnName = _getColumnName(ability.name);
       scoutedAbilities[columnName] = scoutedValue;
-      print('${ability.name}: 真値=$trueValue, スカウト値=$scoutedValue, 誤差=${scoutedValue - trueValue}');
     }
     
     // 身体的能力値
@@ -46,21 +39,21 @@ class ScoutAnalysisService {
       final scoutedValue = _generateScoutedValue(trueValue, errorRange, random);
       final columnName = _getColumnName(ability.name);
       scoutedAbilities[columnName] = scoutedValue;
-      print('${ability.name}: 真値=$trueValue, スカウト値=$scoutedValue, 誤差=${scoutedValue - trueValue}');
     }
     
     try {
       final db = await _dataService.database;
-      final result = await db.insert('ScoutAnalysis', {
+      final insertData = {
         'player_id': player.id ?? 0,
         'scout_id': scoutId,
         'analysis_date': DateTime.now().millisecondsSinceEpoch,
         'accuracy': accuracy,
         ...scoutedAbilities,
-      });
+      };
       
-      print('データベース保存成功: レコードID = $result');
-      print('=== スカウト分析データ保存完了 ===');
+      await db.insert('ScoutAnalysis', insertData);
+      
+
     } catch (e) {
       print('データベース保存エラー: $e');
     }
@@ -68,40 +61,32 @@ class ScoutAnalysisService {
   
   /// 最新のスカウト分析データを取得
   Future<Map<String, int>?> getLatestScoutAnalysis(int playerId, String scoutId) async {
-    print('=== スカウト分析データ取得開始 ===');
-    print('プレイヤーID: $playerId');
-    print('スカウトID: $scoutId');
-    
     try {
       final db = await _dataService.database;
       final List<Map<String, dynamic>> results = await db.query(
         'ScoutAnalysis',
-        where: 'player_id = ? AND scout_id = ?',
-        whereArgs: [playerId, scoutId],
+        where: 'player_id = ?',
+        whereArgs: [playerId],
         orderBy: 'analysis_date DESC',
         limit: 1,
       );
       
       if (results.isNotEmpty) {
         final record = results.first;
-        print('データベースから取得したレコード: $record');
-        
         final scoutedAbilities = <String, int>{};
         
         // スカウトされた能力値を抽出
         for (final key in record.keys) {
           if (key.endsWith('_scouted') && record[key] != null) {
             final abilityName = _getAbilityNameFromColumn(key);
-            scoutedAbilities[abilityName] = record[key] as int;
-            print('$abilityName: ${record[key]}');
+            if (abilityName != null) {
+              scoutedAbilities[abilityName] = record[key] as int;
+            }
           }
         }
         
-        print('=== スカウト分析データ取得完了 ===');
         return scoutedAbilities;
       } else {
-        print('スカウト分析データが見つかりませんでした');
-        print('=== スカウト分析データ取得完了 ===');
         return null;
       }
     } catch (e) {
@@ -123,7 +108,6 @@ class ScoutAnalysisService {
   int _generateScoutedValue(int trueValue, int errorRange, Random random) {
     final error = random.nextInt(errorRange * 2 + 1) - errorRange;
     final scoutedValue = (trueValue + error).clamp(0, 100);
-    print('  _generateScoutedValue: 真値=$trueValue, 誤差範囲=$errorRange, 生成誤差=$error, 結果=$scoutedValue');
     return scoutedValue;
   }
 
@@ -161,39 +145,20 @@ class ScoutAnalysisService {
     return '${snakeCase}_scouted';
   }
 
-  /// 能力値名を取得（snake_case → camelCase）
-  String _getAbilityNameFromColumn(String columnName) {
-    // _scoutedを除去
+  /// カラム名から能力値名を取得
+  String? _getAbilityNameFromColumn(String columnName) {
+    if (!columnName.endsWith('_scouted')) return null;
+    
+    // snake_case から camelCase に変換
     final withoutSuffix = columnName.replaceAll('_scouted', '');
+    final parts = withoutSuffix.split('_');
     
-    // 逆マッピング
-    final reverseMapping = {
-      'plate_discipline': 'plateDiscipline',
-      'opposite_field_hitting': 'oppositeFieldHitting',
-      'pull_hitting': 'pullHitting',
-      'bat_control': 'batControl',
-      'swing_speed': 'swingSpeed',
-      'catcher_ability': 'catcherAbility',
-      'breaking_ball': 'breakingBall',
-      'pitch_movement': 'pitchMovement',
-      'work_rate': 'workRate',
-      'self_discipline': 'selfDiscipline',
-      'pressure_handling': 'pressureHandling',
-      'clutch_ability': 'clutchAbility',
-      'jumping_reach': 'jumpingReach',
-      'natural_fitness': 'naturalFitness',
-      'injury_proneness': 'injuryProneness',
-    };
-    
-    // マッピングに存在する場合はそれを使用
-    if (reverseMapping.containsKey(withoutSuffix)) {
-      return reverseMapping[withoutSuffix]!;
+    if (parts.length == 1) {
+      return parts[0];
+    } else {
+      return parts[0] + parts.skip(1).map((part) => 
+        part.isNotEmpty ? part[0].toUpperCase() + part.substring(1) : ''
+      ).join('').replaceAll('_', ''); // 末尾の_を削除
     }
-    
-    // それ以外は通常のsnake_case → camelCase変換
-    return withoutSuffix.replaceAllMapped(
-      RegExp(r'_([a-z])'),
-      (match) => match.group(1)!.toUpperCase()
-    );
   }
 } 
