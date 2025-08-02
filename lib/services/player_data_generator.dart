@@ -73,6 +73,7 @@ class PlayerDataGenerator {
       'school_id': school.id,
       'grade': grade,
       'position': position,
+      'fame': _generateFame(talent), // 知名度を追加
       'growth_rate': growthRate,
       'talent': talent,
       'growth_type': growthType,
@@ -643,5 +644,18 @@ class PlayerDataGenerator {
     final random = Random();
     const personalities = ['真面目', '負けず嫌い', 'ムードメーカー', '冷静', '情熱的', '努力家', '天才肌'];
     return personalities[random.nextInt(personalities.length)];
+  }
+
+  /// 知名度を生成
+  int _generateFame(int talent) {
+    switch (talent) {
+      case 1: return 10; // 低ランク
+      case 2: return 20; // 中ランク
+      case 3: return 30; // 高ランク
+      case 4: return 40; // 特別な才能
+      case 5: return 50; // 怪物級
+      case 6: return 60; // 怪物級
+      default: return 20; // デフォルト
+    }
   }
 } 

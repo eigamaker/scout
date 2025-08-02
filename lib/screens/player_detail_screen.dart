@@ -20,7 +20,6 @@ class PlayerDetailScreen extends StatefulWidget {
 class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   final DataService _dataService = DataService();
   final ScoutAnalysisService _scoutAnalysisService = ScoutAnalysisService(DataService());
-  Map<String, int>? _scoutedAbilities;
   bool _isLoading = true;
 
   // 静的マップを使用して表示名から列挙型名への変換
@@ -86,16 +85,10 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       return _getTrueAbilityValue(abilityName);
     }
     
-    // スカウト分析データを取得
-    final scoutId = 'default_scout'; // 仮のスカウトID
-    
-    final scoutedAbilities = await _scoutAnalysisService.getLatestScoutAnalysis(
-      widget.player.id ?? 0, 
-      scoutId
-    );
-    
-    if (scoutedAbilities != null && scoutedAbilities.containsKey(abilityName)) {
-      return scoutedAbilities[abilityName]!;
+    // PlayerオブジェクトのscoutAnalysisDataを使用
+    if (widget.player.scoutAnalysisData != null && 
+        widget.player.scoutAnalysisData!.containsKey(abilityName)) {
+      return widget.player.scoutAnalysisData![abilityName]!;
     }
     
     // スカウト分析データがない場合は、真の能力値を返す
@@ -155,6 +148,8 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         return widget.player.getTechnicalAbility(TechnicalAbility.fastball);
       case 'breakingBall':
         return widget.player.getTechnicalAbility(TechnicalAbility.breakingBall);
+      case 'pitchMovement':
+        return widget.player.getTechnicalAbility(TechnicalAbility.pitchMovement);
       case 'naturalFitness':
         return widget.player.getPhysicalAbility(PhysicalAbility.naturalFitness);
       case 'injuryProneness':
@@ -165,6 +160,14 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         return widget.player.getPhysicalAbility(PhysicalAbility.strength);
       case 'pace':
         return widget.player.getPhysicalAbility(PhysicalAbility.pace);
+      case 'acceleration':
+        return widget.player.getPhysicalAbility(PhysicalAbility.acceleration);
+      case 'agility':
+        return widget.player.getPhysicalAbility(PhysicalAbility.agility);
+      case 'balance':
+        return widget.player.getPhysicalAbility(PhysicalAbility.balance);
+      case 'jumpingReach':
+        return widget.player.getPhysicalAbility(PhysicalAbility.jumpingReach);
       case 'teamwork':
         return widget.player.getMentalAbility(MentalAbility.teamwork);
       case 'positioning':
@@ -187,8 +190,6 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         return widget.player.getMentalAbility(MentalAbility.aggression);
       case 'bravery':
         return widget.player.getMentalAbility(MentalAbility.bravery);
-      case 'leadership':
-        return widget.player.getMentalAbility(MentalAbility.leadership);
       case 'workRate':
         return widget.player.getMentalAbility(MentalAbility.workRate);
       case 'selfDiscipline':
@@ -281,28 +282,11 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _loadScoutedAbilities();
-  }
-  
-  Future<void> _loadScoutedAbilities() async {
-    print('=== _loadScoutedAbilities 開始 ===');
-    print('プレイヤーID: ${widget.player.id}');
-    print('プレイヤー名: ${widget.player.name}');
-    
-    final scoutId = 'default_scout';
-    final scoutedAbilities = await _scoutAnalysisService.getLatestScoutAnalysis(
-      widget.player.id ?? 0,
-      scoutId,
-    );
-    
-    print('取得したスカウト分析データ: $scoutedAbilities');
-    
+    // スカウト分析データはPlayerオブジェクトのscoutAnalysisDataフィールドから取得するため、
+    // 個別の読み込み処理は不要
     setState(() {
-      _scoutedAbilities = scoutedAbilities;
       _isLoading = false;
     });
-    
-    print('=== _loadScoutedAbilities 完了 ===');
   }
   
   @override
@@ -310,6 +294,19 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     final textColor = Colors.white;
     final cardBg = Colors.grey[900]!;
     final primaryColor = Colors.blue[400]!;
+    
+    // デバッグログ: プレイヤーのスカウト分析データを確認
+    print('=== PlayerDetailScreen デバッグ ===');
+    print('プレイヤーID: ${widget.player.id}');
+    print('プレイヤー名: ${widget.player.name}');
+    print('scoutAnalysisData: ${widget.player.scoutAnalysisData}');
+    if (widget.player.scoutAnalysisData != null) {
+      print('スカウト分析データの内容:');
+      widget.player.scoutAnalysisData!.forEach((key, value) {
+        print('  $key: $value');
+      });
+    }
+    print('=== PlayerDetailScreen デバッグ終了 ===');
     
     return Scaffold(
       appBar: AppBar(
@@ -1211,13 +1208,30 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     
     // スカウト分析データから値を取得
     final abilityName = _getAbilityNameFromLabel(label);
-    int displayValue = value;
+    int displayValue = value; // 渡された値をデフォルトとして使用
     
-    if (abilityName != null && _scoutedAbilities != null && _scoutedAbilities!.containsKey(abilityName)) {
-      displayValue = _scoutedAbilities![abilityName]!;
+    // PlayerオブジェクトのscoutAnalysisDataを使用
+    if (abilityName != null && widget.player.scoutAnalysisData != null && 
+        widget.player.scoutAnalysisData!.containsKey(abilityName)) {
+      displayValue = widget.player.scoutAnalysisData![abilityName]!;
       print('スカウト分析データから取得: $abilityName = $displayValue');
+      
+      // 真の能力値と比較
+      final trueValue = _getTrueAbilityValue(abilityName);
+      print('真の能力値 ($abilityName): $trueValue');
+      print('スカウト分析データ ($abilityName): $displayValue');
+      print('差分: ${displayValue - trueValue}');
     } else {
-      print('スカウト分析データなし、真の値を使用: $abilityName = $value');
+      print('スカウト分析データなし、渡された値を使用: $abilityName = $value');
+    }
+    
+    // 真の能力値を直接取得してデバッグ
+    if (abilityName != null) {
+      final trueValue = _getTrueAbilityValue(abilityName);
+      print('真の能力値 ($abilityName): $trueValue');
+      print('Player.getTechnicalAbility(contact): ${widget.player.getTechnicalAbility(TechnicalAbility.contact)}');
+      print('Player.getTechnicalAbility(power): ${widget.player.getTechnicalAbility(TechnicalAbility.power)}');
+      print('Player.getTechnicalAbility(fastball): ${widget.player.getTechnicalAbility(TechnicalAbility.fastball)}');
     }
     
     // 球速の場合は実際のkm/hで表示

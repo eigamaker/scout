@@ -42,6 +42,9 @@ class Player {
   final Map<MentalAbility, int> mentalAbilities; // メンタル面能力値
   final Map<PhysicalAbility, int> physicalAbilities; // フィジカル面能力値
   
+  // スカウト分析データ（UIで表示される能力値）
+  final Map<String, int>? scoutAnalysisData; // スカウトが分析した能力値
+  
   // 隠し能力値
   final double mentalGrit; // 精神力 -0.15〜+0.15
   final double growthRate; // 成長スピード 0.85-1.15
@@ -99,6 +102,7 @@ class Player {
     this.scoutNotes,
     Map<String, int>? abilityKnowledge,
     List<Achievement>? achievements,
+    this.scoutAnalysisData,
   }) :
     scoutedDates = scoutedDates ?? [],
     abilityKnowledge = abilityKnowledge ?? _initializeAbilityKnowledge(),
@@ -492,6 +496,9 @@ class Player {
     'type': type.index,
     'yearsAfterGraduation': yearsAfterGraduation,
     'pitches': pitches?.map((p) => p.toJson()).toList(),
+    'technicalAbilities': technicalAbilities.map((key, value) => MapEntry(key.name, value)),
+    'mentalAbilities': mentalAbilities.map((key, value) => MapEntry(key.name, value)),
+    'physicalAbilities': physicalAbilities.map((key, value) => MapEntry(key.name, value)),
     'mentalGrit': mentalGrit,
     'growthRate': growthRate,
     'peakAbility': peakAbility,
@@ -501,6 +508,7 @@ class Player {
     'individualPotentials': individualPotentials,
     'scoutEvaluation': scoutEvaluation,
     'scoutNotes': scoutNotes,
+    'scoutAnalysisData': scoutAnalysisData,
   };
 
   factory Player.fromJson(Map<String, dynamic> json) => Player(
@@ -526,9 +534,29 @@ class Player {
       : null,
     type: PlayerType.values[json['type'] ?? 0],
     yearsAfterGraduation: json['yearsAfterGraduation'] ?? 0,
-
-        pitches: json['pitches'] != null
+    pitches: json['pitches'] != null
       ? (json['pitches'] as List).map((p) => Pitch.fromJson(p)).toList()
+      : null,
+    technicalAbilities: json['technicalAbilities'] != null
+      ? Map.fromEntries(
+          (json['technicalAbilities'] as Map<String, dynamic>).entries.map(
+            (entry) => MapEntry(TechnicalAbility.values.firstWhere((e) => e.name == entry.key), entry.value as int)
+          )
+        )
+      : null,
+    mentalAbilities: json['mentalAbilities'] != null
+      ? Map.fromEntries(
+          (json['mentalAbilities'] as Map<String, dynamic>).entries.map(
+            (entry) => MapEntry(MentalAbility.values.firstWhere((e) => e.name == entry.key), entry.value as int)
+          )
+        )
+      : null,
+    physicalAbilities: json['physicalAbilities'] != null
+      ? Map.fromEntries(
+          (json['physicalAbilities'] as Map<String, dynamic>).entries.map(
+            (entry) => MapEntry(PhysicalAbility.values.firstWhere((e) => e.name == entry.key), entry.value as int)
+          )
+        )
       : null,
     mentalGrit: (json['mentalGrit'] as num).toDouble(),
     growthRate: (json['growthRate'] as num).toDouble(),
@@ -541,6 +569,9 @@ class Player {
       : null,
     scoutEvaluation: json['scoutEvaluation'],
     scoutNotes: json['scoutNotes'],
+    scoutAnalysisData: json['scoutAnalysisData'] != null
+      ? Map<String, int>.from(json['scoutAnalysisData'])
+      : null,
   );
 
   Player copyWith({
@@ -564,6 +595,9 @@ class Player {
     PlayerType? type,
     int? yearsAfterGraduation,
     List<Pitch>? pitches,
+    Map<TechnicalAbility, int>? technicalAbilities,
+    Map<MentalAbility, int>? mentalAbilities,
+    Map<PhysicalAbility, int>? physicalAbilities,
     double? mentalGrit,
     double? growthRate,
     int? peakAbility,
@@ -573,6 +607,7 @@ class Player {
     Map<String, int>? individualPotentials,
     String? scoutEvaluation,
     String? scoutNotes,
+    Map<String, int>? scoutAnalysisData,
   }) {
     return Player(
       id: id ?? this.id,
@@ -595,6 +630,9 @@ class Player {
       type: type ?? this.type,
       yearsAfterGraduation: yearsAfterGraduation ?? this.yearsAfterGraduation,
       pitches: pitches ?? this.pitches,
+      technicalAbilities: technicalAbilities ?? Map<TechnicalAbility, int>.from(this.technicalAbilities),
+      mentalAbilities: mentalAbilities ?? Map<MentalAbility, int>.from(this.mentalAbilities),
+      physicalAbilities: physicalAbilities ?? Map<PhysicalAbility, int>.from(this.physicalAbilities),
       mentalGrit: mentalGrit ?? this.mentalGrit,
       growthRate: growthRate ?? this.growthRate,
       peakAbility: peakAbility ?? this.peakAbility,
@@ -604,6 +642,7 @@ class Player {
       individualPotentials: individualPotentials ?? this.individualPotentials,
       scoutEvaluation: scoutEvaluation ?? this.scoutEvaluation,
       scoutNotes: scoutNotes ?? this.scoutNotes,
+      scoutAnalysisData: scoutAnalysisData ?? this.scoutAnalysisData,
     );
   }
 } 

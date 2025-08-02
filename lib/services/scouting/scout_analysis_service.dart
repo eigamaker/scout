@@ -28,7 +28,7 @@ class ScoutAnalysisService {
       final scoutedValue = _generateScoutedValue(trueValue, errorRange, random);
       final columnName = _getColumnName(ability.name);
       scoutedAbilities[columnName] = scoutedValue;
-      print('${ability.name}: 真値=$trueValue, スカウト値=$scoutedValue');
+      print('${ability.name}: 真値=$trueValue, スカウト値=$scoutedValue, 誤差=${scoutedValue - trueValue}');
     }
     
     // 精神的能力値
@@ -37,7 +37,7 @@ class ScoutAnalysisService {
       final scoutedValue = _generateScoutedValue(trueValue, errorRange, random);
       final columnName = _getColumnName(ability.name);
       scoutedAbilities[columnName] = scoutedValue;
-      print('${ability.name}: 真値=$trueValue, スカウト値=$scoutedValue');
+      print('${ability.name}: 真値=$trueValue, スカウト値=$scoutedValue, 誤差=${scoutedValue - trueValue}');
     }
     
     // 身体的能力値
@@ -46,7 +46,7 @@ class ScoutAnalysisService {
       final scoutedValue = _generateScoutedValue(trueValue, errorRange, random);
       final columnName = _getColumnName(ability.name);
       scoutedAbilities[columnName] = scoutedValue;
-      print('${ability.name}: 真値=$trueValue, スカウト値=$scoutedValue');
+      print('${ability.name}: 真値=$trueValue, スカウト値=$scoutedValue, 誤差=${scoutedValue - trueValue}');
     }
     
     try {
@@ -122,7 +122,9 @@ class ScoutAnalysisService {
   /// 仮の能力値を生成
   int _generateScoutedValue(int trueValue, int errorRange, Random random) {
     final error = random.nextInt(errorRange * 2 + 1) - errorRange;
-    return (trueValue + error).clamp(0, 100);
+    final scoutedValue = (trueValue + error).clamp(0, 100);
+    print('  _generateScoutedValue: 真値=$trueValue, 誤差範囲=$errorRange, 生成誤差=$error, 結果=$scoutedValue');
+    return scoutedValue;
   }
 
   /// カラム名を取得（camelCase → snake_case）

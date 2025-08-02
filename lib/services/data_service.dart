@@ -28,7 +28,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
@@ -73,6 +73,16 @@ class DataService {
           await db.execute('DROP TABLE IF EXISTS Player');
           await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
           await db.execute('DROP TABLE IF EXISTS Person');
+          await _createAllTables(db);
+        }
+        if (oldVersion < 8) {
+          // バージョン8ではfameカラムとスカウト分析データを含むスキーマで再作成
+          print('データベーススキーマを強制更新中（バージョン8）...');
+          // 既存のテーブルを削除して再作成
+          await db.execute('DROP TABLE IF EXISTS Player');
+          await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+          await db.execute('DROP TABLE IF EXISTS Person');
+          await db.execute('DROP TABLE IF EXISTS ScoutAnalysis');
           await _createAllTables(db);
         }
       },

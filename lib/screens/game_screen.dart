@@ -24,17 +24,38 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+    print('GameScreen: initState called');
   }
 
   @override
   Widget build(BuildContext context) {
+    print('GameScreen: build called');
     final gameManager = Provider.of<GameManager>(context);
     final newsService = Provider.of<NewsService>(context);
     final game = gameManager.currentGame;
 
+    print('GameScreen: currentGame = ${game != null ? "loaded" : "null"}');
+    print('GameScreen: gameManager = ${gameManager}');
+    print('GameScreen: gameManager.currentGame = ${gameManager.currentGame}');
+
     if (game == null) {
-      return const Scaffold(
-        body: Center(child: Text('ゲームが開始されていません')),
+      print('GameScreen: No game loaded, showing error screen');
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('ゲームが開始されていません', style: TextStyle(fontSize: 18)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushReplacementNamed(context, '/mainMenu');
+                },
+                child: const Text('メインメニューに戻る'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -104,10 +125,19 @@ class _GameScreenState extends State<GameScreen> {
               leading: const Icon(Icons.folder_open),
               title: const Text('ロード'),
               onTap: () async {
-                final loaded = await gameManager.loadGame(1); // デフォルトスロット1を使用
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(loaded ? 'ロードしました' : 'セーブデータがありません')),
-                );
+                final dataService = Provider.of<DataService>(context, listen: false);
+                final loaded = await gameManager.loadGame(1, dataService); // デフォルトスロット1を使用
+                if (loaded) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('ロードしました')),
+                  );
+                  // UIを更新するためにsetStateを呼び出し
+                  setState(() {});
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('セーブデータがありません')),
+                  );
+                }
               },
             ),
             const Divider(),
