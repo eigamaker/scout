@@ -646,16 +646,22 @@ class PlayerDataGenerator {
     return personalities[random.nextInt(personalities.length)];
   }
 
-  /// 知名度を生成
+  /// 知名度を生成（改善版）
   int _generateFame(int talent) {
+    // 基本的な知名度は才能ランクに基づく
+    int baseFame = 0;
     switch (talent) {
-      case 1: return 10; // 低ランク
-      case 2: return 20; // 中ランク
-      case 3: return 30; // 高ランク
-      case 4: return 40; // 特別な才能
-      case 5: return 50; // 怪物級
-      case 6: return 60; // 怪物級
-      default: return 20; // デフォルト
+      case 1: baseFame = 5;  // 低ランク
+      case 2: baseFame = 15; // 中ランク
+      case 3: baseFame = 25; // 高ランク
+      case 4: baseFame = 35; // 特別な才能
+      case 5: baseFame = 45; // 怪物級
+      case 6: baseFame = 55; // 怪物級
+      default: baseFame = 15;
     }
+    
+    // ランダム要素を追加（±10）
+    final randomVariation = _random.nextInt(21) - 10;
+    return (baseFame + randomVariation).clamp(0, 100);
   }
 } 

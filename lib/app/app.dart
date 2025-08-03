@@ -8,6 +8,7 @@ import '../screens/news_detail_screen.dart';
 import '../screens/load_game_screen.dart';
 import '../screens/school_list_screen.dart';
 import '../screens/scout_skill_screen.dart';
+import '../screens/team_requests_screen.dart';
 
 import 'theme.dart';
 import '../models/player/player.dart';
@@ -31,6 +32,7 @@ class ScoutGameApp extends StatelessWidget {
         '/load': (context) => const LoadGameScreen(),
         '/schools': (context) => const SchoolListScreen(),
         '/scoutSkill': (context) => const ScoutSkillScreen(),
+        '/teamRequests': (context) => const TeamRequestsScreen(),
 
       },
       onGenerateRoute: (settings) {

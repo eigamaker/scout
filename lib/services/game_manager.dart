@@ -15,6 +15,8 @@ import 'game_data_manager.dart';
 import 'player_data_generator.dart';
 import 'game_state_manager.dart';
 import '../models/scouting/scout.dart';
+import '../models/scouting/team_request.dart';
+import 'growth_service.dart';
 
 
 
@@ -104,6 +106,7 @@ class GameManager {
       experience: _currentScout!.experience,
       level: _currentScout!.level,
       weeklyActions: [],
+      teamRequests: TeamRequestManager(requests: TeamRequestManager.generateDefaultRequests()),
     );
     // 全学校に1〜3年生を生成
     await generateInitialStudentsForAllSchoolsDb(dataService);
@@ -140,18 +143,15 @@ class GameManager {
     // 発掘リストに追加
     _currentGame = _currentGame!.discoverPlayer(newPlayer);
 
-    // ニュースも追加
-    newsService.addNews(
-      NewsItem(
-        title: '${newPlayer.name}選手を発掘！',
-        content: '${school.name}の${newPlayer.position}、${newPlayer.name}選手を発掘しました。',
-        date: DateTime.now(),
-        importance: NewsImportance.high,
-        category: NewsCategory.player,
-        relatedPlayerId: newPlayer.name,
-        relatedSchoolId: school.name,
-      ),
+    // 選手に基づくニュース生成
+    newsService.generatePlayerNews(
+      newPlayer, 
+      school,
+      year: _currentGame!.currentYear,
+      month: _currentGame!.currentMonth,
+      weekOfMonth: _currentGame!.currentWeekOfMonth,
     );
+    
     return newPlayer;
   }
 
@@ -159,6 +159,68 @@ class GameManager {
   void triggerRandomEvent(NewsService newsService) {
     if (_currentGame == null) return;
     _currentGame = GameStateManager.triggerRandomEvent(_currentGame!, newsService);
+  }
+
+  // 新年度（4月1週）開始時に全学校へ新1年生を生成・配属（DBにもinsert）
+  Future<void> startNewYear(NewsService newsService) async {
+    if (_currentGame == null) return;
+    
+    try {
+      print('startNewYear: 新年度開始処理を開始');
+      
+      // 全学校の選手を更新
+      final updatedSchools = <School>[];
+      
+      for (final school in _currentGame!.schools) {
+        print('startNewYear: ${school.name}の処理を開始');
+        
+        // 既存選手の学年を更新
+        final updatedPlayers = school.players.map((player) {
+          if (player.grade < 3) {
+            return player.copyWith(grade: player.grade + 1);
+          } else {
+            // 3年生は卒業（削除）
+            return null;
+          }
+        }).where((player) => player != null).cast<Player>().toList();
+        
+        // 新1年生を生成
+        final newFirstYears = await _playerDataGenerator.generatePlayersForSchool(school, 5);
+        
+        // 全選手を統合
+        final allPlayers = [...updatedPlayers, ...newFirstYears];
+        
+        // 学校を更新
+        final updatedSchool = school.copyWith(players: allPlayers);
+        updatedSchools.add(updatedSchool);
+        
+        print('startNewYear: ${school.name}の処理完了 - 選手数: ${allPlayers.length}');
+      }
+      
+      // ゲーム状態を更新
+      _currentGame = _currentGame!.copyWith(schools: updatedSchools);
+      
+      // 全選手のニュース生成
+      newsService.generateAllPlayerNews(
+        updatedSchools,
+        year: _currentGame!.currentYear,
+        month: _currentGame!.currentMonth,
+        weekOfMonth: _currentGame!.currentWeekOfMonth,
+      );
+      
+      // ドラフト関連ニュース生成
+      newsService.generateDraftNews(
+        year: _currentGame!.currentYear,
+        month: _currentGame!.currentMonth,
+        weekOfMonth: _currentGame!.currentWeekOfMonth,
+      );
+      
+      print('startNewYear: 新年度開始処理完了');
+    } catch (e, stackTrace) {
+      print('startNewYear: エラー発生 - $e');
+      print('startNewYear: スタックトレース - $stackTrace');
+      rethrow;
+    }
   }
 
   // 新年度（4月1週）開始時に全学校へ新1年生を生成・配属（DBにもinsert）
@@ -725,15 +787,39 @@ class GameManager {
       await generateNewStudentsForAllSchoolsDb(dataService);
       await _refreshPlayersFromDb(dataService);
       results.add('新年度が始まり、全学校で学年が1つ上がり新1年生が入学しました！');
+      
+      // 新年度開始時のニュース生成
+      newsService.generateAllPlayerNews(
+        _currentGame!.schools,
+        year: _currentGame!.currentYear,
+        month: _currentGame!.currentMonth,
+        weekOfMonth: _currentGame!.currentWeekOfMonth,
+      );
+      newsService.generateDraftNews(
+        year: _currentGame!.currentYear,
+        month: _currentGame!.currentMonth,
+        weekOfMonth: _currentGame!.currentWeekOfMonth,
+      );
     }
     
-    // 3か月ごと（4,7,10,1月の最終週）に成長処理
-    final isGrowthMonth = [4, 7, 10, 1].contains(_currentGame!.currentMonth);
-    final isLastWeekOfMonth = _currentGame!.getMaxWeeksOfMonth(_currentGame!.currentMonth) == _currentGame!.currentWeekOfMonth;
-    if (isGrowthMonth && isLastWeekOfMonth) {
+    // 半年ごとの成長処理（3月1週と9月1週）
+    final currentWeek = _calculateCurrentWeek(_currentGame!.currentMonth, _currentGame!.currentWeekOfMonth);
+    final isGrowthWeek = GrowthService.shouldGrow(currentWeek);
+    if (isGrowthWeek) {
       growAllPlayers();
-      results.add('今シーズンの成長イベントが発生しました。選手たちが成長しています。');
+      results.add('選手たちの成長期が訪れました。選手たちが成長しています。');
+      
+      // 成長後のニュース生成
+      newsService.generateAllPlayerNews(
+        _currentGame!.schools,
+        year: _currentGame!.currentYear,
+        month: _currentGame!.currentMonth,
+        weekOfMonth: _currentGame!.currentWeekOfMonth,
+      );
     }
+    
+    // 週送り時のニュース生成（毎週）
+    _generateWeeklyNews(newsService);
     
     // 週送り（週進行、AP/予算リセット、アクションリセット）
     _currentGame = _currentGame!
@@ -741,11 +827,35 @@ class GameManager {
       .resetWeeklyResources(newAp: 6, newBudget: _currentGame!.budget)
       .resetActions();
     
-          // オートセーブ（週送り完了後）
-      await saveGame();
-      await _gameDataManager.saveAutoGameData(_currentGame!);
+    // オートセーブ（週送り完了後）
+    await saveGame();
+    await _gameDataManager.saveAutoGameData(_currentGame!);
     
     return results;
+  }
+
+  /// 週送り時のニュース生成
+  void _generateWeeklyNews(NewsService newsService) {
+    if (_currentGame == null) return;
+    
+    // 週送り時のニュース生成
+    newsService.generateWeeklyNews(
+      _currentGame!.schools,
+      year: _currentGame!.currentYear,
+      month: _currentGame!.currentMonth,
+      weekOfMonth: _currentGame!.currentWeekOfMonth,
+    );
+    
+    // 月別ニュース生成（月の第1週に生成）
+    if (_currentGame!.currentWeekOfMonth == 1) {
+      newsService.generateMonthlyNews(
+        _currentGame!.schools,
+        _currentGame!.currentMonth,
+        year: _currentGame!.currentYear,
+        month: _currentGame!.currentMonth,
+        weekOfMonth: _currentGame!.currentWeekOfMonth,
+      );
+    }
   }
 
   // 安全なint型変換ヘルパーメソッド
@@ -758,12 +868,38 @@ class GameManager {
     return 0;
   }
 
+  // 現在の週番号を計算（4月1週を1週目として計算）
+  int _calculateCurrentWeek(int month, int weekOfMonth) {
+    int totalWeeks = 0;
+    for (int m = 4; m < month; m++) {
+      totalWeeks += _getWeeksInMonth(m);
+    }
+    totalWeeks += weekOfMonth;
+    return totalWeeks;
+  }
+
+  // 月の週数を取得
+  int _getWeeksInMonth(int month) {
+    if (month == 3 || month == 5 || month == 8 || month == 12) {
+      return 5;
+    }
+    return 4;
+  }
+
   String _actionTypeToText(String type) {
     switch (type) {
       case 'PRAC_WATCH':
         return '練習視察';
       case 'GAME_WATCH':
         return '試合観戦';
+      case 'scrimmage':
+        return '練習試合観戦';
+      case 'interview':
+        return 'インタビュー';
+      case 'videoAnalyze':
+        return 'ビデオ分析';
+      case 'reportWrite':
+        return 'レポート作成';
       default:
         return type;
     }
@@ -1163,6 +1299,71 @@ class GameManager {
           }
           
           results.add(result.message);
+        }
+      } else if (action.type == 'interview') {
+        // インタビューアクション
+        final schoolIndex = action.schoolId;
+        final playerId = action.playerId;
+        
+        if (schoolIndex < _currentGame!.schools.length && playerId != null) {
+          final school = _currentGame!.schools[schoolIndex];
+          final targetPlayer = school.players.firstWhere(
+            (p) => p.id == playerId,
+            orElse: () => school.players.first,
+          );
+          
+          final result = scouting.ActionService.interview(
+            targetPlayer: targetPlayer,
+            scoutSkills: _currentGame!.scoutSkills,
+            currentWeek: _currentGame!.currentWeekOfMonth,
+          );
+          
+          // 結果をゲーム状態に反映
+          if (result.improvedPlayer != null) {
+            updatePlayerKnowledge(result.improvedPlayer!);
+            
+            // スカウト分析データを更新（性格・精神面の情報）
+            final scoutId = 'default_scout';
+            final accuracy = 0.85 + (Random().nextDouble() * 0.1);
+            await scoutAnalysisService.saveScoutAnalysis(
+              result.improvedPlayer!, 
+              scoutId, 
+              accuracy
+            );
+          }
+          
+          results.add(result.message);
+        }
+      } else if (action.type == 'reportWrite') {
+        // レポート作成アクション
+        final requestId = action.params?['requestId'] as String?;
+        final playerId = action.playerId;
+        
+        if (requestId != null && playerId != null) {
+          final teamRequest = _currentGame!.teamRequests.getRequest(requestId);
+          final player = _currentGame!.discoveredPlayers.firstWhere(
+            (p) => p.id == playerId,
+            orElse: () => _currentGame!.discoveredPlayers.first,
+          );
+          
+          if (teamRequest != null) {
+            final result = scouting.ActionService.reportWrite(
+              teamRequest: teamRequest,
+              selectedPlayer: player,
+              scoutSkills: _currentGame!.scoutSkills,
+              currentWeek: _currentGame!.currentWeekOfMonth,
+            );
+            
+            // 要望を完了としてマーク
+            _currentGame!.teamRequests.completeRequest(requestId, playerId.toString());
+            
+            // 報酬を追加
+            _currentGame = _currentGame!.copyWith(
+              budget: _currentGame!.budget + teamRequest.reward,
+            );
+            
+            results.add(result.message);
+          }
         }
       }
     }

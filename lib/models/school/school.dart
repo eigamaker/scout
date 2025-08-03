@@ -69,7 +69,7 @@ class School {
     // 知名度の決定
     final fame = _determineFame(talentRank, random);
     
-    return Player(
+    final player = Player(
       name: _generateName(random),
       school: name,
       grade: _generateGrade(random),
@@ -94,6 +94,14 @@ class School {
       growthType: growthType,
       individualPotentials: individualPotentials,
     );
+    
+    // 初期実績を生成
+    player.generateInitialAchievements();
+    
+    // 知名度を再計算（実績を考慮）
+    player.calculateInitialFame();
+    
+    return player;
   }
   
   // 個別ポテンシャル生成システム（簡易版）

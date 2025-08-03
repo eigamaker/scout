@@ -1,6 +1,7 @@
 import '../player/player.dart';
 import '../school/school.dart';
 import '../scouting/scout.dart';
+import '../scouting/team_request.dart';
 
 // ゲーム状態
 enum GameState {
@@ -70,6 +71,7 @@ class Game {
   final int experience; // 経験値
   final int level; // レベル
   final List<GameAction> weeklyActions; // 今週の行動計画
+  final TeamRequestManager teamRequests; // 球団からの要望
   
   Game({
     required this.scoutName,
@@ -89,6 +91,7 @@ class Game {
     required this.experience,
     required this.level,
     required this.weeklyActions,
+    required this.teamRequests,
   });
 
   // 月ごとの最大週数を返す
@@ -352,6 +355,7 @@ class Game {
       experience: json['experience'] ?? 0,
       level: json['level'] ?? 1,
       weeklyActions: (json['weeklyActions'] as List?)?.map((a) => GameAction.fromJson(a)).toList() ?? [],
+      teamRequests: TeamRequestManager(),
     );
   }
   
@@ -374,6 +378,7 @@ class Game {
     List<GameAction>? weeklyActions,
     int? ap,
     Map<ScoutSkill, int>? scoutSkills,
+    TeamRequestManager? teamRequests,
   }) {
     return Game(
       scoutName: scoutName ?? this.scoutName,
@@ -393,6 +398,7 @@ class Game {
       weeklyActions: weeklyActions ?? this.weeklyActions,
       ap: ap ?? this.ap,
       scoutSkills: scoutSkills ?? this.scoutSkills,
+      teamRequests: teamRequests ?? this.teamRequests,
     );
   }
 } 

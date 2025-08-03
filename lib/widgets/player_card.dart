@@ -154,6 +154,19 @@ class PlayerCard extends StatelessWidget {
                 _buildHiddenInfoDisplay(context),
               ],
               
+              // 性格・精神面の情報表示（インタビュー済みの場合のみ）
+              if (player.isDiscovered && player.personality.isNotEmpty && player.mentalStrength > 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '性格・精神面:',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                _buildPersonalityDisplay(context),
+              ],
+              
               // アクションボタンエリア（発掘済み選手の場合のみ）
               if (player.isDiscovered) ...[
                 const SizedBox(height: 12),
@@ -168,20 +181,60 @@ class PlayerCard extends StatelessWidget {
 
   // アクションボタンエリア
   Widget _buildActionButtons(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () => _addScrimmageAction(context),
-            icon: const Icon(Icons.sports_baseball, size: 16),
-            label: const Text('練習試合観戦'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              minimumSize: const Size(0, 32),
-              backgroundColor: Colors.orange[100],
-              foregroundColor: Colors.orange[800],
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => _addScrimmageAction(context),
+                icon: const Icon(Icons.sports_baseball, size: 16),
+                label: const Text('練習試合観戦'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  minimumSize: const Size(0, 32),
+                  backgroundColor: Colors.orange[100],
+                  foregroundColor: Colors.orange[800],
+                ),
+              ),
             ),
-          ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => _addInterviewAction(context),
+                icon: const Icon(Icons.chat, size: 16),
+                label: const Text('インタビュー'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  minimumSize: const Size(0, 32),
+                  backgroundColor: Colors.green[100],
+                  foregroundColor: Colors.green[800],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => _addVideoAnalyzeAction(context),
+                icon: const Icon(Icons.video_library, size: 16),
+                label: const Text('ビデオ分析'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  minimumSize: const Size(0, 32),
+                  backgroundColor: Colors.purple[100],
+                  foregroundColor: Colors.purple[800],
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -245,6 +298,134 @@ class PlayerCard extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('APまたは予算が不足しています'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // インタビューアクションを追加
+  void _addInterviewAction(BuildContext context) {
+    final gameManager = Provider.of<GameManager>(context, listen: false);
+    final game = gameManager.currentGame;
+    
+    if (game == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ゲームが読み込まれていません'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 選手の学校IDを取得
+    int? schoolId;
+    for (int i = 0; i < game.schools.length; i++) {
+      if (game.schools[i].name == player.school) {
+        schoolId = i;
+        break;
+      }
+    }
+
+    if (schoolId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('選手の学校が見つかりません'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // インタビューアクションを作成
+    final action = GameAction(
+      id: UniqueKey().toString(),
+      type: 'interview',
+      schoolId: schoolId,
+      playerId: player.id,
+      apCost: 1,
+      budgetCost: 10000,
+      params: {},
+    );
+
+    // APと予算が足りるかチェック
+    if (game.ap >= action.apCost && game.budget >= action.budgetCost) {
+      gameManager.addActionToGame(action);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${player.name}のインタビューを計画に追加しました（AP: ${action.apCost}, 予算: ¥${action.budgetCost}）'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('APまたは予算が不足しています'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // ビデオ分析アクションを追加
+  void _addVideoAnalyzeAction(BuildContext context) {
+    final gameManager = Provider.of<GameManager>(context, listen: false);
+    final game = gameManager.currentGame;
+    
+    if (game == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ゲームが読み込まれていません'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 選手の学校IDを取得
+    int? schoolId;
+    for (int i = 0; i < game.schools.length; i++) {
+      if (game.schools[i].name == player.school) {
+        schoolId = i;
+        break;
+      }
+    }
+
+    if (schoolId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('選手の学校が見つかりません'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // ビデオ分析アクションを作成
+    final action = GameAction(
+      id: UniqueKey().toString(),
+      type: 'videoAnalyze',
+      schoolId: schoolId,
+      playerId: player.id,
+      apCost: 2,
+      budgetCost: 0,
+      params: {},
+    );
+
+    // APが足りるかチェック
+    if (game.ap >= action.apCost) {
+      gameManager.addActionToGame(action);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${player.name}のビデオ分析を計画に追加しました（AP: ${action.apCost}）'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('APが不足しています'),
           backgroundColor: Colors.red,
         ),
       );
@@ -353,6 +534,48 @@ class PlayerCard extends StatelessWidget {
         style: const TextStyle(
           fontSize: 10,
           color: Colors.orange,
+        ),
+      ),
+    );
+  }
+
+  // 性格・精神面表示
+  Widget _buildPersonalityDisplay(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _buildPersonalityChip('性格', player.personality),
+            _buildPersonalityChip('精神力', '${player.mentalStrength}'),
+          ],
+        ),
+        if (player.motivation != null) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              _buildPersonalityChip('動機', player.motivation!),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildPersonalityChip(String label, String value) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.purple[100],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.purple[300]!),
+      ),
+      child: Text(
+        '$label: $value',
+        style: const TextStyle(
+          fontSize: 10,
+          color: Colors.purple,
         ),
       ),
     );

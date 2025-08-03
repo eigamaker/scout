@@ -99,6 +99,11 @@ class _GameScreenState extends State<GameScreen> {
               title: const Text('スカウトスキル'),
               onTap: () => Navigator.pushNamed(context, '/scoutSkill'),
             ),
+            ListTile(
+              leading: const Icon(Icons.assignment),
+              title: const Text('球団からの要望'),
+              onTap: () => Navigator.pushNamed(context, '/teamRequests'),
+            ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.save),
@@ -157,7 +162,7 @@ class _GameScreenState extends State<GameScreen> {
           ],
         ),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,51 +258,49 @@ class _GameScreenState extends State<GameScreen> {
             const SizedBox(height: 16),
             
             // 重要な情報の縦並びアコーディオン
-            Expanded(
-              child: Column(
-                children: [
-                  // 最新ニュース
-                  _buildExpandableCard(
-                    icon: Icons.article,
-                    title: '最新ニュース',
-                    isExpanded: _newsExpanded,
-                    onTap: () => setState(() {
-                      _newsExpanded = !_newsExpanded;
-                      _historyExpanded = false;
-                      _actionsExpanded = false;
-                    }),
-                    child: _buildNewsContent(newsService),
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // 今週のアクションキュー
-                  _buildExpandableCard(
-                    icon: Icons.list_alt,
-                    title: '今週のアクションキュー',
-                    isExpanded: _actionsExpanded,
-                    onTap: () => setState(() {
-                      _actionsExpanded = !_actionsExpanded;
-                      _newsExpanded = false;
-                      _historyExpanded = false;
-                    }),
-                    child: _buildActionsContent(game),
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // アクション履歴
-                  _buildExpandableCard(
-                    icon: Icons.history,
-                    title: 'アクション履歴',
-                    isExpanded: _historyExpanded,
-                    onTap: () => setState(() {
-                      _historyExpanded = !_historyExpanded;
-                      _newsExpanded = false;
-                      _actionsExpanded = false;
-                    }),
-                    child: _buildHistoryContent(),
-                  ),
-                ],
-              ),
+            Column(
+              children: [
+                // 最新ニュース
+                _buildExpandableCard(
+                  icon: Icons.article,
+                  title: '最新ニュース',
+                  isExpanded: _newsExpanded,
+                  onTap: () => setState(() {
+                    _newsExpanded = !_newsExpanded;
+                    _historyExpanded = false;
+                    _actionsExpanded = false;
+                  }),
+                  child: _buildNewsContent(newsService),
+                ),
+                const SizedBox(height: 8),
+                
+                // 今週のアクションキュー
+                _buildExpandableCard(
+                  icon: Icons.list_alt,
+                  title: '今週のアクションキュー',
+                  isExpanded: _actionsExpanded,
+                  onTap: () => setState(() {
+                    _actionsExpanded = !_actionsExpanded;
+                    _newsExpanded = false;
+                    _historyExpanded = false;
+                  }),
+                  child: _buildActionsContent(game),
+                ),
+                const SizedBox(height: 8),
+                
+                // アクション履歴
+                _buildExpandableCard(
+                  icon: Icons.history,
+                  title: 'アクション履歴',
+                  isExpanded: _historyExpanded,
+                  onTap: () => setState(() {
+                    _historyExpanded = !_historyExpanded;
+                    _newsExpanded = false;
+                    _actionsExpanded = false;
+                  }),
+                  child: _buildHistoryContent(),
+                ),
+              ],
             ),
           ],
         ),
@@ -310,6 +313,10 @@ class _GameScreenState extends State<GameScreen> {
           final results = await gameManager.advanceWeekWithResults(newsService, dataService);
           setState(() {
             _weekLogs.insert(0, results);
+            // 履歴を最新20週分に制限
+            if (_weekLogs.length > 20) {
+              _weekLogs.removeRange(20, _weekLogs.length);
+            }
           });
           await showDialog(
             context: context,
@@ -351,6 +358,10 @@ class _GameScreenState extends State<GameScreen> {
         return '学校視察';
       case 'scrimmage':
         return '練習試合観戦';
+      case 'interview':
+        return 'インタビュー';
+      case 'videoAnalyze':
+        return 'ビデオ分析';
       default:
         return type;
     }
@@ -484,13 +495,16 @@ class _GameScreenState extends State<GameScreen> {
       return const Text('まだ履歴がありません');
     }
     
+    // 履歴を最新20週分に制限
+    final limitedLogs = _weekLogs.take(20).toList();
+    
     return SizedBox(
       height: 200,
       child: ListView.builder(
-        itemCount: _weekLogs.length,
+        itemCount: limitedLogs.length,
         itemBuilder: (context, index) {
-          final week = _weekLogs.length - index;
-          final logs = _weekLogs[index];
+          final week = limitedLogs.length - index;
+          final logs = limitedLogs[index];
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: ExpansionTile(

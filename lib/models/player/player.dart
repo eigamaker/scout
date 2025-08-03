@@ -13,8 +13,10 @@ class Player {
   final String school;
   int grade; // 1年生、2年生、3年生（高校生の場合）
   final String position;
-  final String personality;
+  String personality; // 性格（インタビューで判明）
   final int trustLevel; // 信頼度 0-100
+  int mentalStrength; // 精神力 0-100（インタビューで判明）
+  String? motivation; // 動機・目標（インタビューで判明）
   int fame; // 知名度 0-100
   bool isWatched; // スカウトが注目しているかどうか
   
@@ -73,6 +75,7 @@ class Player {
     required this.position,
     required this.personality,
     this.trustLevel = 0,
+    this.mentalStrength = 0,
     this.fame = 0,
     this.isWatched = false,
     this.isDiscovered = false,
@@ -249,7 +252,7 @@ class Player {
   }
   
   // 真の総合能力値を計算（0-100）
-  int get _trueTotalAbility {
+  int get trueTotalAbility {
     // 能力値システムに基づく総合能力値計算
     final technicalAvg = getAverageTechnicalAbility();
     final mentalAvg = getAverageMentalAbility();
@@ -370,54 +373,110 @@ class Player {
     return ((pitcherEval + batterEval) / 2).round();
   }
   
-  // 知名度を計算
+  // 知名度を計算（改善版）
   void calculateInitialFame() {
     final baseFame = _getBaseFame();
     final schoolFame = _getSchoolFame();
     final performanceFame = _getPerformanceFame();
+    final achievementFame = _getAchievementFame();
+    final gradeFame = _getGradeFame();
     
-    fame = ((baseFame + schoolFame + performanceFame) / 3).round().clamp(0, 100);
+    // 重み付け計算（能力40%、学校30%、実績20%、学年10%）
+    final weightedFame = (baseFame * 0.4 + 
+                         schoolFame * 0.3 + 
+                         achievementFame * 0.2 + 
+                         gradeFame * 0.1).round().clamp(0, 100);
+    
+    fame = weightedFame;
   }
   
-  // 基本知名度を計算
+  // 基本知名度を計算（能力値ベース）
   int _getBaseFame() {
-    final totalAbility = _trueTotalAbility;
-    if (totalAbility >= 90) return 80;
-    if (totalAbility >= 80) return 60;
-    if (totalAbility >= 70) return 40;
-    if (totalAbility >= 60) return 20;
-    return 10;
+    final totalAbility = trueTotalAbility;
+    
+    // 能力値に基づく知名度
+    if (totalAbility >= 95) return 90;      // 怪物級
+    if (totalAbility >= 90) return 80;      // 超一流
+    if (totalAbility >= 85) return 70;      // 一流
+    if (totalAbility >= 80) return 60;      // 準一流
+    if (totalAbility >= 75) return 50;      // 中堅以上
+    if (totalAbility >= 70) return 40;      // 中堅
+    if (totalAbility >= 65) return 30;      // 平均以上
+    if (totalAbility >= 60) return 20;      // 平均
+    if (totalAbility >= 55) return 15;      // 平均以下
+    return 10;                              // 未熟
   }
   
-  // 学校の知名度を取得
+  // 学校の知名度を取得（改善版）
   int _getSchoolFame() {
-    // 実際の実装では学校クラスに知名度フィールドを追加する
-    // ここでは学校名から簡易的に計算
-    final schoolNames = ['甲子園高校', '野球名門校', '強豪校', '中堅校', '弱小校'];
+    // 学校名から知名度を判定
     final schoolFameMap = {
-      '甲子園高校': 90,
-      '野球名門校': 70,
-      '強豪校': 50,
-      '中堅校': 30,
-      '弱小校': 10,
+      '甲子園': 90,      // 甲子園常連校
+      '名門': 80,        // 野球名門校
+      '強豪': 70,        // 強豪校
+      '中堅': 50,        // 中堅校
+      '弱小': 30,        // 弱小校
+      '新興': 40,        // 新興校
     };
     
     // 学校名に含まれるキーワードで判定
-    for (final key in schoolFameMap.keys) {
-      if (school.contains(key)) {
-        return schoolFameMap[key]!;
+    for (final entry in schoolFameMap.entries) {
+      if (school.contains(entry.key)) {
+        return entry.value;
       }
     }
     
     // デフォルトは中堅校レベル
-    return 30;
+    return 50;
   }
   
-  // 成績による知名度を計算
+  // 成績による知名度を計算（改善版）
   int _getPerformanceFame() {
-    // 実際の成績データに基づいて計算
-    // ここでは簡易的に能力値から推定
-    return _getBaseFame();
+    // 実績から計算
+    if (achievements.isEmpty) return 0;
+    
+    // 最新の実績を重視
+    final recentAchievements = achievements
+        .where((a) => a.year >= 2024) // 最新年度の実績
+        .toList();
+    
+    if (recentAchievements.isEmpty) return 0;
+    
+    // 最新実績の平均知名度ポイント
+    final avgFamePoints = recentAchievements
+        .map((a) => a.famePoints)
+        .reduce((a, b) => a + b) / recentAchievements.length;
+    
+    return (avgFamePoints * 0.8).round(); // 実績ポイントを知名度に変換
+  }
+  
+  // 実績による知名度を計算
+  int _getAchievementFame() {
+    if (achievements.isEmpty) return 0;
+    
+    // 実績の重要度に基づいて計算
+    int totalFame = 0;
+    for (final achievement in achievements) {
+      // 代表選出は特に重要
+      if (achievement.type == AchievementType.u18NationalTeam ||
+          achievement.type == AchievementType.highSchoolNational) {
+        totalFame += achievement.famePoints * 2; // 2倍の重み
+      } else {
+        totalFame += achievement.famePoints;
+      }
+    }
+    
+    return (totalFame * 0.6).round().clamp(0, 100); // 実績ポイントを知名度に変換
+  }
+  
+  // 学年による知名度を計算
+  int _getGradeFame() {
+    switch (grade) {
+      case 3: return 60; // 3年生は経験豊富
+      case 2: return 40; // 2年生は中程度
+      case 1: return 20; // 1年生は新入生
+      default: return 30;
+    }
   }
   
   // 選手の成長
@@ -474,6 +533,95 @@ class Player {
     if (paceCurrent < pacePotential) {
       physicalAbilities[PhysicalAbility.pace] = (paceCurrent + Random().nextInt(3) + 1).clamp(25, pacePotential);
     }
+  }
+
+  // 新入生の初期実績を生成
+  void generateInitialAchievements() {
+    if (achievements.isNotEmpty) return; // 既に実績がある場合はスキップ
+    
+    final random = Random();
+    final currentYear = 2024;
+    
+    // 能力値に基づいて実績を生成
+    final totalAbility = trueTotalAbility;
+    
+    // 高能力選手は初期実績を持っている可能性が高い
+    if (totalAbility >= 85) {
+      // 超一流選手の初期実績
+      if (random.nextBool()) {
+        achievements.add(Achievement(
+          type: AchievementType.u18NationalTeam,
+          name: 'U-18日本代表',
+          description: 'U-18日本代表に選出',
+          year: currentYear - 1,
+          month: 8,
+          famePoints: 80,
+        ));
+      }
+      
+      if (random.nextBool()) {
+        achievements.add(Achievement(
+          type: AchievementType.nationalChampionship,
+          name: '全国大会優勝',
+          description: '全国大会で優勝',
+          year: currentYear - 1,
+          month: 8,
+          famePoints: 60,
+        ));
+      }
+    } else if (totalAbility >= 75) {
+      // 一流選手の初期実績
+      if (random.nextBool()) {
+        achievements.add(Achievement(
+          type: AchievementType.regionalChampionship,
+          name: '地方大会優勝',
+          description: '地方大会で優勝',
+          year: currentYear - 1,
+          month: 7,
+          famePoints: 40,
+        ));
+      }
+      
+      if (random.nextBool()) {
+        achievements.add(Achievement(
+          type: AchievementType.bestPitcher,
+          name: '最優秀投手',
+          description: '最優秀投手賞を受賞',
+          year: currentYear - 1,
+          month: 8,
+          famePoints: 50,
+        ));
+      }
+    } else if (totalAbility >= 65) {
+      // 中堅以上選手の初期実績
+      if (random.nextBool()) {
+        achievements.add(Achievement(
+          type: AchievementType.allStar,
+          name: 'オールスター選出',
+          description: 'オールスターに選出',
+          year: currentYear - 1,
+          month: 7,
+          famePoints: 30,
+        ));
+      }
+    }
+    
+    // 学年に応じた実績
+    if (grade >= 2) {
+      // 2年生以上は過去の実績がある
+      if (random.nextBool()) {
+        achievements.add(Achievement(
+          type: AchievementType.leagueChampionship,
+          name: 'リーグ優勝',
+          description: 'リーグ戦で優勝',
+          year: currentYear - 1,
+          month: 6,
+          famePoints: 35,
+        ));
+      }
+    }
+    
+    // 実績ポイントはgetterで計算されるため、再計算は不要
   }
 
   Map<String, dynamic> toJson() => {
