@@ -60,42 +60,87 @@ class SchoolListScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    ElevatedButton(
-                      onPressed: () {
-                        // アクション計画に追加（AP消費）
-                        final action = GameAction(
-                          id: UniqueKey().toString(),
-                          type: 'SCOUT_SCHOOL',
-                          schoolId: i,
-                          playerId: null,
-                          apCost: 2,
-                          budgetCost: 20000,
-                          params: {},
-                        );
-                        
-                        // APと予算が足りるかチェック
-                        if (game.ap >= action.apCost && game.budget >= action.budgetCost) {
-                          gameManager.addActionToGame(action);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${game.schools[i].name}の視察を計画に追加しました（AP: ${action.apCost}, 予算: ¥${action.budgetCost}）'),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('APまたは予算が不足しています'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        minimumSize: const Size(60, 32),
-                      ),
-                      child: const Text('視察計画'),
+                    Row(
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            // アクション計画に追加（AP消費）
+                            final action = GameAction(
+                              id: UniqueKey().toString(),
+                              type: 'SCOUT_SCHOOL',
+                              schoolId: i,
+                              playerId: null,
+                              apCost: 2,
+                              budgetCost: 20000,
+                              params: {},
+                            );
+                            
+                            // APと予算が足りるかチェック
+                            if (game.ap >= action.apCost && game.budget >= action.budgetCost) {
+                              gameManager.addActionToGame(action);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${game.schools[i].name}の視察を計画に追加しました（AP: ${action.apCost}, 予算: ¥${action.budgetCost}）'),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('APまたは予算が不足しています'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            minimumSize: const Size(60, 32),
+                          ),
+                          child: const Text('視察計画'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            // 練習試合観戦アクションを追加
+                            final action = GameAction(
+                              id: UniqueKey().toString(),
+                              type: 'scrimmage',
+                              schoolId: i,
+                              playerId: null,
+                              apCost: 2,
+                              budgetCost: 30000,
+                              params: {},
+                            );
+                            
+                            // APと予算が足りるかチェック
+                            if (game.ap >= action.apCost && game.budget >= action.budgetCost) {
+                              gameManager.addActionToGame(action);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${game.schools[i].name}の練習試合観戦を計画に追加しました（AP: ${action.apCost}, 予算: ¥${action.budgetCost}）'),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('APまたは予算が不足しています'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.sports_baseball, size: 16),
+                          label: const Text('練習試合観戦'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            minimumSize: const Size(60, 32),
+                            backgroundColor: Colors.orange[100],
+                            foregroundColor: Colors.orange[800],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

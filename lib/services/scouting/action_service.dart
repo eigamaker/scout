@@ -251,6 +251,53 @@ class ActionService {
     );
   }
 
+  /// 練習試合観戦アクション
+  static ScoutActionResult scrimmage({
+    required School school,
+    required Player? targetPlayer,
+    required Map<ScoutSkill, int> scoutSkills,
+    required int currentWeek,
+  }) {
+    // 練習試合観戦の具体的な処理
+    if (targetPlayer != null) {
+      // 特定選手の練習試合観戦
+      final knowledgeIncrease = 25 + Random().nextInt(21); // 25-45%増加
+      targetPlayer.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 95));
+      
+      // 成長スピードの情報も取得
+      final growthSpeed = 10 + Random().nextInt(21); // 10-30%の成長スピード情報
+      
+      return ScoutActionResult(
+        success: true,
+        message: '🏟️ ${school.name}の練習試合観戦: 「${targetPlayer.name}」の成長スピードを確認できました',
+        discoveredPlayer: null,
+        improvedPlayer: targetPlayer,
+      );
+    } else {
+      // 学校全体の練習試合観戦
+      final allPlayers = school.players.where((p) => p.isDiscovered).toList();
+      if (allPlayers.isNotEmpty) {
+        final player = allPlayers[Random().nextInt(allPlayers.length)];
+        final knowledgeIncrease = 15 + Random().nextInt(16); // 15-30%増加
+        player.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 90));
+        
+        return ScoutActionResult(
+          success: true,
+          message: '🏟️ ${school.name}の練習試合観戦: 「${player.name}」の練習試合での成長を確認できました',
+          discoveredPlayer: null,
+          improvedPlayer: player,
+        );
+      }
+      
+      return ScoutActionResult(
+        success: true,
+        message: '🏟️ ${school.name}の練習試合観戦: 練習試合は見応えがありましたが、特に印象的な選手はいませんでした',
+        discoveredPlayer: null,
+        improvedPlayer: null,
+      );
+    }
+  }
+
   /// 前提条件チェック
   static PrerequisiteCheck _checkPrerequisites(Action action, Scout scout) {
     // APチェック

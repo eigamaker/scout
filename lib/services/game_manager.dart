@@ -1113,6 +1113,57 @@ class GameManager {
             results.add(result.message);
           }
         }
+      } else if (action.type == 'scrimmage') {
+        // 練習試合観戦アクション
+        final schoolIndex = action.schoolId;
+        final playerId = action.playerId;
+        
+        if (schoolIndex < _currentGame!.schools.length) {
+          final school = _currentGame!.schools[schoolIndex];
+          Player? targetPlayer;
+          
+          if (playerId != null) {
+            targetPlayer = school.players.firstWhere(
+              (p) => p.id == playerId,
+              orElse: () => school.players.first,
+            );
+          }
+          
+          final result = scouting.ActionService.scrimmage(
+            school: school,
+            targetPlayer: targetPlayer,
+            scoutSkills: _currentGame!.scoutSkills,
+            currentWeek: _currentGame!.currentWeekOfMonth,
+          );
+          
+          // 結果をゲーム状態に反映
+          if (result.discoveredPlayer != null) {
+            discoverPlayer(result.discoveredPlayer!);
+            
+            // スカウト分析データを保存
+            final scoutId = 'default_scout';
+            final accuracy = 0.7 + (Random().nextDouble() * 0.2);
+            await scoutAnalysisService.saveScoutAnalysis(
+              result.discoveredPlayer!, 
+              scoutId, 
+              accuracy
+            );
+          }
+          if (result.improvedPlayer != null) {
+            updatePlayerKnowledge(result.improvedPlayer!);
+            
+            // スカウト分析データを更新
+            final scoutId = 'default_scout';
+            final accuracy = 0.8 + (Random().nextDouble() * 0.15);
+            await scoutAnalysisService.saveScoutAnalysis(
+              result.improvedPlayer!, 
+              scoutId, 
+              accuracy
+            );
+          }
+          
+          results.add(result.message);
+        }
       }
     }
     

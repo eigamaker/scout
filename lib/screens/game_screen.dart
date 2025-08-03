@@ -349,6 +349,8 @@ class _GameScreenState extends State<GameScreen> {
         return '試合観戦';
       case 'SCOUT_SCHOOL':
         return '学校視察';
+      case 'scrimmage':
+        return '練習試合観戦';
       default:
         return type;
     }
