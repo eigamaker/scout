@@ -95,6 +95,12 @@ class _GameScreenState extends State<GameScreen> {
             ),
             const Divider(),
             ListTile(
+              leading: const Icon(Icons.psychology),
+              title: const Text('スカウトスキル'),
+              onTap: () => Navigator.pushNamed(context, '/scoutSkill'),
+            ),
+            const Divider(),
+            ListTile(
               leading: const Icon(Icons.save),
               title: const Text('セーブ'),
               onTap: () async {
@@ -203,6 +209,29 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                         Expanded(
                           child: _infoRow(Icons.leaderboard, 'レベル', game.level.toString()),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // スカウトスキル概要
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _infoRow(Icons.explore, '探索', '${game.scoutSkills['exploration'] ?? 3}'),
+                        ),
+                        Expanded(
+                          child: _infoRow(Icons.visibility, '観察', '${game.scoutSkills['observation'] ?? 3}'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _infoRow(Icons.analytics, '分析', '${game.scoutSkills['analysis'] ?? 2}'),
+                        ),
+                        Expanded(
+                          child: _infoRow(Icons.lightbulb, '洞察', '${game.scoutSkills['insight'] ?? 2}'),
                         ),
                       ],
                     ),

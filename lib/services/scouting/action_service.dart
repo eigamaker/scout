@@ -128,7 +128,7 @@ class ActionService {
   static ScoutActionResult practiceWatch({
     required School school,
     required Player? targetPlayer,
-    required Map<String, int> scoutSkills,
+    required Map<ScoutSkill, int> scoutSkills,
     required int currentWeek,
   }) {
     // 練習視察の具体的な処理
@@ -175,7 +175,7 @@ class ActionService {
   static ScoutActionResult gameWatch({
     required School school,
     required Player? targetPlayer,
-    required Map<String, int> scoutSkills,
+    required Map<ScoutSkill, int> scoutSkills,
     required int currentWeek,
   }) {
     // 試合観戦の具体的な処理
@@ -218,7 +218,7 @@ class ActionService {
   /// インタビューアクション
   static ScoutActionResult interview({
     required Player targetPlayer,
-    required Map<String, int> scoutSkills,
+    required Map<ScoutSkill, int> scoutSkills,
     required int currentWeek,
   }) {
     // インタビューの具体的な処理
@@ -236,7 +236,7 @@ class ActionService {
   /// ビデオ分析アクション
   static ScoutActionResult videoAnalyze({
     required Player targetPlayer,
-    required Map<String, int> scoutSkills,
+    required Map<ScoutSkill, int> scoutSkills,
     required int currentWeek,
   }) {
     // ビデオ分析の具体的な処理

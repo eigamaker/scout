@@ -14,6 +14,7 @@ import 'scouting/scout_analysis_service.dart';
 import 'game_data_manager.dart';
 import 'player_data_generator.dart';
 import 'game_state_manager.dart';
+import '../models/scouting/scout.dart';
 
 
 
@@ -21,8 +22,10 @@ class GameManager {
   Game? _currentGame;
   late final GameDataManager _gameDataManager;
   late final PlayerDataGenerator _playerDataGenerator;
+  Scout? _currentScout;
 
   Game? get currentGame => _currentGame;
+  Scout? get currentScout => _currentScout;
 
   GameManager(DataService dataService) {
     _gameDataManager = GameDataManager(dataService);
@@ -71,6 +74,9 @@ class GameManager {
     )).toList();
     // 初期選手リストは空で開始（generateInitialStudentsForAllSchoolsDbで生成される）
     final players = <Player>[];
+    // スカウトインスタンス生成
+    _currentScout = Scout.createDefault(scoutName);
+    
     // Gameインスタンス生成
     _currentGame = Game(
       scoutName: scoutName,
@@ -86,17 +92,17 @@ class GameManager {
       ap: 15,
       budget: 1000000,
       scoutSkills: {
-        'exploration': 50,
-        'observation': 50,
-        'analysis': 50,
-        'insight': 50,
-        'communication': 50,
-        'negotiation': 50,
-        'stamina': 50,
+        ScoutSkill.exploration: _currentScout!.getSkill(ScoutSkill.exploration),
+        ScoutSkill.observation: _currentScout!.getSkill(ScoutSkill.observation),
+        ScoutSkill.analysis: _currentScout!.getSkill(ScoutSkill.analysis),
+        ScoutSkill.insight: _currentScout!.getSkill(ScoutSkill.insight),
+        ScoutSkill.communication: _currentScout!.getSkill(ScoutSkill.communication),
+        ScoutSkill.negotiation: _currentScout!.getSkill(ScoutSkill.negotiation),
+        ScoutSkill.stamina: _currentScout!.getSkill(ScoutSkill.stamina),
       },
-      reputation: 50,
-      experience: 0,
-      level: 1,
+      reputation: _currentScout!.reputation,
+      experience: _currentScout!.experience,
+      level: _currentScout!.level,
       weeklyActions: [],
     );
     // 全学校に1〜3年生を生成
@@ -368,6 +374,135 @@ class GameManager {
     _currentGame = GameStateManager.growAllPlayers(_currentGame!);
   }
 
+  // スカウトスキル成長メソッド
+  void addScoutExperience(int amount) {
+    if (_currentScout == null) return;
+    
+    final oldLevel = _currentScout!.level;
+    _currentScout = _currentScout!.addExperience(amount);
+    final newLevel = _currentScout!.level;
+    
+    // レベルアップ時の処理
+    if (newLevel > oldLevel) {
+      // レベルアップ時にスキルポイントを獲得（仮の実装）
+      print('スカウトがレベルアップしました！ Lv.$oldLevel → Lv.$newLevel');
+    }
+    
+    // Gameインスタンスも更新
+    if (_currentGame != null) {
+      _currentGame = _currentGame!.copyWith(
+        experience: _currentScout!.experience,
+        level: _currentScout!.level,
+        reputation: _currentScout!.reputation,
+      );
+    }
+  }
+
+  // スカウトスキルを増加
+  void increaseScoutSkill(ScoutSkill skill, int amount) {
+    if (_currentScout == null) return;
+    
+    _currentScout = _currentScout!.increaseSkill(skill, amount);
+    
+    // Gameインスタンスのスカウトスキルも更新
+    if (_currentGame != null) {
+      final newScoutSkills = Map<ScoutSkill, int>.from(_currentGame!.scoutSkills);
+      newScoutSkills[skill] = _currentScout!.getSkill(skill);
+      
+      _currentGame = _currentGame!.copyWith(
+        scoutSkills: newScoutSkills,
+      );
+    }
+  }
+
+  // スカウトのAPを消費
+  void consumeScoutActionPoints(int amount) {
+    if (_currentScout == null) return;
+    
+    _currentScout = _currentScout!.consumeActionPoints(amount);
+    
+    // GameインスタンスのAPも更新
+    if (_currentGame != null) {
+      _currentGame = _currentGame!.copyWith(
+        ap: _currentScout!.actionPoints,
+      );
+    }
+  }
+
+  // スカウトのAPを回復
+  void restoreScoutActionPoints(int amount) {
+    if (_currentScout == null) return;
+    
+    _currentScout = _currentScout!.restoreActionPoints(amount);
+    
+    // GameインスタンスのAPも更新
+    if (_currentGame != null) {
+      _currentGame = _currentGame!.copyWith(
+        ap: _currentScout!.actionPoints,
+      );
+    }
+  }
+
+  // スカウトのお金を消費
+  void spendScoutMoney(int amount) {
+    if (_currentScout == null) return;
+    
+    _currentScout = _currentScout!.spendMoney(amount);
+    
+    // Gameインスタンスの予算も更新
+    if (_currentGame != null) {
+      _currentGame = _currentGame!.copyWith(
+        budget: _currentScout!.money,
+      );
+    }
+  }
+
+  // スカウトのお金を獲得
+  void earnScoutMoney(int amount) {
+    if (_currentScout == null) return;
+    
+    _currentScout = _currentScout!.earnMoney(amount);
+    
+    // Gameインスタンスの予算も更新
+    if (_currentGame != null) {
+      _currentGame = _currentGame!.copyWith(
+        budget: _currentScout!.money,
+      );
+    }
+  }
+
+  // スカウトの信頼度を変更
+  void changeScoutTrustLevel(int amount) {
+    if (_currentScout == null) return;
+    
+    _currentScout = _currentScout!.changeTrustLevel(amount);
+  }
+
+  // スカウトの評判を変更
+  void changeScoutReputation(int amount) {
+    if (_currentScout == null) return;
+    
+    _currentScout = _currentScout!.changeReputation(amount);
+    
+    // Gameインスタンスの評判も更新
+    if (_currentGame != null) {
+      _currentGame = _currentGame!.copyWith(
+        reputation: _currentScout!.reputation,
+      );
+    }
+  }
+
+  // スカウト情報をJSONで保存
+  Map<String, dynamic> saveScoutToJson() {
+    if (_currentScout == null) return {};
+    return _currentScout!.toJson();
+  }
+
+  // スカウト情報をJSONから復元
+  void loadScoutFromJson(Map<String, dynamic> json) {
+    if (json.isEmpty) return;
+    _currentScout = Scout.fromJson(json);
+  }
 
 
   Map<String, int> _generatePositionFit(String mainPosition) {

@@ -1,4 +1,4 @@
-import 'skill.dart';
+import 'scout.dart';
 
 enum ActionType {
   pracWatch,      // 練習視察
@@ -20,7 +20,7 @@ class Action {
   final String? prerequisite;
   final List<String> obtainableInfo;
   final double baseSuccessRate;
-  final Skill primarySkill;
+  final ScoutSkill primarySkill;
   final double skillCoefficient;
   final String intuitionEffect;
 
@@ -46,7 +46,7 @@ class Action {
       cost: 20000,
       obtainableInfo: ['基本情報', '簡易能力値', '才能ランク'],
       baseSuccessRate: 0.60,
-      primarySkill: Skill.exploration,
+      primarySkill: ScoutSkill.exploration,
       skillCoefficient: 0.08,
       intuitionEffect: '隠れた才能発見',
     ),
@@ -57,7 +57,7 @@ class Action {
       cost: 0,
       obtainableInfo: ['球団ニーズ', '指名候補'],
       baseSuccessRate: 0.90,
-      primarySkill: Skill.negotiation,
+      primarySkill: ScoutSkill.negotiation,
       skillCoefficient: 0.01,
       intuitionEffect: '内部情報の取得',
     ),
@@ -68,7 +68,7 @@ class Action {
       cost: 0,
       obtainableInfo: ['他地域評価', '噂話'],
       baseSuccessRate: 0.70,
-      primarySkill: Skill.insight,
+      primarySkill: ScoutSkill.insight,
       skillCoefficient: 0.02,
       intuitionEffect: '予期しない情報',
     ),
@@ -79,7 +79,7 @@ class Action {
       cost: 0,
       obtainableInfo: ['ニュース情報'],
       baseSuccessRate: 1.0, // 自動成功
-      primarySkill: Skill.intuition,
+      primarySkill: ScoutSkill.intuition,
       skillCoefficient: 0.0,
       intuitionEffect: '特別なニュース発見',
     ),
@@ -91,7 +91,7 @@ class Action {
       prerequisite: '試合週',
       obtainableInfo: ['現在の能力値', 'ポジション適性'],
       baseSuccessRate: 0.55,
-      primarySkill: Skill.observation,
+      primarySkill: ScoutSkill.observation,
       skillCoefficient: 0.04,
       intuitionEffect: '重要な瞬間を捉える',
     ),
@@ -103,7 +103,7 @@ class Action {
       prerequisite: '試合情報',
       obtainableInfo: ['現在の能力値', '成長スピード'],
       baseSuccessRate: 0.50,
-      primarySkill: Skill.observation,
+      primarySkill: ScoutSkill.observation,
       skillCoefficient: 0.04,
       intuitionEffect: '隠れた実力発見',
     ),
@@ -115,7 +115,7 @@ class Action {
       prerequisite: '信頼度≥50',
       obtainableInfo: ['性格', '精神力', '動機・目標'],
       baseSuccessRate: 0.65,
-      primarySkill: Skill.communication,
+      primarySkill: ScoutSkill.communication,
       skillCoefficient: 0.04,
       intuitionEffect: '本音を引き出す',
     ),
@@ -127,7 +127,7 @@ class Action {
       prerequisite: '映像あり',
       obtainableInfo: ['成長タイプ', '怪我リスク', 'ポテンシャル'],
       baseSuccessRate: 0.70,
-      primarySkill: Skill.analysis,
+      primarySkill: ScoutSkill.analysis,
       skillCoefficient: 0.03,
       intuitionEffect: '技術的発見',
     ),
@@ -139,7 +139,7 @@ class Action {
       prerequisite: '情報量≥3',
       obtainableInfo: ['総合評価', '将来予測'],
       baseSuccessRate: 1.0,
-      primarySkill: Skill.negotiation,
+      primarySkill: ScoutSkill.negotiation,
       skillCoefficient: 0.0,
       intuitionEffect: '洞察力による質向上',
     ),

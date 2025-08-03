@@ -1,5 +1,6 @@
 import '../player/player.dart';
 import '../school/school.dart';
+import '../scouting/scout.dart';
 
 // ゲーム状態
 enum GameState {
@@ -64,7 +65,7 @@ class Game {
   final List<Player> favoritePlayers; // お気に入り選手リスト
   final int ap; // 今週のアクションポイント
   final int budget; // 予算
-  final Map<String, int> scoutSkills; // スカウトスキル（exploration, observation, analysis, insight, communication, negotiation, stamina）
+  final Map<ScoutSkill, int> scoutSkills; // スカウトスキル
   final int reputation; // 評判 0-100
   final int experience; // 経験値
   final int level; // レベル
@@ -309,22 +310,12 @@ class Game {
     'experience': experience,
     'level': level,
     'weeklyActions': weeklyActions.map((a) => a.toJson()).toList(),
+    'scoutSkills': scoutSkills.map((k, v) => MapEntry(k.name, v)),
   };
 
-  factory Game.fromJson(Map<String, dynamic> json) => Game(
-    scoutName: json['scoutName'] ?? '',
-    scoutSkill: json['scoutSkill'] ?? 50,
-    currentYear: json['currentYear'] ?? DateTime.now().year,
-    currentMonth: json['currentMonth'] ?? 4,
-    currentWeekOfMonth: json['currentWeekOfMonth'] ?? 1,
-    state: GameState.values[(json['state'] ?? 0)],
-    schools: (json['schools'] as List?)?.map((s) => School.fromJson(s)).toList() ?? [],
-    discoveredPlayers: (json['discoveredPlayers'] as List?)?.map((p) => Player.fromJson(p)).toList() ?? [],
-    watchedPlayers: (json['watchedPlayers'] as List?)?.map((p) => Player.fromJson(p)).toList() ?? [],
-    favoritePlayers: (json['favoritePlayers'] as List?)?.map((p) => Player.fromJson(p)).toList() ?? [],
-    ap: json['ap'] ?? 6,
-    budget: json['budget'] ?? 1000000,
-    scoutSkills: Map<String, int>.from(json['scoutSkills'] ?? {
+  factory Game.fromJson(Map<String, dynamic> json) {
+    // scoutSkillsの変換
+    final scoutSkillsJson = json['scoutSkills'] as Map<String, dynamic>? ?? {
       'exploration': 50,
       'observation': 50,
       'analysis': 50,
@@ -332,12 +323,37 @@ class Game {
       'communication': 50,
       'negotiation': 50,
       'stamina': 50,
-    }),
-    reputation: json['reputation'] ?? 50,
-    experience: json['experience'] ?? 0,
-    level: json['level'] ?? 1,
-    weeklyActions: (json['weeklyActions'] as List?)?.map((a) => GameAction.fromJson(a)).toList() ?? [],
-  );
+    };
+    
+    final scoutSkills = <ScoutSkill, int>{};
+    for (final entry in scoutSkillsJson.entries) {
+      final skill = ScoutSkill.values.firstWhere(
+        (s) => s.name == entry.key,
+        orElse: () => ScoutSkill.exploration,
+      );
+      scoutSkills[skill] = entry.value as int;
+    }
+    
+    return Game(
+      scoutName: json['scoutName'] ?? '',
+      scoutSkill: json['scoutSkill'] ?? 50,
+      currentYear: json['currentYear'] ?? DateTime.now().year,
+      currentMonth: json['currentMonth'] ?? 4,
+      currentWeekOfMonth: json['currentWeekOfMonth'] ?? 1,
+      state: GameState.values[(json['state'] ?? 0)],
+      schools: (json['schools'] as List?)?.map((s) => School.fromJson(s)).toList() ?? [],
+      discoveredPlayers: (json['discoveredPlayers'] as List?)?.map((p) => Player.fromJson(p)).toList() ?? [],
+      watchedPlayers: (json['watchedPlayers'] as List?)?.map((p) => Player.fromJson(p)).toList() ?? [],
+      favoritePlayers: (json['favoritePlayers'] as List?)?.map((p) => Player.fromJson(p)).toList() ?? [],
+      ap: json['ap'] ?? 6,
+      budget: json['budget'] ?? 1000000,
+      scoutSkills: scoutSkills,
+      reputation: json['reputation'] ?? 50,
+      experience: json['experience'] ?? 0,
+      level: json['level'] ?? 1,
+      weeklyActions: (json['weeklyActions'] as List?)?.map((a) => GameAction.fromJson(a)).toList() ?? [],
+    );
+  }
   
   // コピーメソッド
   Game copyWith({
@@ -357,7 +373,7 @@ class Game {
     int? level,
     List<GameAction>? weeklyActions,
     int? ap,
-    Map<String, int>? scoutSkills,
+    Map<ScoutSkill, int>? scoutSkills,
   }) {
     return Game(
       scoutName: scoutName ?? this.scoutName,

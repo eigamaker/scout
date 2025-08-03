@@ -1,25 +1,24 @@
 import 'dart:math';
-import '../../models/scouting/skill.dart';
 import '../../models/scouting/scout.dart';
 
 class AccuracyCalculator {
   // 選手情報とスキルの関連性マップ
   static const Map<String, Map<String, dynamic>> _infoSkillMapping = {
-    '現在の能力値': {'primary': Skill.observation, 'primaryCoef': 0.7, 'sub': Skill.analysis, 'subCoef': 0.3},
-    '成長スピード': {'primary': Skill.analysis, 'primaryCoef': 0.6, 'sub': Skill.observation, 'subCoef': 0.4},
-    '成長タイプ': {'primary': Skill.analysis, 'primaryCoef': 0.5, 'sub': Skill.insight, 'subCoef': 0.5},
-    'ポテンシャル': {'primary': Skill.insight, 'primaryCoef': 0.6, 'sub': Skill.analysis, 'subCoef': 0.4},
-    '才能ランク': {'primary': Skill.exploration, 'primaryCoef': 0.5, 'sub': Skill.insight, 'subCoef': 0.5},
-    '性格': {'primary': Skill.communication, 'primaryCoef': 0.7, 'sub': Skill.insight, 'subCoef': 0.3},
-    '精神力': {'primary': Skill.insight, 'primaryCoef': 0.6, 'sub': Skill.communication, 'subCoef': 0.4},
-    'ポジション適性': {'primary': Skill.observation, 'primaryCoef': 0.6, 'sub': Skill.insight, 'subCoef': 0.4},
-    '怪我リスク': {'primary': Skill.insight, 'primaryCoef': 0.7, 'sub': Skill.observation, 'subCoef': 0.3},
-    '動機・目標': {'primary': Skill.communication, 'primaryCoef': 0.8, 'sub': Skill.insight, 'subCoef': 0.2},
+    '現在の能力値': {'primary': ScoutSkill.observation, 'primaryCoef': 0.7, 'sub': ScoutSkill.analysis, 'subCoef': 0.3},
+    '成長スピード': {'primary': ScoutSkill.analysis, 'primaryCoef': 0.6, 'sub': ScoutSkill.observation, 'subCoef': 0.4},
+    '成長タイプ': {'primary': ScoutSkill.analysis, 'primaryCoef': 0.5, 'sub': ScoutSkill.insight, 'subCoef': 0.5},
+    'ポテンシャル': {'primary': ScoutSkill.insight, 'primaryCoef': 0.6, 'sub': ScoutSkill.analysis, 'subCoef': 0.4},
+    '才能ランク': {'primary': ScoutSkill.exploration, 'primaryCoef': 0.5, 'sub': ScoutSkill.insight, 'subCoef': 0.5},
+    '性格': {'primary': ScoutSkill.communication, 'primaryCoef': 0.7, 'sub': ScoutSkill.insight, 'subCoef': 0.3},
+    '精神力': {'primary': ScoutSkill.insight, 'primaryCoef': 0.6, 'sub': ScoutSkill.communication, 'subCoef': 0.4},
+    'ポジション適性': {'primary': ScoutSkill.observation, 'primaryCoef': 0.6, 'sub': ScoutSkill.insight, 'subCoef': 0.4},
+    '怪我リスク': {'primary': ScoutSkill.insight, 'primaryCoef': 0.7, 'sub': ScoutSkill.observation, 'subCoef': 0.3},
+    '動機・目標': {'primary': ScoutSkill.communication, 'primaryCoef': 0.8, 'sub': ScoutSkill.insight, 'subCoef': 0.2},
   };
 
   /// 情報判別精度を計算
   static double calculateAccuracy({
-    required Map<Skill, int> scoutSkills,
+    required Map<ScoutSkill, int> scoutSkills,
     required String infoType,
     required int visitCount,
     required int weeksSinceLastVisit,
@@ -31,7 +30,7 @@ class AccuracyCalculator {
     double visitBonus = min(visitCount * 2, 20);
     
     // 直観補正
-    double intuitionBonus = (scoutSkills[Skill.intuition] ?? 1) * 0.8;
+    double intuitionBonus = (scoutSkills[ScoutSkill.intuition] ?? 1) * 0.8;
     
     // 時間補正
     double timePenalty = _calculateTimePenalty(weeksSinceLastVisit);
@@ -43,13 +42,13 @@ class AccuracyCalculator {
   }
 
   /// 基本精度を計算
-  static double _calculateBaseAccuracy(Map<Skill, int> scoutSkills, String infoType) {
+  static double _calculateBaseAccuracy(Map<ScoutSkill, int> scoutSkills, String infoType) {
     final mapping = _infoSkillMapping[infoType];
     if (mapping == null) return 0.0;
 
-    final primarySkill = mapping['primary'] as Skill;
+    final primarySkill = mapping['primary'] as ScoutSkill;
     final primaryCoef = mapping['primaryCoef'] as double;
-    final subSkill = mapping['sub'] as Skill;
+    final subSkill = mapping['sub'] as ScoutSkill;
     final subCoef = mapping['subCoef'] as double;
 
     final primaryValue = scoutSkills[primarySkill] ?? 1;
@@ -70,13 +69,13 @@ class AccuracyCalculator {
   /// アクション成功判定を計算
   static double calculateSuccessRate({
     required double baseSuccessRate,
-    required Skill primarySkill,
+    required ScoutSkill primarySkill,
     required double skillCoefficient,
-    required Map<Skill, int> scoutSkills,
+    required Map<ScoutSkill, int> scoutSkills,
   }) {
     final skillValue = scoutSkills[primarySkill] ?? 1;
     final skillBonus = skillValue * skillCoefficient;
-    final intuitionBonus = (scoutSkills[Skill.intuition] ?? 1) * 0.008; // 0.8%
+    final intuitionBonus = (scoutSkills[ScoutSkill.intuition] ?? 1) * 0.008; // 0.8%
 
     return (baseSuccessRate + skillBonus + intuitionBonus).clamp(0.0, 1.0);
   }
