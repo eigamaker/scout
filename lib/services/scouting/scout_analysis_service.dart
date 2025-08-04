@@ -19,7 +19,15 @@ class ScoutAnalysisService {
     
     // 技術的能力値
     for (final ability in TechnicalAbility.values) {
-      final trueValue = player.getTechnicalAbility(ability);
+      int trueValue;
+      
+      // 球速の場合は特別な処理
+      if (ability == TechnicalAbility.fastball) {
+        trueValue = player.veloScore; // 既に制限された球速スコアを使用
+      } else {
+        trueValue = player.getTechnicalAbility(ability);
+      }
+      
       final scoutedValue = _generateScoutedValue(trueValue, errorRange, random);
       final columnName = _getColumnName(ability.name);
       scoutedAbilities[columnName] = scoutedValue;

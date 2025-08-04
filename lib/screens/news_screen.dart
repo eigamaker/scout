@@ -9,7 +9,12 @@ class NewsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final newsService = Provider.of<NewsService>(context);
-    final newsList = newsService.newsList;
+    
+    // 1か月経過したニュースを削除
+    newsService.removeOldNews();
+    
+    // 最新順にソートされたニュースリストを取得
+    final newsList = newsService.getSortedNewsList();
 
     return Scaffold(
       appBar: AppBar(

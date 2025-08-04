@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:math';
 import '../models/player/player.dart';
 import '../models/player/player_abilities.dart';
 import '../services/scouting/accuracy_calculator.dart';
 import '../services/scouting/scout_analysis_service.dart';
 import '../services/data_service.dart';
+import '../services/game_manager.dart';
 import '../config/debug_config.dart';
 import 'debug_player_detail_screen.dart';
 
@@ -345,7 +347,28 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.player.name}の詳細'),
+        title: Row(
+          children: [
+            Text('${widget.player.name}の詳細'),
+            const SizedBox(width: 8),
+            // 分類バッジ
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: widget.player.categoryColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                widget.player.categoryName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         actions: [
@@ -460,12 +483,34 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.player.name,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: textColor,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.player.name,
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: textColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      // お気に入りボタン
+                      IconButton(
+                        icon: Icon(
+                          widget.player.isScoutFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: widget.player.isScoutFavorite ? Colors.red : Colors.grey,
+                        ),
+                        onPressed: () {
+                          // GameManagerを通じてお気に入り状態を更新
+                          final gameManager = Provider.of<GameManager>(context, listen: false);
+                          gameManager.togglePlayerFavorite(widget.player);
+                          
+                          // UIを更新
+                          setState(() {});
+                        },
+                        tooltip: widget.player.isScoutFavorite ? 'お気に入りから削除' : 'お気に入りに追加',
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -837,9 +882,23 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   Widget _buildAbilityRow(String label, int value, Color textColor, Color primaryColor) {
     // 球速の場合は実際のkm/hで表示
     final isFastball = label == '球速';
-    final finalDisplayValue = isFastball ? 
-      (value * 1.5 + 120).round() : value;
-    final displayText = isFastball ? '${finalDisplayValue}km/h' : '$finalDisplayValue';
+    int finalDisplayValue;
+    String displayText;
+    
+    if (isFastball) {
+      // スカウト分析の値（0-100）を球速に変換
+      // 高校生の場合：25-100 → 125-155km/h
+      if (value <= 100) {
+        finalDisplayValue = 125 + ((value - 25) * 30 / 75).round();
+      } else {
+        // 100を超える場合は155km/hに制限
+        finalDisplayValue = 155;
+      }
+      displayText = '${finalDisplayValue}km/h';
+    } else {
+      finalDisplayValue = value;
+      displayText = '$finalDisplayValue';
+    }
     
     // デバッグモードの場合、真の値も表示
     final debugInfo = DebugConfig.showTrueValues ? 

@@ -12,33 +12,32 @@ class PlayerListScreen extends StatefulWidget {
   State<PlayerListScreen> createState() => _PlayerListScreenState();
 }
 
-class _PlayerListScreenState extends State<PlayerListScreen> {
-  String _selectedFilter = 'discovered'; // デフォルトを「発掘済み」に変更
+class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   String _selectedSort = 'name';
 
-  // フィルター適用
-  List<Player> _getFilteredPlayers(List<Player> players) {
-    switch (_selectedFilter) {
-      case 'discovered':
-        return players.where((player) => player.isDiscovered).toList();
-      case 'famous':
-        return players.where((player) => player.fameLevel >= 3).toList();
-      case 'pitcher':
-        return players.where((player) => player.isPitcher && player.isDiscovered).toList();
-      case 'batter':
-        return players.where((player) => !player.isPitcher && player.isDiscovered).toList();
-      case 'all':
-        return players; // 全ての選手（発掘済み＋未発掘）
-      default:
-        return players.where((player) => player.isDiscovered).toList();
-    }
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  // 分類別の選手リストを取得
+  List<Player> _getPlayersByCategory(List<Player> allPlayers, PlayerCategory category) {
+    return allPlayers.where((player) => player.category == category).toList();
   }
 
   // ソート適用
   List<Player> _getSortedPlayers(List<Player> players) {
     switch (_selectedSort) {
       case 'fame':
-        players.sort((a, b) => b.totalFamePoints.compareTo(a.totalFamePoints));
+        players.sort((a, b) => b.fame.compareTo(a.fame));
         break;
       case 'talent':
         players.sort((a, b) => b.talent.compareTo(a.talent));
@@ -49,60 +48,23 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
       case 'grade':
         players.sort((a, b) => a.grade.compareTo(b.grade));
         break;
+      case 'school':
+        players.sort((a, b) => a.school.compareTo(b.school));
+        break;
       default:
         players.sort((a, b) => a.name.compareTo(b.name));
     }
     return players;
   }
 
-  void _showFilterDialog() {
+  void _showSortDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('フィルター・ソート'),
+        title: const Text('ソート順'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // フィルター
-            const Text('フィルター:', style: TextStyle(fontWeight: FontWeight.bold)),
-            RadioListTile<String>(
-              title: const Text('発掘済み'),
-              subtitle: const Text('視察で発掘した選手のみ'),
-              value: 'discovered',
-              groupValue: _selectedFilter,
-              onChanged: (value) => setState(() => _selectedFilter = value!),
-            ),
-            RadioListTile<String>(
-              title: const Text('全ての選手'),
-              subtitle: const Text('発掘済み＋未発掘の全選手'),
-              value: 'all',
-              groupValue: _selectedFilter,
-              onChanged: (value) => setState(() => _selectedFilter = value!),
-            ),
-            RadioListTile<String>(
-              title: const Text('有名選手'),
-              subtitle: const Text('知名度の高い選手'),
-              value: 'famous',
-              groupValue: _selectedFilter,
-              onChanged: (value) => setState(() => _selectedFilter = value!),
-            ),
-            RadioListTile<String>(
-              title: const Text('投手'),
-              subtitle: const Text('発掘済みの投手のみ'),
-              value: 'pitcher',
-              groupValue: _selectedFilter,
-              onChanged: (value) => setState(() => _selectedFilter = value!),
-            ),
-            RadioListTile<String>(
-              title: const Text('野手'),
-              subtitle: const Text('発掘済みの野手のみ'),
-              value: 'batter',
-              groupValue: _selectedFilter,
-              onChanged: (value) => setState(() => _selectedFilter = value!),
-            ),
-            const Divider(),
-            // ソート
-            const Text('ソート:', style: TextStyle(fontWeight: FontWeight.bold)),
             RadioListTile<String>(
               title: const Text('名前順'),
               value: 'name',
@@ -133,6 +95,12 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
               groupValue: _selectedSort,
               onChanged: (value) => setState(() => _selectedSort = value!),
             ),
+            RadioListTile<String>(
+              title: const Text('学校順'),
+              value: 'school',
+              groupValue: _selectedSort,
+              onChanged: (value) => setState(() => _selectedSort = value!),
+            ),
           ],
         ),
         actions: [
@@ -148,75 +116,152 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
   @override
   Widget build(BuildContext context) {
     final gameManager = Provider.of<GameManager>(context);
-    // テスト用の選手リスト（本来はgameManager.currentGame?.discoveredPlayersなどを使う）
-    final List<Player> allPlayers = gameManager.currentGame?.discoveredPlayers ?? PlayerGenerator.generateTestPlayers();
+    // 全学校の全選手を取得（注目選手を含むため）
+    final List<Player> allPlayers = gameManager.getAllPlayers();
     
-    // フィルターとソートを適用
-    final filteredPlayers = _getFilteredPlayers(allPlayers);
-    final sortedPlayers = _getSortedPlayers(filteredPlayers);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('選手リスト'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(
+              icon: Icon(Icons.favorite, color: Colors.red),
+              text: 'お気に入り',
+            ),
+            Tab(
+              icon: Icon(Icons.search, color: Colors.blue),
+              text: '発掘済み',
+            ),
+            Tab(
+              icon: Icon(Icons.star, color: Colors.orange),
+              text: '注目選手',
+            ),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterDialog,
+            icon: const Icon(Icons.sort),
+            onPressed: _showSortDialog,
           ),
         ],
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          // フィルター情報表示
-          if (_selectedFilter != 'discovered' || _selectedSort != 'name')
-            Container(
-              padding: const EdgeInsets.all(8),
-              color: Colors.grey[100],
-              child: Row(
-                children: [
-                  Icon(Icons.info, size: 16, color: Colors.grey[600]),
-                  const SizedBox(width: 8),
-                  Text(
-                    'フィルター: ${_getFilterName(_selectedFilter)} | ソート: ${_getSortName(_selectedSort)}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          // 選手リスト
-          Expanded(
-            child: sortedPlayers.isEmpty
-                ? const Center(child: Text('条件に合う選手がいません'))
-                : ListView.builder(
-                    itemCount: sortedPlayers.length,
-                    itemBuilder: (context, index) {
-                      final player = sortedPlayers[index];
-                      return PlayerCard(
-                        player: player,
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            '/playerDetail',
-                            arguments: player,
-                          );
-                        },
-                      );
-                    },
-                  ),
+          // お気に入り選手タブ
+          _buildPlayerList(
+            _getSortedPlayers(_getPlayersByCategory(allPlayers, PlayerCategory.favorite)),
+            'お気に入り選手',
+            '個人的に気に入っている選手です。成長をモニタリングできます。',
+          ),
+          // 発掘済み選手タブ
+          _buildPlayerList(
+            _getSortedPlayers(_getPlayersByCategory(allPlayers, PlayerCategory.discovered)),
+            '発掘済み選手',
+            '視察で発掘・分析済みの選手です。詳細な能力値を確認できます。',
+          ),
+          // 注目選手タブ
+          _buildPlayerList(
+            _getSortedPlayers(_getPlayersByCategory(allPlayers, PlayerCategory.famous)),
+            '注目選手',
+            '知名度が高く世間に知られている選手です。視察で発掘できます。',
           ),
         ],
       ),
     );
   }
 
-  String _getFilterName(String filter) {
-    switch (filter) {
-      case 'discovered': return '発掘済み';
-      case 'famous': return '有名選手';
-      case 'pitcher': return '投手';
-      case 'batter': return '野手';
-      default: return '全て';
-    }
+  Widget _buildPlayerList(List<Player> players, String title, String description) {
+    return Column(
+      children: [
+        // ヘッダー情報
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: Colors.grey[100],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.people, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${players.length}名',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(Icons.sort, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    _getSortName(_selectedSort),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // 選手リスト
+        Expanded(
+          child: players.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.people_outline,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '選手がいません',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '視察や発掘で選手を追加してください',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: players.length,
+                  itemBuilder: (context, index) {
+                    final player = players[index];
+                    return PlayerCard(
+                      player: player,
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          '/playerDetail',
+                          arguments: player,
+                        );
+                      },
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
   }
 
   String _getSortName(String sort) {
@@ -225,6 +270,7 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
       case 'talent': return '才能順';
       case 'potential': return 'ポテンシャル順';
       case 'grade': return '学年順';
+      case 'school': return '学校順';
       default: return '名前順';
     }
   }

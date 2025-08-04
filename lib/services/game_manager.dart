@@ -41,9 +41,9 @@ class GameManager {
     for (final school in _currentGame!.schools) {
       final newPlayers = <Player>[];
       
-      // 各学校に1〜3年生を生成（各学年1〜3人）
+      // 各学校に1〜3年生を生成（各学年10人）
       for (int grade = 1; grade <= 3; grade++) {
-        final playerCount = 1 + Random().nextInt(3); // 1〜3人
+        final playerCount = 10; // 各学年10人
         
         // 新しいPlayerDataGeneratorを使用して選手を生成
         final players = await _playerDataGenerator.generatePlayersForSchool(school, playerCount);
@@ -107,6 +107,7 @@ class GameManager {
       level: _currentScout!.level,
       weeklyActions: [],
       teamRequests: TeamRequestManager(requests: TeamRequestManager.generateDefaultRequests()),
+      newsList: [], // 初期ニュースリストは空
     );
     // 全学校に1〜3年生を生成
     await generateInitialStudentsForAllSchoolsDb(dataService);
@@ -554,6 +555,27 @@ class GameManager {
     }
   }
 
+  // 選手のお気に入り状態を更新
+  void togglePlayerFavorite(Player player) {
+    final newFavoriteState = !player.isScoutFavorite;
+    
+    // discoveredPlayersリスト内の選手を更新
+    final index = _currentGame!.discoveredPlayers.indexWhere((p) => p.id == player.id);
+    if (index != -1) {
+      final updatedPlayer = player.copyWith(isScoutFavorite: newFavoriteState);
+      _currentGame!.discoveredPlayers[index] = updatedPlayer;
+    }
+    
+    // 学校の選手リストも更新
+    for (final school in _currentGame!.schools) {
+      final playerIndex = school.players.indexWhere((p) => p.id == player.id);
+      if (playerIndex != -1) {
+        final updatedPlayer = player.copyWith(isScoutFavorite: newFavoriteState);
+        school.players[playerIndex] = updatedPlayer;
+      }
+    }
+  }
+
   // スカウト情報をJSONで保存
   Map<String, dynamic> saveScoutToJson() {
     if (_currentScout == null) return {};
@@ -826,6 +848,9 @@ class GameManager {
       .advanceWeek()
       .resetWeeklyResources(newAp: 6, newBudget: _currentGame!.budget)
       .resetActions();
+    
+    // ニュースをゲームデータに保存
+    saveNewsToGame(newsService);
     
     // オートセーブ（週送り完了後）
     await saveGame();
@@ -1369,5 +1394,59 @@ class GameManager {
     }
     
     return results;
+  }
+
+  /// ニュースをゲームデータに保存
+  void saveNewsToGame(NewsService newsService) {
+    if (_currentGame != null) {
+      final newsList = newsService.newsList;
+      _currentGame = _currentGame!.copyWith(newsList: newsList);
+    }
+  }
+
+  /// ゲームデータからニュースを読み込み
+  void loadNewsFromGame(NewsService newsService) {
+    if (_currentGame != null) {
+      // 既存のニュースをクリア
+      newsService.clearAllNews();
+      
+      // ゲームデータからニュースを復元
+      for (final news in _currentGame!.newsList) {
+        newsService.addNews(news);
+      }
+    }
+  }
+
+  /// ゲーム保存時にニュースも保存
+  Future<void> saveGameWithNews(NewsService newsService) async {
+    if (_currentGame != null) {
+      // ニュースをゲームデータに保存
+      saveNewsToGame(newsService);
+      
+      // ゲームデータを保存
+      await _gameDataManager.saveGameData(_currentGame!, _currentGame!.scoutName);
+    }
+  }
+
+  /// ゲーム読み込み時にニュースも復元
+  Future<void> loadGameWithNews(NewsService newsService, dynamic slot) async {
+    final game = await _gameDataManager.loadGameData(slot);
+    if (game != null) {
+      _currentGame = game;
+      
+      // ゲームデータからニュースを復元
+      loadNewsFromGame(newsService);
+    }
+  }
+
+  /// 全学校の全選手を取得
+  List<Player> getAllPlayers() {
+    if (_currentGame == null) return [];
+    
+    final allPlayers = <Player>[];
+    for (final school in _currentGame!.schools) {
+      allPlayers.addAll(school.players);
+    }
+    return allPlayers;
   }
 } 

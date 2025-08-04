@@ -1,10 +1,19 @@
 import 'dart:math';
+import 'package:flutter/material.dart';
 import 'pitch.dart';
 import 'achievement.dart';
 import 'player_abilities.dart';
 
 // 選手の種類
 enum PlayerType { highSchool, college, social }
+
+// 選手の分類（UI表示用）
+enum PlayerCategory {
+  favorite,      // お気に入り選手（個人的に気に入っている）
+  discovered,    // 発掘済み選手（視察で発掘・分析済み）
+  famous,        // 注目選手（知名度が高く世間に知られている）
+  unknown,       // 未発掘選手（視察していない）
+}
 
 // 選手クラス
 class Player {
@@ -207,12 +216,72 @@ class Player {
     }
     return false;
   }
+
+  // 選手の分類を取得（UI表示用）
+  PlayerCategory get category {
+    if (isScoutFavorite) {
+      return PlayerCategory.favorite;
+    } else if (isDiscovered) {
+      return PlayerCategory.discovered;
+    } else if (fame >= 65 || isPubliclyKnown) {
+      return PlayerCategory.famous;
+    } else {
+      return PlayerCategory.unknown;
+    }
+  }
+
+  // 分類名を取得
+  String get categoryName {
+    switch (category) {
+      case PlayerCategory.favorite:
+        return 'お気に入り';
+      case PlayerCategory.discovered:
+        return '発掘済み';
+      case PlayerCategory.famous:
+        return '注目選手';
+      case PlayerCategory.unknown:
+        return '未発掘';
+    }
+  }
+
+  // 分類の説明を取得
+  String get categoryDescription {
+    switch (category) {
+      case PlayerCategory.favorite:
+        return '個人的に気に入っている選手';
+      case PlayerCategory.discovered:
+        return '視察で発掘・分析済みの選手';
+      case PlayerCategory.famous:
+        return '知名度が高く世間に知られている選手';
+      case PlayerCategory.unknown:
+        return '視察していない未発掘選手';
+    }
+  }
+
+  // 分類の色を取得
+  Color get categoryColor {
+    switch (category) {
+      case PlayerCategory.favorite:
+        return Colors.red;
+      case PlayerCategory.discovered:
+        return Colors.blue;
+      case PlayerCategory.famous:
+        return Colors.orange;
+      case PlayerCategory.unknown:
+        return Colors.grey;
+    }
+  }
   
   // 球速スコア（0-100に換算）
   int get veloScore {
     final fastballAbility = getTechnicalAbility(TechnicalAbility.fastball);
-    // 100段階の能力値を0-100のスコアに変換
-    return fastballAbility;
+    // 高校生の場合はそのまま、大学生・社会人の場合は100を超える部分を調整
+    if (isHighSchoolStudent) {
+      return fastballAbility;
+    } else {
+      // 大学生・社会人の場合、100を超える部分を100に制限
+      return fastballAbility.clamp(25, 100);
+    }
   }
   
   // 能力値システムのゲッター
@@ -220,11 +289,23 @@ class Player {
     return technicalAbilities[ability] ?? 25;
   }
   
-  // 球速を実際のkm/hに変換
+  // 球速を実際のkm/hに変換（高校生最大100、生涯最大150のルールに統一）
   int getFastballVelocityKmh() {
     final fastballAbility = getTechnicalAbility(TechnicalAbility.fastball);
-    // 100段階の能力値を125-155km/hの範囲に変換
-    return 125 + ((fastballAbility - 25) * 30 / 75).round();
+    
+    // 高校生の場合（能力値25-100 → 球速125-155km/h）
+    if (isHighSchoolStudent) {
+      return 125 + ((fastballAbility - 25) * 30 / 75).round();
+    }
+    
+    // 大学生・社会人の場合（能力値25-150 → 球速125-170km/h）
+    // 高校生レベル（100）までは同じ計算、それ以上は生涯最大170km/hまで
+    if (fastballAbility <= 100) {
+      return 125 + ((fastballAbility - 25) * 30 / 75).round();
+    } else {
+      // 100を超える場合、155-170km/hの範囲で計算
+      return 155 + ((fastballAbility - 100) * 15 / 50).round();
+    }
   }
   
   int getMentalAbility(MentalAbility ability) {
@@ -390,21 +471,15 @@ class Player {
     fame = weightedFame;
   }
   
-  // 基本知名度を計算（能力値ベース）
+  // 基本知名度を計算（能力値ベース）- 4段階制
   int _getBaseFame() {
     final totalAbility = trueTotalAbility;
     
-    // 能力値に基づく知名度
-    if (totalAbility >= 95) return 90;      // 怪物級
-    if (totalAbility >= 90) return 80;      // 超一流
-    if (totalAbility >= 85) return 70;      // 一流
-    if (totalAbility >= 80) return 60;      // 準一流
-    if (totalAbility >= 75) return 50;      // 中堅以上
-    if (totalAbility >= 70) return 40;      // 中堅
-    if (totalAbility >= 65) return 30;      // 平均以上
-    if (totalAbility >= 60) return 20;      // 平均
-    if (totalAbility >= 55) return 15;      // 平均以下
-    return 10;                              // 未熟
+    // 能力値に基づく知名度（4段階制）
+    if (totalAbility >= 80) return 90;      // 一流以上（超高校級）
+    if (totalAbility >= 70) return 70;      // 中堅以上（注目レベル）
+    if (totalAbility >= 60) return 50;      // 平均以上（認知レベル）
+    return 0;                               // 平均以下（無名）
   }
   
   // 学校の知名度を取得（改善版）

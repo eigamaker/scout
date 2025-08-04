@@ -2,6 +2,7 @@ import '../player/player.dart';
 import '../school/school.dart';
 import '../scouting/scout.dart';
 import '../scouting/team_request.dart';
+import '../news/news_item.dart';
 
 // ゲーム状態
 enum GameState {
@@ -72,6 +73,7 @@ class Game {
   final int level; // レベル
   final List<GameAction> weeklyActions; // 今週の行動計画
   final TeamRequestManager teamRequests; // 球団からの要望
+  final List<NewsItem> newsList; // ニュースリスト
   
   Game({
     required this.scoutName,
@@ -92,6 +94,7 @@ class Game {
     required this.level,
     required this.weeklyActions,
     required this.teamRequests,
+    required this.newsList,
   });
 
   // 月ごとの最大週数を返す
@@ -314,6 +317,7 @@ class Game {
     'level': level,
     'weeklyActions': weeklyActions.map((a) => a.toJson()).toList(),
     'scoutSkills': scoutSkills.map((k, v) => MapEntry(k.name, v)),
+    'newsList': newsList.map((n) => n.toJson()).toList(),
   };
 
   factory Game.fromJson(Map<String, dynamic> json) {
@@ -336,6 +340,8 @@ class Game {
       );
       scoutSkills[skill] = entry.value as int;
     }
+
+    final newsList = (json['newsList'] as List?)?.map((n) => NewsItem.fromJson(n)).toList() ?? [];
     
     return Game(
       scoutName: json['scoutName'] ?? '',
@@ -356,6 +362,7 @@ class Game {
       level: json['level'] ?? 1,
       weeklyActions: (json['weeklyActions'] as List?)?.map((a) => GameAction.fromJson(a)).toList() ?? [],
       teamRequests: TeamRequestManager(),
+      newsList: newsList,
     );
   }
   
@@ -379,6 +386,7 @@ class Game {
     int? ap,
     Map<ScoutSkill, int>? scoutSkills,
     TeamRequestManager? teamRequests,
+    List<NewsItem>? newsList,
   }) {
     return Game(
       scoutName: scoutName ?? this.scoutName,
@@ -399,6 +407,7 @@ class Game {
       ap: ap ?? this.ap,
       scoutSkills: scoutSkills ?? this.scoutSkills,
       teamRequests: teamRequests ?? this.teamRequests,
+      newsList: newsList ?? this.newsList,
     );
   }
 } 

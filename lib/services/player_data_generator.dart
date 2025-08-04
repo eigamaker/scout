@@ -126,6 +126,9 @@ class PlayerDataGenerator {
     // ポテンシャルデータを生成・保存
     await _generateAndSavePotentials(playerId, individualPotentials);
 
+    // 知名度を生成
+    final fame = _generateFame(talent);
+    
     // Playerオブジェクトを作成
     final player = Player(
       id: playerId,
@@ -134,6 +137,7 @@ class PlayerDataGenerator {
       grade: grade,
       position: position,
       personality: personality,
+      fame: fame, // 知名度を設定
       pitches: pitches,
       technicalAbilities: technicalAbilities,
       mentalAbilities: mentalAbilities,
@@ -285,7 +289,17 @@ class PlayerDataGenerator {
     final fielderScore = _calculateFielderScore(baseAbility, random);
     
     // 投手適性を判定（バランスを考慮）
-    final pitcherProbability = _calculatePitcherProbability(pitcherScore, fielderScore);
+    double pitcherProbability = _calculatePitcherProbability(pitcherScore, fielderScore);
+    
+    // 才能ランクに基づく調整（高才能選手はよりバランスの取れた分布を目指す）
+    if (talent >= 4) {
+      // 高才能選手（ランク4以上）は投手確率を少し下げる
+      pitcherProbability *= 0.8;
+    } else if (talent <= 2) {
+      // 低才能選手（ランク2以下）は投手確率を少し上げる
+      pitcherProbability *= 1.2;
+    }
+    
     final isPitcher = random.nextDouble() < pitcherProbability;
     
     if (isPitcher) {
@@ -303,8 +317,11 @@ class PlayerDataGenerator {
     final breakAvg = baseAbility + random.nextInt(20);
     final velocity = baseVelocity + random.nextInt(20);
     
+    // 球速を能力値システムに合わせて正規化（130-155km/h → 25-100の能力値）
+    final normalizedVelocity = 25 + ((velocity - 130) * 75 / 25).clamp(0, 75);
+    
     // 投手能力の重み付け（球速40%、制球25%、スタミナ20%、変化球15%）
-    return ((velocity * 0.4) + (control * 0.25) + (stamina * 0.2) + (breakAvg * 0.15)).round();
+    return ((normalizedVelocity * 0.4) + (control * 0.25) + (stamina * 0.2) + (breakAvg * 0.15)).round();
   }
 
   /// 野手能力総合スコアを計算
@@ -325,14 +342,14 @@ class PlayerDataGenerator {
   double _calculatePitcherProbability(int pitcherScore, int fielderScore) {
     final scoreDifference = pitcherScore - fielderScore;
     
-    // 投手能力が野手能力より大幅に高い場合
-    if (scoreDifference >= 30) return 0.80;
-    if (scoreDifference >= 20) return 0.65;
-    if (scoreDifference >= 10) return 0.50;
-    if (scoreDifference >= 0) return 0.35;
-    if (scoreDifference >= -10) return 0.20;
-    if (scoreDifference >= -20) return 0.10;
-    return 0.05; // 投手能力が野手能力より大幅に低い場合
+    // よりバランスの取れた確率設定（投手:野手 = 約4:5の比率を目指す）
+    if (scoreDifference >= 30) return 0.70;      // 大幅に高い場合でも確率を下げる
+    if (scoreDifference >= 20) return 0.55;      // 高い場合
+    if (scoreDifference >= 10) return 0.40;      // やや高い場合
+    if (scoreDifference >= 0) return 0.25;       // 同等の場合
+    if (scoreDifference >= -10) return 0.15;     // やや低い場合
+    if (scoreDifference >= -20) return 0.08;     // 低い場合
+    return 0.03;                                 // 大幅に低い場合
   }
 
   /// 投手能力に基づく野手ポジション決定
@@ -490,15 +507,15 @@ class PlayerDataGenerator {
     return pitches;
   }
 
-  /// 才能ランクを生成
+  /// 才能ランクを生成（改善版）
   int _generateTalent() {
-    final r = _random.nextInt(1000000); // より細かい確率制御のため1000000を使用
-    if (r < 499000) return 1;      // 49.9%
-    if (r < 749000) return 2;      // 25%
-    if (r < 949000) return 3;      // 20%
-    if (r < 999000) return 4;      // 5%
-    if (r < 999996) return 5;      // 0.0996%
-    return 6;                      // 0.0004% (10年に1人程度)
+    final r = _random.nextInt(1000); // より細かい確率制御のため1000を使用
+    if (r < 400) return 1;      // 40%
+    if (r < 700) return 2;      // 30%
+    if (r < 900) return 3;      // 20%
+    if (r < 970) return 4;      // 7%
+    if (r < 995) return 5;      // 2.5%
+    return 6;                   // 0.5% (各県に数人程度)
   }
 
   /// 成長タイプを生成
@@ -651,17 +668,17 @@ class PlayerDataGenerator {
     // 基本的な知名度は才能ランクに基づく
     int baseFame = 0;
     switch (talent) {
-      case 1: baseFame = 5;  // 低ランク
-      case 2: baseFame = 15; // 中ランク
-      case 3: baseFame = 25; // 高ランク
-      case 4: baseFame = 35; // 特別な才能
-      case 5: baseFame = 45; // 怪物級
-      case 6: baseFame = 55; // 怪物級
-      default: baseFame = 15;
+      case 1: baseFame = 10; // 低ランク（少し上げる）
+      case 2: baseFame = 25; // 中ランク（上げる）
+      case 3: baseFame = 40; // 高ランク（上げる）
+      case 4: baseFame = 55; // 特別な才能（上げる）
+      case 5: baseFame = 70; // 怪物級（上げる）
+      case 6: baseFame = 85; // 怪物級（上げる）
+      default: baseFame = 25;
     }
     
-    // ランダム要素を追加（±10）
-    final randomVariation = _random.nextInt(21) - 10;
+    // ランダム要素を追加（±15）
+    final randomVariation = _random.nextInt(31) - 15;
     return (baseFame + randomVariation).clamp(0, 100);
   }
 } 

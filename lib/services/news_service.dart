@@ -10,6 +10,24 @@ class NewsService {
 
   List<NewsItem> get newsList => List.unmodifiable(_newsList);
 
+  /// 最新順にソートされたニュースリストを取得
+  List<NewsItem> getSortedNewsList() {
+    final sortedList = List<NewsItem>.from(_newsList);
+    sortedList.sort((a, b) => b.date.compareTo(a.date));
+    return sortedList;
+  }
+
+  /// 1か月経過したニュースを削除
+  void removeOldNews() {
+    final oneMonthAgo = DateTime.now().subtract(Duration(days: 30));
+    _newsList.removeWhere((news) => news.date.isBefore(oneMonthAgo));
+  }
+
+  /// 全てのニュースを削除
+  void clearAllNews() {
+    _newsList.clear();
+  }
+
   NewsService() {
     _initializeDummyNews();
   }
