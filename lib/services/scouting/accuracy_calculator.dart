@@ -38,7 +38,7 @@ class AccuracyCalculator {
     // 最終精度
     double finalAccuracy = baseAccuracy + visitBonus + intuitionBonus - timePenalty;
     
-    return min(finalAccuracy, 80);  // 最大80%に制限
+    return min(finalAccuracy, 95);  // 最大95%に制限
   }
 
   /// 基本精度を計算
@@ -82,13 +82,15 @@ class AccuracyCalculator {
 
   /// 精度レベルを取得
   static String getAccuracyLevel(double accuracy) {
-    if (accuracy <= 30) {
+    if (accuracy < 10) {
+      return '判定失敗';
+    } else if (accuracy <= 30) {
       return '非常に不正確';
     } else if (accuracy <= 50) {
       return '不正確';
     } else if (accuracy <= 70) {
       return 'やや正確';
-    } else if (accuracy <= 80) {
+    } else if (accuracy <= 85) {
       return '正確';
     } else {
       return '非常に正確';
@@ -99,14 +101,18 @@ class AccuracyCalculator {
   static String getAbilityDisplayRange(int actualValue, double accuracy) {
     int errorRange;
     
-    if (accuracy < 30) {
+    if (accuracy < 10) {
+      errorRange = 50;  // 判定失敗
+    } else if (accuracy < 30) {
       errorRange = 20;  // 非常に曖昧
     } else if (accuracy < 50) {
-      errorRange = 15;  // 曖昧
+      errorRange = 16;  // 曖昧
     } else if (accuracy < 70) {
-      errorRange = 10;  // やや正確
+      errorRange = 12;  // やや正確
+    } else if (accuracy < 85) {
+      errorRange = 8;   // 正確
     } else {
-      errorRange = 5;   // 正確
+      errorRange = 6;   // 非常に正確
     }
 
     final minValue = (actualValue - errorRange).clamp(1, 100);

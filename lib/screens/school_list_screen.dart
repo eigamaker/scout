@@ -64,10 +64,10 @@ class SchoolListScreen extends StatelessWidget {
                       children: [
                         ElevatedButton(
                           onPressed: () {
-                            // アクション計画に追加（AP消費）
+                            // 練習視察アクションを追加（AP消費）
                             final action = GameAction(
                               id: UniqueKey().toString(),
-                              type: 'SCOUT_SCHOOL',
+                              type: 'PRAC_WATCH',
                               schoolId: i,
                               playerId: null,
                               apCost: 2,
@@ -80,7 +80,7 @@ class SchoolListScreen extends StatelessWidget {
                               gameManager.addActionToGame(action);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('${game.schools[i].name}の視察を計画に追加しました（AP: ${action.apCost}, 予算: ¥${action.budgetCost}）'),
+                                  content: Text('${game.schools[i].name}の練習視察を計画に追加しました（AP: ${action.apCost}, 予算: ¥${action.budgetCost}）'),
                                   duration: const Duration(seconds: 2),
                                 ),
                               );
@@ -97,7 +97,7 @@ class SchoolListScreen extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             minimumSize: const Size(60, 32),
                           ),
-                          child: const Text('視察計画'),
+                          child: const Text('練習視察'),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton.icon(

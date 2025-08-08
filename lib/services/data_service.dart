@@ -539,5 +539,29 @@ class DataService {
         FOREIGN KEY (player_id) REFERENCES Player (id)
       )
     ''');
+    
+    // 基本情報のスカウト分析結果を保存するテーブル
+    await db.execute('''
+      CREATE TABLE ScoutBasicInfoAnalysis (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER,
+        scout_id TEXT,
+        analysis_date TEXT,
+        accuracy REAL,
+        -- 基本情報の分析結果
+        personality_analyzed TEXT,
+        talent_analyzed TEXT,
+        growth_analyzed TEXT,
+        mental_grit_analyzed TEXT,
+        potential_analyzed TEXT,
+        -- 分析精度（各要素別）
+        personality_accuracy REAL,
+        talent_accuracy REAL,
+        growth_accuracy REAL,
+        mental_grit_accuracy REAL,
+        potential_accuracy REAL,
+        FOREIGN KEY (player_id) REFERENCES Player (id)
+      )
+    ''');
   }
 } 

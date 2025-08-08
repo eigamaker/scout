@@ -16,6 +16,13 @@ class SchoolScoutResult {
   SchoolScoutResult({this.discoveredPlayer, this.improvedPlayer, required this.message});
 }
 
+class MultipleScoutResult {
+  final List<Player> discoveredPlayers;
+  final Player? improvedPlayer;
+  final String message;
+  MultipleScoutResult({required this.discoveredPlayers, this.improvedPlayer, required this.message});
+}
+
 class ScoutActionResult {
   final bool success;
   final String message;
@@ -141,7 +148,74 @@ class ActionService {
     }
   }
 
-  /// 練習視察アクション
+  /// 練習視察アクション（複数選手発掘版）
+  static MultipleScoutResult practiceWatchMultiple({
+    required School school,
+    required int currentWeek,
+  }) {
+    // 未発掘選手リスト
+    final undiscovered = school.players.where((p) => !p.isDiscovered).toList();
+    final discoveredPlayers = <Player>[];
+    
+    if (undiscovered.isNotEmpty) {
+      // 発掘する選手数を決定（1-3人）
+      final discoverCount = 1 + Random().nextInt(3); // 1-3人
+      final actualCount = discoverCount.clamp(1, undiscovered.length);
+      
+      // ランダムに選手を選択して発掘
+      final selectedIndices = <int>{};
+      while (selectedIndices.length < actualCount) {
+        selectedIndices.add(Random().nextInt(undiscovered.length));
+      }
+      
+      for (final index in selectedIndices) {
+        final player = undiscovered[index];
+        player.isDiscovered = true;
+        player.discoveredAt = DateTime.now();
+        player.discoveredCount = 1;
+        player.scoutedDates.add(DateTime.now());
+        
+        // 練習視察で判明する能力値のみ把握度を設定
+        // 名前、学校、学年、ポジション、フィジカル面の能力のみ
+        player.abilityKnowledge.updateAll((k, v) {
+          // フィジカル面の能力値のみ把握度を設定
+          if (k == 'pace' || k == 'acceleration' || k == 'agility' || 
+              k == 'balance' || k == 'jumpingReach' || k == 'naturalFitness' || 
+              k == 'stamina' || k == 'strength' || k == 'injuryProneness') {
+            // 練習視察では1回で判定完了（スカウトのスキルに依存）
+            return 100; // 完全に把握
+          }
+          // その他の能力値は把握度0のまま
+          return 0;
+        });
+        
+        discoveredPlayers.add(player);
+      }
+      
+      String message;
+      if (actualCount == 1) {
+        message = '🏃 ${school.name}の練習視察: 「${discoveredPlayers.first.name}」の練習態度が目立ちました';
+      } else {
+        final names = discoveredPlayers.map((p) => p.name).join('、');
+        message = '🏃 ${school.name}の練習視察: ${actualCount}人の選手「${names}」を発見しました！';
+      }
+      
+      return MultipleScoutResult(
+        discoveredPlayers: discoveredPlayers,
+        improvedPlayer: null,
+        message: message,
+      );
+    } else {
+      // すでに全員発掘済み→新たに発掘する選手はいない
+      return MultipleScoutResult(
+        discoveredPlayers: [],
+        improvedPlayer: null,
+        message: '🏃 ${school.name}の練習視察: この学校の選手は既に発掘済みです。',
+      );
+    }
+  }
+
+  /// 練習視察アクション（単一選手版）
   static ScoutActionResult practiceWatch({
     required School school,
     required Player? targetPlayer,
@@ -151,12 +225,19 @@ class ActionService {
     // 練習視察の具体的な処理
     if (targetPlayer != null) {
       // 特定選手の練習視察
-      final knowledgeIncrease = 15 + Random().nextInt(16); // 15-30%増加
-      targetPlayer.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 90));
+      // フィジカル面の能力値のみ把握度を設定
+      targetPlayer.abilityKnowledge.updateAll((k, v) {
+        if (k == 'pace' || k == 'acceleration' || k == 'agility' || 
+            k == 'balance' || k == 'jumpingReach' || k == 'naturalFitness' || 
+            k == 'stamina' || k == 'strength' || k == 'injuryProneness') {
+          return 100; // 完全に把握
+        }
+        return v;
+      });
       
       return ScoutActionResult(
         success: true,
-        message: '🏃 ${school.name}の練習視察: 「${targetPlayer.name}」の技術面を詳しく観察できました',
+        message: '🏃 ${school.name}の練習視察: 「${targetPlayer.name}」のフィジカル面を詳しく観察できました',
         discoveredPlayer: null,
         improvedPlayer: targetPlayer,
       );
@@ -169,7 +250,15 @@ class ActionService {
         player.discoveredAt = DateTime.now();
         player.discoveredCount = 1;
         player.scoutedDates.add(DateTime.now());
-        player.abilityKnowledge.updateAll((k, v) => 25 + Random().nextInt(16)); // 25-40%
+        // フィジカル面の能力値のみ把握度を設定
+        player.abilityKnowledge.updateAll((k, v) {
+          if (k == 'pace' || k == 'acceleration' || k == 'agility' || 
+              k == 'balance' || k == 'jumpingReach' || k == 'naturalFitness' || 
+              k == 'stamina' || k == 'strength' || k == 'injuryProneness') {
+            return 100; // 完全に把握
+          }
+          return 0;
+        });
         
         return ScoutActionResult(
           success: true,
@@ -198,8 +287,20 @@ class ActionService {
     // 試合観戦の具体的な処理
     if (targetPlayer != null) {
       // 特定選手の試合観戦
-      final knowledgeIncrease = 20 + Random().nextInt(21); // 20-40%増加
-      targetPlayer.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 95));
+      // 技術面とフィジカル面の能力値のみ把握度を設定
+      targetPlayer.abilityKnowledge.updateAll((k, v) {
+        if (k == 'contact' || k == 'power' || k == 'plateDiscipline' || 
+            k == 'oppositeFieldHitting' || k == 'pullHitting' || k == 'batControl' || 
+            k == 'swingSpeed' || k == 'fielding' || k == 'throwing' || 
+            k == 'catcherAbility' || k == 'fastball' || k == 'breakingBall' || 
+            k == 'pitchMovement' || k == 'control' || k == 'stamina' ||
+            k == 'pace' || k == 'acceleration' || k == 'agility' || 
+            k == 'balance' || k == 'jumpingReach' || k == 'naturalFitness' || 
+            k == 'strength' || k == 'injuryProneness') {
+          return 100; // 完全に把握
+        }
+        return v;
+      });
       
       return ScoutActionResult(
         success: true,
@@ -212,8 +313,20 @@ class ActionService {
       final allPlayers = school.players.where((p) => p.isDiscovered).toList();
       if (allPlayers.isNotEmpty) {
         final player = allPlayers[Random().nextInt(allPlayers.length)];
-        final knowledgeIncrease = 10 + Random().nextInt(11); // 10-20%増加
-        player.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 85));
+        // 技術面とフィジカル面の能力値のみ把握度を設定
+        player.abilityKnowledge.updateAll((k, v) {
+          if (k == 'contact' || k == 'power' || k == 'plateDiscipline' || 
+              k == 'oppositeFieldHitting' || k == 'pullHitting' || k == 'batControl' || 
+              k == 'swingSpeed' || k == 'fielding' || k == 'throwing' || 
+              k == 'catcherAbility' || k == 'fastball' || k == 'breakingBall' || 
+              k == 'pitchMovement' || k == 'control' || k == 'stamina' ||
+              k == 'pace' || k == 'acceleration' || k == 'agility' || 
+              k == 'balance' || k == 'jumpingReach' || k == 'naturalFitness' || 
+              k == 'strength' || k == 'injuryProneness') {
+            return 100; // 完全に把握
+          }
+          return v;
+        });
         
         return ScoutActionResult(
           success: true,
@@ -241,7 +354,7 @@ class ActionService {
     required int currentWeek,
   }) {
     // ビデオ分析の具体的な処理
-    // 成長履歴の分析と成長タイプの判定
+    // 才能、成長タイプとポテンシャルのみ把握度を設定
     
     // 成長タイプの分析（既存の成長タイプを詳細化）
     final growthTypeAnalysis = _analyzeGrowthType(targetPlayer);
@@ -254,6 +367,15 @@ class ActionService {
     
     // 成長履歴の生成（簡易版）
     final growthHistory = _generateGrowthHistory(targetPlayer, currentWeek);
+    
+    // 才能、成長タイプ、ポテンシャル関連の能力値のみ把握度を設定
+    targetPlayer.abilityKnowledge.updateAll((k, v) {
+      if (k == 'talent' || k == 'growthRate' || k == 'peakAbility' || 
+          k == 'potential' || k == 'developmentSpeed') {
+        return 100; // 完全に把握
+      }
+      return v;
+    });
     
     return ScoutActionResult(
       success: true,
@@ -361,15 +483,21 @@ class ActionService {
     // 練習試合観戦の具体的な処理
     if (targetPlayer != null) {
       // 特定選手の練習試合観戦
-      final knowledgeIncrease = 25 + Random().nextInt(21); // 25-45%増加
-      targetPlayer.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 95));
-      
-      // 成長スピードの情報も取得
-      final growthSpeed = 10 + Random().nextInt(21); // 10-30%の成長スピード情報
+      // 技術面の能力値のみ把握度を設定
+      targetPlayer.abilityKnowledge.updateAll((k, v) {
+        if (k == 'contact' || k == 'power' || k == 'plateDiscipline' || 
+            k == 'oppositeFieldHitting' || k == 'pullHitting' || k == 'batControl' || 
+            k == 'swingSpeed' || k == 'fielding' || k == 'throwing' || 
+            k == 'catcherAbility' || k == 'fastball' || k == 'breakingBall' || 
+            k == 'pitchMovement' || k == 'control' || k == 'stamina') {
+          return 100; // 完全に把握
+        }
+        return v;
+      });
       
       return ScoutActionResult(
         success: true,
-        message: '🏟️ ${school.name}の練習試合観戦: 「${targetPlayer.name}」の成長スピードを確認できました',
+        message: '🏟️ ${school.name}の練習試合観戦: 「${targetPlayer.name}」の技術面を詳しく観察できました',
         discoveredPlayer: null,
         improvedPlayer: targetPlayer,
       );
@@ -378,12 +506,21 @@ class ActionService {
       final allPlayers = school.players.where((p) => p.isDiscovered).toList();
       if (allPlayers.isNotEmpty) {
         final player = allPlayers[Random().nextInt(allPlayers.length)];
-        final knowledgeIncrease = 15 + Random().nextInt(16); // 15-30%増加
-        player.abilityKnowledge.updateAll((k, v) => (v + knowledgeIncrease).clamp(0, 90));
+        // 技術面の能力値のみ把握度を設定
+        player.abilityKnowledge.updateAll((k, v) {
+          if (k == 'contact' || k == 'power' || k == 'plateDiscipline' || 
+              k == 'oppositeFieldHitting' || k == 'pullHitting' || k == 'batControl' || 
+              k == 'swingSpeed' || k == 'fielding' || k == 'throwing' || 
+              k == 'catcherAbility' || k == 'fastball' || k == 'breakingBall' || 
+              k == 'pitchMovement' || k == 'control' || k == 'stamina') {
+            return 100; // 完全に把握
+          }
+          return v;
+        });
         
         return ScoutActionResult(
           success: true,
-          message: '🏟️ ${school.name}の練習試合観戦: 「${player.name}」の練習試合での成長を確認できました',
+          message: '🏟️ ${school.name}の練習試合観戦: 「${player.name}」の技術面の把握度が上がりました',
           discoveredPlayer: null,
           improvedPlayer: player,
         );
@@ -405,7 +542,7 @@ class ActionService {
     required int currentWeek,
   }) {
     // インタビューの具体的な処理
-    // 性格・精神面の情報を取得
+    // 性格と精神力とメンタル面の能力値のみ把握度を設定
     
     // 性格タイプの分析
     final personalityTypes = ['リーダー型', '努力型', '天才型', '冷静型', '情熱型'];
@@ -429,8 +566,14 @@ class ActionService {
     targetPlayer.mentalStrength = mentalStrength;
     targetPlayer.motivation = motivation;
     
-    // インタビューによる信頼度向上
-    final trustIncrease = 5 + Random().nextInt(11); // 5-15の信頼度向上
+    // メンタル面の能力値のみ把握度を設定
+    targetPlayer.abilityKnowledge.updateAll((k, v) {
+      if (k == 'workRate' || k == 'selfDiscipline' || k == 'pressureHandling' || 
+          k == 'clutchAbility' || k == 'leadership' || k == 'teamwork') {
+        return 100; // 完全に把握
+      }
+      return v;
+    });
     
     return ScoutActionResult(
       success: true,

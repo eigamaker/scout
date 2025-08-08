@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'dart:math';
 import '../models/player/player.dart';
 import '../models/player/player_abilities.dart';
+import '../models/scouting/scout.dart';
 import '../services/scouting/accuracy_calculator.dart';
 import '../services/scouting/scout_analysis_service.dart';
 import '../services/data_service.dart';
@@ -24,6 +25,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   final ScoutAnalysisService _scoutAnalysisService = ScoutAnalysisService(DataService());
   bool _isLoading = true;
   Map<String, int>? _scoutAnalysisData;
+  Map<String, dynamic>? _basicInfoAnalysisData;
 
   // 表示名から列挙型名への変換マップ
   static final Map<String, String> _displayNameToEnumName = {
@@ -84,13 +86,22 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     if (widget.player.id != null) {
       try {
         final scoutId = 'default_scout'; // 現在のスカウトID
+        
+        // 能力値の分析データを読み込み
         final analysisData = await _scoutAnalysisService.getLatestScoutAnalysis(
+          widget.player.id!, 
+          scoutId
+        );
+        
+        // 基本情報の分析データを読み込み
+        final basicInfoData = await _scoutAnalysisService.getLatestBasicInfoAnalysis(
           widget.player.id!, 
           scoutId
         );
         
         setState(() {
           _scoutAnalysisData = analysisData;
+          _basicInfoAnalysisData = basicInfoData;
           _isLoading = false;
         });
       } catch (e) {
@@ -112,11 +123,12 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     final scoutData = _scoutAnalysisData ?? widget.player.scoutAnalysisData;
     
     if (scoutData != null && scoutData.containsKey(abilityName)) {
-      return scoutData[abilityName]!;
+      final value = scoutData[abilityName]!;
+      return value;
     }
     
-    // スカウト分析データがない場合は分析不足として25を返す
-    return 25;
+    // スカウト分析データがない場合は0を返す（不明として扱う）
+    return 0;
   }
 
   /// 技術面能力値を取得
@@ -293,12 +305,147 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     }
   }
 
-  /// 表示用才能ランクを取得
-  int _getDisplayTalent() {
-    if (DebugConfig.showTrueValues) {
-      return widget.player.talent;
+  /// スカウトの分析精度を計算
+  double _getScoutAnalysisAccuracy(String skillType) {
+    final gameManager = Provider.of<GameManager>(context, listen: false);
+    final scout = gameManager.currentScout;
+    
+    if (scout == null) {
+      return 0.0; // スカウトが存在しない場合は精度0
     }
-    return widget.player.talent; // 簡素化: スカウト分析データがない場合は真の値を使用
+    
+    switch (skillType) {
+      case 'personality':
+        return (scout.getSkill(ScoutSkill.communication) * 0.7 + scout.getSkill(ScoutSkill.insight) * 0.3) * 8;
+      case 'talent':
+        return (scout.getSkill(ScoutSkill.exploration) * 0.5 + scout.getSkill(ScoutSkill.insight) * 0.5) * 8;
+      case 'growth':
+        return (scout.getSkill(ScoutSkill.analysis) * 0.6 + scout.getSkill(ScoutSkill.observation) * 0.4) * 8;
+      case 'mental':
+        return (scout.getSkill(ScoutSkill.insight) * 0.6 + scout.getSkill(ScoutSkill.communication) * 0.4) * 8;
+      case 'potential':
+        return (scout.getSkill(ScoutSkill.insight) * 0.6 + scout.getSkill(ScoutSkill.analysis) * 0.4) * 8;
+      default:
+        return 0.0;
+    }
+  }
+
+  /// スカウト完了度を計算
+  double _getScoutCompletionRate() {
+    if (!widget.player.isDiscovered) {
+      return 0.0;
+    }
+    
+    // 能力値の把握度を計算
+    final abilityKnowledge = widget.player.abilityKnowledge;
+    if (abilityKnowledge.isEmpty) {
+      return 0.0;
+    }
+    
+    // 全能力値の把握度の平均を計算
+    final totalKnowledge = abilityKnowledge.values.reduce((a, b) => a + b);
+    final averageKnowledge = totalKnowledge / abilityKnowledge.length;
+    
+    return averageKnowledge / 100.0; // 0.0-1.0の範囲に正規化
+  }
+
+  /// スカウト完了度の表示テキストを取得
+  String _getScoutCompletionText() {
+    final completionRate = _getScoutCompletionRate();
+    
+    if (completionRate == 0.0) {
+      return '未発掘';
+    } else if (completionRate < 0.2) {
+      return '初期スカウト';
+    } else if (completionRate < 0.4) {
+      return '基本調査済み';
+    } else if (completionRate < 0.6) {
+      return '詳細調査中';
+    } else if (completionRate < 0.8) {
+      return 'ほぼ完了';
+    } else {
+      return '完全スカウト済み';
+    }
+  }
+
+  /// スカウト完了度の色を取得
+  Color _getScoutCompletionColor() {
+    final completionRate = _getScoutCompletionRate();
+    
+    if (completionRate == 0.0) {
+      return Colors.grey;
+    } else if (completionRate < 0.2) {
+      return Colors.orange;
+    } else if (completionRate < 0.4) {
+      return Colors.yellow;
+    } else if (completionRate < 0.6) {
+      return Colors.lightBlue;
+    } else if (completionRate < 0.8) {
+      return Colors.blue;
+    } else {
+      return Colors.green;
+    }
+  }
+
+  /// 表示用性格を取得
+  String _getDisplayPersonality() {
+    if (DebugConfig.showTrueValues) {
+      return widget.player.personality;
+    }
+    
+    // 保存された分析データがある場合はそれを使用
+    if (_basicInfoAnalysisData != null && _basicInfoAnalysisData!['personality'] != null) {
+      return _basicInfoAnalysisData!['personality'] as String;
+    }
+    
+    // 分析データがない場合はリアルタイムで計算
+    final accuracy = _getScoutAnalysisAccuracy('personality');
+    
+    if (accuracy < 30) {
+      return '性格不明';
+    } else if (accuracy < 50) {
+      // 基本的な性格傾向のみ把握
+      final personalities = ['内向的', '外向的', 'リーダー型', 'フォロワー型'];
+      return personalities[widget.player.talent % personalities.length];
+    } else if (accuracy < 70) {
+      // より詳細な性格特徴を把握
+      final personalities = ['冷静沈着', '情に厚い', '負けず嫌い', '謙虚'];
+      return personalities[widget.player.talent % personalities.length];
+    } else {
+      // 高度な性格分析
+      final personalities = ['勝負強さがある', 'チームプレー重視', '個人主義的'];
+      return personalities[widget.player.talent % personalities.length];
+    }
+  }
+
+  /// 表示用才能ランクを取得
+  String _getDisplayTalent() {
+    if (DebugConfig.showTrueValues) {
+      return 'ランク${widget.player.talent}';
+    }
+    
+    // 保存された分析データがある場合はそれを使用
+    if (_basicInfoAnalysisData != null && _basicInfoAnalysisData!['talent'] != null) {
+      return _basicInfoAnalysisData!['talent'] as String;
+    }
+    
+    // 分析データがない場合はリアルタイムで計算
+    final accuracy = _getScoutAnalysisAccuracy('talent');
+    
+    if (accuracy < 30) {
+      return '才能不明';
+    } else if (accuracy < 50) {
+      return widget.player.talent >= 7 ? '才能あり' : '才能なし';
+    } else if (accuracy < 70) {
+      if (widget.player.talent >= 8) return '隠れた才能';
+      else if (widget.player.talent >= 6) return '期待の星';
+      else return '平均的';
+    } else {
+      if (widget.player.talent >= 9) return '超高校級';
+      else if (widget.player.talent >= 7) return '一流';
+      else if (widget.player.talent >= 5) return '有望';
+      else return '平均';
+    }
   }
 
   /// 表示用成長タイプを取得
@@ -306,23 +453,92 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     if (DebugConfig.showTrueValues) {
       return widget.player.growthType;
     }
-    return widget.player.growthType; // 簡素化: スカウト分析データがない場合は真の値を使用
+    
+    // 保存された分析データがある場合はそれを使用
+    if (_basicInfoAnalysisData != null && _basicInfoAnalysisData!['growth'] != null) {
+      return _basicInfoAnalysisData!['growth'] as String;
+    }
+    
+    // 分析データがない場合はリアルタイムで計算
+    final accuracy = _getScoutAnalysisAccuracy('growth');
+    
+    if (accuracy < 30) {
+      return '成長不明';
+    } else if (accuracy < 50) {
+      return widget.player.growthRate > 0.5 ? '成長中' : '停滞中';
+    } else if (accuracy < 70) {
+      if (widget.player.growthRate > 0.7) return '急成長';
+      else if (widget.player.growthRate > 0.4) return '安定成長';
+      else return '緩やか成長';
+    } else {
+      if (widget.player.growthRate > 0.8) return '爆発的成長';
+      else if (widget.player.growthRate > 0.6) return '順調成長';
+      else if (widget.player.growthRate > 0.3) return '緩やか成長';
+      else return '停滞';
+    }
   }
 
   /// 表示用精神力を取得
-  int _getDisplayMentalGrit() {
+  String _getDisplayMentalGrit() {
     if (DebugConfig.showTrueValues) {
-      return (widget.player.mentalGrit * 100).round();
+      return '${(widget.player.mentalGrit * 100).round()}%';
     }
-    return (widget.player.mentalGrit * 100).round(); // 簡素化: スカウト分析データがない場合は真の値を使用
+    
+    // 保存された分析データがある場合はそれを使用
+    if (_basicInfoAnalysisData != null && _basicInfoAnalysisData!['mental_grit'] != null) {
+      return _basicInfoAnalysisData!['mental_grit'] as String;
+    }
+    
+    // 分析データがない場合はリアルタイムで計算
+    final accuracy = _getScoutAnalysisAccuracy('mental');
+    
+    if (accuracy < 30) {
+      return '精神力不明';
+    } else if (accuracy < 50) {
+      if (widget.player.mentalGrit > 0.7) return '強い';
+      else if (widget.player.mentalGrit > 0.4) return '普通';
+      else return '弱い';
+    } else if (accuracy < 70) {
+      if (widget.player.mentalGrit > 0.8) return '鋼の精神';
+      else if (widget.player.mentalGrit > 0.5) return '安定した精神';
+      else return '不安定';
+    } else {
+      if (widget.player.mentalGrit > 0.8) return '逆境に強い';
+      else if (widget.player.mentalGrit < 0.3) return 'プレッシャーに弱い';
+      else return '勝負強さあり';
+    }
   }
 
   /// 表示用ポテンシャルを取得
-  int _getDisplayPeakAbility() {
+  String _getDisplayPeakAbility() {
     if (DebugConfig.showTrueValues) {
-      return widget.player.peakAbility;
+      return '${widget.player.peakAbility}';
     }
-    return widget.player.peakAbility; // 簡素化: スカウト分析データがない場合は真の値を使用
+    
+    // 保存された分析データがある場合はそれを使用
+    if (_basicInfoAnalysisData != null && _basicInfoAnalysisData!['potential'] != null) {
+      return _basicInfoAnalysisData!['potential'] as String;
+    }
+    
+    // 分析データがない場合はリアルタイムで計算
+    final accuracy = _getScoutAnalysisAccuracy('potential');
+    
+    if (accuracy < 30) {
+      return '将来性不明';
+    } else if (accuracy < 50) {
+      if (widget.player.peakAbility >= 80) return '有望';
+      else if (widget.player.peakAbility >= 60) return '普通';
+      else return '期待薄';
+    } else if (accuracy < 70) {
+      if (widget.player.peakAbility >= 85) return '大物候補';
+      else if (widget.player.peakAbility >= 70) return '期待の星';
+      else return '平均的将来性';
+    } else {
+      if (widget.player.peakAbility >= 90) return 'プロ級';
+      else if (widget.player.peakAbility >= 80) return '大学トップ級';
+      else if (widget.player.peakAbility >= 65) return '実業団級';
+      else return 'アマチュア級';
+    }
   }
 
   @override
@@ -461,93 +677,82 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       color: cardBg,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 選手アイコン
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: primaryColor,
-                borderRadius: BorderRadius.circular(40),
-              ),
-              child: Icon(
-                widget.player.isPitcher ? Icons.sports_baseball : Icons.person,
-                size: 40,
-                color: Colors.white,
-              ),
+            // 選手名（フル表示）
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.player.name,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: textColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                // お気に入りボタン
+                IconButton(
+                  icon: Icon(
+                    widget.player.isScoutFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: widget.player.isScoutFavorite ? Colors.red : Colors.grey,
+                  ),
+                  onPressed: () {
+                    // GameManagerを通じてお気に入り状態を更新
+                    final gameManager = Provider.of<GameManager>(context, listen: false);
+                    gameManager.togglePlayerFavorite(widget.player);
+                    
+                    // UIを更新
+                    setState(() {});
+                  },
+                  tooltip: widget.player.isScoutFavorite ? 'お気に入りから削除' : 'お気に入りに追加',
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            // 選手基本情報
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            const SizedBox(height: 8),
+            // 学校・学年・ポジション・スカウト状態
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          widget.player.name,
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: textColor,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      Text(
+                        '${widget.player.school} ${widget.player.grade}年',
+                        style: TextStyle(
+                          color: textColor.withOpacity(0.8),
+                          fontSize: 16,
                         ),
                       ),
-                      // お気に入りボタン
-                      IconButton(
-                        icon: Icon(
-                          widget.player.isScoutFavorite ? Icons.favorite : Icons.favorite_border,
-                          color: widget.player.isScoutFavorite ? Colors.red : Colors.grey,
-                        ),
-                        onPressed: () {
-                          // GameManagerを通じてお気に入り状態を更新
-                          final gameManager = Provider.of<GameManager>(context, listen: false);
-                          gameManager.togglePlayerFavorite(widget.player);
-                          
-                          // UIを更新
-                          setState(() {});
-                        },
-                        tooltip: widget.player.isScoutFavorite ? 'お気に入りから削除' : 'お気に入りに追加',
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: primaryColor,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              widget.player.position,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildStatusChip(
+                            widget.player.isDiscovered ? 'スカウト完了' : 'スカウト未完了',
+                            widget.player.isDiscovered ? '✓' : '未',
+                            widget.player.isDiscovered ? Colors.green : Colors.orange,
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${widget.player.school} ${widget.player.grade}年',
-                    style: TextStyle(color: textColor.withOpacity(0.8)),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: primaryColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      widget.player.position,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 右側の情報
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildStatusChip('知名度', widget.player.fameLevelName, _getFameColor(widget.player.fameLevel)),
-                const SizedBox(height: 4),
-                _buildStatusChip('信頼度', '${widget.player.trustLevel}', _getTrustColor(widget.player.trustLevel)),
-                const SizedBox(height: 4),
-                _buildStatusChip(
-                  '発掘状態',
-                  widget.player.isDiscovered ? '発掘済み' : '未発掘',
-                  widget.player.isDiscovered ? Colors.green : Colors.orange,
                 ),
               ],
             ),
@@ -577,47 +782,32 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _buildCompactInfoRow('名前', widget.player.name, textColor),
+                  child: _buildCompactInfoRow('性格', _getDisplayPersonality(), textColor),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildCompactInfoRow('学校', widget.player.school, textColor),
+                  child: _buildCompactInfoRow('才能', _getDisplayTalent(), textColor),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
-                  child: _buildCompactInfoRow('学年', '${widget.player.grade}年生', textColor),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildCompactInfoRow('ポジション', widget.player.position, textColor),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildCompactInfoRow('性格', widget.player.personality, textColor),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildCompactInfoRow('才能', 'ランク${_getDisplayTalent()}', textColor),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
                 Expanded(
                   child: _buildCompactInfoRow('成長', _getDisplayGrowthType(), textColor),
                 ),
-                const SizedBox(width: 16),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
                 Expanded(
-                  child: _buildCompactInfoRow('精神力', '${_getDisplayMentalGrit()}%', textColor),
+                  child: _buildCompactInfoRow('精神力', _getDisplayMentalGrit(), textColor),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildCompactInfoRow('ポテンシャル', '${_getDisplayPeakAbility()}', textColor),
+                  child: _buildCompactInfoRow('ポテンシャル', _getDisplayPeakAbility(), textColor),
+                ),
+                const SizedBox(width: 16),
+                // 空のスペースを追加して3列のレイアウトを維持
+                Expanded(
+                  child: Container(),
                 ),
               ],
             ),
@@ -882,10 +1072,25 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   Widget _buildAbilityRow(String label, int value, Color textColor, Color primaryColor) {
     // 球速の場合は実際のkm/hで表示
     final isFastball = label == '球速';
+    
+    // スカウト分析データの確認
+    final scoutData = _scoutAnalysisData ?? widget.player.scoutAnalysisData;
+    final abilityName = _getAbilityNameFromLabel(label);
+    final hasScoutData = scoutData != null && abilityName != null && scoutData.containsKey(abilityName);
+    
+    // 判定しきれていない場合の処理
+    final isUnknown = !hasScoutData || value == 0; // スカウト分析データがない場合または0の場合は不明
+    
     int finalDisplayValue;
     String displayText;
+    Color displayColor;
     
-    if (isFastball) {
+    if (isUnknown) {
+      // 判定しきれていない場合は「不明」と表示
+      finalDisplayValue = 0;
+      displayText = '不明';
+      displayColor = Colors.grey;
+    } else if (isFastball) {
       // スカウト分析の値（0-100）を球速に変換
       // 高校生の場合：25-100 → 125-155km/h
       if (value <= 100) {
@@ -895,9 +1100,11 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         finalDisplayValue = 155;
       }
       displayText = '${finalDisplayValue}km/h';
+      displayColor = textColor;
     } else {
       finalDisplayValue = value;
       displayText = '$finalDisplayValue';
+      displayColor = textColor;
     }
     
     // デバッグモードの場合、真の値も表示
@@ -914,11 +1121,6 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         potentialValue = widget.player.individualPotentials![abilityName];
       }
     }
-    
-    // スカウト分析データがない場合の表示
-    final scoutData = _scoutAnalysisData ?? widget.player.scoutAnalysisData;
-    final abilityName = _getAbilityNameFromLabel(label);
-    final hasScoutData = scoutData != null && abilityName != null && scoutData.containsKey(abilityName);
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -942,15 +1144,15 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                   child: Container(
                     height: 8,
                     decoration: BoxDecoration(
-                      color: hasScoutData ? Colors.red.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
+                      color: isUnknown ? Colors.grey.withOpacity(0.3) : Colors.red.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: FractionallySizedBox(
                       alignment: Alignment.centerLeft,
-                      widthFactor: finalDisplayValue / 100.0,
+                      widthFactor: isUnknown ? 0.0 : (finalDisplayValue / 100.0),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: hasScoutData ? primaryColor : Colors.grey,
+                          color: isUnknown ? Colors.grey : primaryColor,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -960,11 +1162,11 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 const SizedBox(width: 8),
               ],
               SizedBox(
-                width: isFastball ? 60 : 30,
+                width: isFastball ? 60 : 40,
                 child: Text(
                   displayText,
                   style: TextStyle(
-                    color: hasScoutData ? textColor : Colors.grey,
+                    color: displayColor,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1176,20 +1378,183 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 Icon(Icons.info_outline, color: Colors.orange),
                 const SizedBox(width: 8),
                 Text(
-                  '情報不足',
+                  '情報収集が必要',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.orange),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              'この選手についての情報が不足しています。\nスカウト活動を行って情報を収集してください。',
+              'この選手についての情報が不足しています。\n以下のアクションを実行して情報を収集してください：',
               style: TextStyle(color: textColor),
             ),
+            const SizedBox(height: 12),
+            _buildActionRecommendations(context, textColor),
           ],
         ),
       ),
     );
+  }
+
+  // アクション推奨表示
+  Widget _buildActionRecommendations(BuildContext context, Color textColor) {
+    final recommendations = <Widget>[];
+    
+    // 基本情報が不明な場合
+    if (_getDisplayPersonality() == '不明' || _getDisplayTalent() == '不明' || 
+        _getDisplayGrowthType() == '不明' || _getDisplayMentalGrit() == '不明' || 
+        _getDisplayPeakAbility() == '不明') {
+      recommendations.add(_buildActionRecommendation(
+        context,
+        '📹 ビデオ分析',
+        '才能、成長タイプ、ポテンシャルを分析します',
+        Colors.purple,
+        textColor,
+      ));
+    }
+    
+    // 技術面の能力値が不明な場合
+    if (_hasUnknownTechnicalAbilities()) {
+      recommendations.add(_buildActionRecommendation(
+        context,
+        '🏟️ 練習試合観戦',
+        '技術面の能力値を観察します',
+        Colors.orange,
+        textColor,
+      ));
+    }
+    
+    // フィジカル面の能力値が不明な場合
+    if (_hasUnknownPhysicalAbilities()) {
+      recommendations.add(_buildActionRecommendation(
+        context,
+        '🏃 練習視察',
+        'フィジカル面の能力値を観察します',
+        Colors.blue,
+        textColor,
+      ));
+    }
+    
+    // メンタル面の能力値が不明な場合
+    if (_hasUnknownMentalAbilities()) {
+      recommendations.add(_buildActionRecommendation(
+        context,
+        '💬 インタビュー',
+        'メンタル面の能力値を把握します',
+        Colors.green,
+        textColor,
+      ));
+    }
+    
+    // 全体的な情報が不足している場合
+    if (recommendations.isEmpty) {
+      recommendations.add(_buildActionRecommendation(
+        context,
+        '⚾ 試合観戦',
+        '技術面とフィジカル面の能力値を観察します',
+        Colors.red,
+        textColor,
+      ));
+    }
+    
+    return Column(
+      children: recommendations,
+    );
+  }
+
+  // アクション推奨カード
+  Widget _buildActionRecommendation(
+    BuildContext context,
+    String title,
+    String description,
+    Color color,
+    Color textColor,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lightbulb_outline, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.8),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 技術面の能力値が不明かチェック
+  bool _hasUnknownTechnicalAbilities() {
+    final technicalAbilities = [
+      'contact', 'power', 'plateDiscipline', 'bunt', 'oppositeFieldHitting',
+      'pullHitting', 'batControl', 'swingSpeed', 'fielding', 'throwing',
+      'catcherAbility', 'control', 'fastball', 'breakingBall', 'pitchMovement'
+    ];
+    
+    for (final ability in technicalAbilities) {
+      if (_getDisplayAbility(ability) == 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // フィジカル面の能力値が不明かチェック
+  bool _hasUnknownPhysicalAbilities() {
+    final physicalAbilities = [
+      'acceleration', 'agility', 'balance', 'pace', 'stamina', 'strength',
+      'flexibility', 'jumpingReach', 'naturalFitness', 'injuryProneness'
+    ];
+    
+    for (final ability in physicalAbilities) {
+      if (_getDisplayAbility(ability) == 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // メンタル面の能力値が不明かチェック
+  bool _hasUnknownMentalAbilities() {
+    final mentalAbilities = [
+      'concentration', 'anticipation', 'vision', 'composure', 'aggression',
+      'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
+      'teamwork', 'positioning', 'pressureHandling', 'clutchAbility'
+    ];
+    
+    for (final ability in mentalAbilities) {
+      if (_getDisplayAbility(ability) == 0) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Widget _buildCompactInfoRow(String label, String value, Color textColor) {

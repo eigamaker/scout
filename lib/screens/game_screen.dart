@@ -362,6 +362,8 @@ class _GameScreenState extends State<GameScreen> {
         return 'インタビュー';
       case 'videoAnalyze':
         return 'ビデオ分析';
+      case 'PRACTICE_WATCH':
+        return '練習視察（単一）';
       default:
         return type;
     }
