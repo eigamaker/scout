@@ -6,7 +6,8 @@ import 'accuracy_calculator.dart';
 import '../../models/school/school.dart';
 import '../../models/player/player.dart';
 import '../../models/player/player_abilities.dart';
-import 'scout_analysis_service.dart';
+import '../data_service.dart';
+
 import '../../models/scouting/team_request.dart';
 
 class SchoolScoutResult {
@@ -162,32 +163,62 @@ class ActionService {
       final discoverCount = 1 + Random().nextInt(3); // 1-3人
       final actualCount = discoverCount.clamp(1, undiscovered.length);
       
-      // ランダムに選手を選択して発掘
-      final selectedIndices = <int>{};
-      while (selectedIndices.length < actualCount) {
-        selectedIndices.add(Random().nextInt(undiscovered.length));
+      // ポテンシャル基準での選手選択
+      final potentialPlayers = <Player>[];
+      for (final player in undiscovered) {
+        // ポテンシャル、才能ランク、成長率を考慮した発見確率
+        double discoveryChance = 0.15; // 複数発掘時は基本確率を少し上げる
+        
+        // ポテンシャルが高いほど発見しやすい
+        if (player.peakAbility >= 120) discoveryChance += 0.4;
+        else if (player.peakAbility >= 100) discoveryChance += 0.3;
+        else if (player.peakAbility >= 90) discoveryChance += 0.2;
+        else discoveryChance += 0.1;
+        
+        // 才能ランクが高いほど発見しやすい
+        discoveryChance += (player.talent - 1) * 0.1;
+        
+        // 成長率が高いほど発見しやすい
+        if (player.growthRate > 1.1) discoveryChance += 0.2;
+        else if (player.growthRate > 1.05) discoveryChance += 0.1;
+        
+        // 現在の能力値が低くても発見可能（隠れた才能）
+        if (player.trueTotalAbility < 60 && player.peakAbility >= 100) {
+          discoveryChance += 0.3; // 隠れた才能ボーナス
+        }
+        
+        if (Random().nextDouble() < discoveryChance) {
+          potentialPlayers.add(player);
+        }
       }
       
-      for (final index in selectedIndices) {
-        final player = undiscovered[index];
+      // 最低1人、最大actualCount人を発掘
+      final selectedPlayers = <Player>[];
+      if (potentialPlayers.isNotEmpty) {
+        // ポテンシャル選手から優先的に選択
+        final shuffled = List<Player>.from(potentialPlayers)..shuffle();
+        selectedPlayers.addAll(shuffled.take(actualCount));
+      }
+      
+      // 不足分はランダムで補完
+      if (selectedPlayers.length < actualCount) {
+        final remaining = undiscovered.where((p) => !selectedPlayers.contains(p)).toList();
+        if (remaining.isNotEmpty) {
+          remaining.shuffle();
+          final needed = actualCount - selectedPlayers.length;
+          selectedPlayers.addAll(remaining.take(needed));
+        }
+      }
+      
+      for (final player in selectedPlayers) {
         player.isDiscovered = true;
         player.discoveredAt = DateTime.now();
         player.discoveredCount = 1;
         player.scoutedDates.add(DateTime.now());
         
-        // 練習視察で判明する能力値のみ把握度を設定
-        // 名前、学校、学年、ポジション、フィジカル面の能力のみ
-        player.abilityKnowledge.updateAll((k, v) {
-          // フィジカル面の能力値のみ把握度を設定
-          if (k == 'pace' || k == 'acceleration' || k == 'agility' || 
-              k == 'balance' || k == 'jumpingReach' || k == 'naturalFitness' || 
-              k == 'stamina' || k == 'strength' || k == 'injuryProneness') {
-            // 練習視察では1回で判定完了（スカウトのスキルに依存）
-            return 100; // 完全に把握
-          }
-          // その他の能力値は把握度0のまま
-          return 0;
-        });
+        // 練習視察では基本情報のみ取得（詳細な能力値判定はしない）
+        // 実際の能力値判定はスカウト分析システムを通じて行う
+        // ここでは発掘のみを行い、詳細な能力値は後のアクションで判定する
         
         discoveredPlayers.add(player);
       }
@@ -216,24 +247,17 @@ class ActionService {
   }
 
   /// 練習視察アクション（単一選手版）
-  static ScoutActionResult practiceWatch({
+  static Future<ScoutActionResult> practiceWatch({
     required School school,
     required Player? targetPlayer,
     required Map<ScoutSkill, int> scoutSkills,
     required int currentWeek,
-  }) {
+  }) async {
     // 練習視察の具体的な処理
     if (targetPlayer != null) {
       // 特定選手の練習視察
-      // フィジカル面の能力値のみ把握度を設定
-      targetPlayer.abilityKnowledge.updateAll((k, v) {
-        if (k == 'pace' || k == 'acceleration' || k == 'agility' || 
-            k == 'balance' || k == 'jumpingReach' || k == 'naturalFitness' || 
-            k == 'stamina' || k == 'strength' || k == 'injuryProneness') {
-          return 100; // 完全に把握
-        }
-        return v;
-      });
+      // 練習視察では詳細な能力値判定は行わない
+      // スカウト分析システムを通じて段階的に情報を取得する
       
       return ScoutActionResult(
         success: true,
@@ -242,30 +266,97 @@ class ActionService {
         improvedPlayer: targetPlayer,
       );
     } else {
-      // 学校全体の練習視察
+      // 学校全体の練習視察でポテンシャル基準での発掘
       final undiscovered = school.players.where((p) => !p.isDiscovered).toList();
       if (undiscovered.isNotEmpty) {
-        final player = undiscovered[Random().nextInt(undiscovered.length)];
-        player.isDiscovered = true;
-        player.discoveredAt = DateTime.now();
-        player.discoveredCount = 1;
-        player.scoutedDates.add(DateTime.now());
-        // フィジカル面の能力値のみ把握度を設定
-        player.abilityKnowledge.updateAll((k, v) {
-          if (k == 'pace' || k == 'acceleration' || k == 'agility' || 
-              k == 'balance' || k == 'jumpingReach' || k == 'naturalFitness' || 
-              k == 'stamina' || k == 'strength' || k == 'injuryProneness') {
-            return 100; // 完全に把握
-          }
-          return 0;
-        });
+        // 探索スキルに基づいて発掘可能性を計算
+        final explorationSkill = scoutSkills[ScoutSkill.exploration] ?? 1;
         
-        return ScoutActionResult(
-          success: true,
-          message: '🏃 ${school.name}の練習視察: 「${player.name}」の練習態度が目立ちました',
-          discoveredPlayer: player,
-          improvedPlayer: null,
-        );
+        // ポテンシャル基準での選手選択（ランダム要素も含む）
+        final potentialPlayers = <Player>[];
+        for (final player in undiscovered) {
+          // ポテンシャル、才能ランク、成長率を考慮した発見確率
+          double discoveryChance = 0.1; // 基本確率
+          
+          // ポテンシャルが高いほど発見しやすい
+          if (player.peakAbility >= 120) discoveryChance += 0.4;
+          else if (player.peakAbility >= 100) discoveryChance += 0.3;
+          else if (player.peakAbility >= 90) discoveryChance += 0.2;
+          else discoveryChance += 0.1;
+          
+          // 才能ランクが高いほど発見しやすい
+          discoveryChance += (player.talent - 1) * 0.1;
+          
+          // 成長率が高いほど発見しやすい
+          if (player.growthRate > 1.1) discoveryChance += 0.2;
+          else if (player.growthRate > 1.05) discoveryChance += 0.1;
+          
+          // 探索スキルによる補正
+          discoveryChance += (explorationSkill - 1) * 0.05;
+          
+          // 現在の能力値が低くても発見可能（隠れた才能）
+          if (player.trueTotalAbility < 60 && player.peakAbility >= 100) {
+            discoveryChance += 0.3; // 隠れた才能ボーナス
+          }
+          
+          if (Random().nextDouble() < discoveryChance) {
+            potentialPlayers.add(player);
+          }
+        }
+        
+        if (potentialPlayers.isNotEmpty) {
+          final player = potentialPlayers[Random().nextInt(potentialPlayers.length)];
+          player.isDiscovered = true;
+          player.discoveredAt = DateTime.now();
+          player.discoveredCount = 1;
+          player.scoutedDates.add(DateTime.now());
+          
+          // フィジカル面の能力値のみ把握度を設定
+          player.abilityKnowledge.updateAll((k, v) {
+            if (k == 'pace' || k == 'acceleration' || k == 'agility' || 
+                k == 'balance' || k == 'jumpingReach' || k == 'naturalFitness' || 
+                k == 'stamina' || k == 'strength' || k == 'injuryProneness') {
+              return 100; // 完全に把握
+            }
+            return 0;
+          });
+          
+          // スカウト分析データも生成（フィジカル面の能力値のみ）
+          await _generateScoutAnalysisForPhysicalAbilities(player, 1); // デフォルトスカウトID 1
+          
+          // メッセージは選手のポテンシャルに応じて変化
+          String message;
+          if (player.peakAbility >= 120 && player.trueTotalAbility < 60) {
+            message = '🏃 ${school.name}の練習視察: 「${player.name}」は目立たないが、何か光るものを感じました...';
+          } else if (player.talent >= 4) {
+            message = '🏃 ${school.name}の練習視察: 「${player.name}」の練習態度に才能を感じました';
+          } else {
+            message = '🏃 ${school.name}の練習視察: 「${player.name}」の練習態度が目立ちました';
+          }
+          
+          return ScoutActionResult(
+            success: true,
+            message: message,
+            discoveredPlayer: player,
+            improvedPlayer: null,
+          );
+        } else {
+          // ランダムで1人は必ず発掘（最低保証）
+          final player = undiscovered[Random().nextInt(undiscovered.length)];
+          player.isDiscovered = true;
+          player.discoveredAt = DateTime.now();
+          player.discoveredCount = 1;
+          player.scoutedDates.add(DateTime.now());
+          
+          // 練習視察では発掘のみ行い、詳細な能力値判定はスカウト分析システムで処理する
+          
+          return ScoutActionResult(
+            success: true,
+            message: '🏃 ${school.name}の練習視察: 「${player.name}」を発見しましたが、特に印象的ではありませんでした',
+            discoveredPlayer: player,
+            improvedPlayer: null,
+          );
+        }
       }
       
       return ScoutActionResult(
@@ -278,12 +369,12 @@ class ActionService {
   }
 
   /// 試合観戦アクション
-  static ScoutActionResult gameWatch({
+  static Future<ScoutActionResult> gameWatch({
     required School school,
     required Player? targetPlayer,
     required Map<ScoutSkill, int> scoutSkills,
     required int currentWeek,
-  }) {
+  }) async {
     // 試合観戦の具体的な処理
     if (targetPlayer != null) {
       // 特定選手の試合観戦
@@ -302,6 +393,9 @@ class ActionService {
         return v;
       });
       
+      // スカウト分析データも生成（技術面・フィジカル面の能力値）
+      await _generateScoutAnalysisForTechnicalAndPhysicalAbilities(targetPlayer, 1); // デフォルトスカウトID 1
+      
       return ScoutActionResult(
         success: true,
         message: '⚾ ${school.name}の試合観戦: 「${targetPlayer.name}」の試合での活躍を確認できました',
@@ -309,50 +403,74 @@ class ActionService {
         improvedPlayer: targetPlayer,
       );
     } else {
-      // 学校全体の試合観戦
-      final allPlayers = school.players.where((p) => p.isDiscovered).toList();
-      if (allPlayers.isNotEmpty) {
-        final player = allPlayers[Random().nextInt(allPlayers.length)];
-        // 技術面とフィジカル面の能力値のみ把握度を設定
-        player.abilityKnowledge.updateAll((k, v) {
-          if (k == 'contact' || k == 'power' || k == 'plateDiscipline' || 
-              k == 'oppositeFieldHitting' || k == 'pullHitting' || k == 'batControl' || 
-              k == 'swingSpeed' || k == 'fielding' || k == 'throwing' || 
-              k == 'catcherAbility' || k == 'fastball' || k == 'breakingBall' || 
-              k == 'pitchMovement' || k == 'control' || k == 'stamina' ||
-              k == 'pace' || k == 'acceleration' || k == 'agility' || 
-              k == 'balance' || k == 'jumpingReach' || k == 'naturalFitness' || 
-              k == 'strength' || k == 'injuryProneness') {
-            return 100; // 完全に把握
-          }
-          return v;
-        });
+      // 学校全体の試合観戦で高能力値選手を発掘
+      final undiscovered = school.players.where((p) => !p.isDiscovered).toList();
+      
+      // 高能力値選手（レギュラークラス）のみを対象とする
+      final regularPlayers = undiscovered.where((p) => p.trueTotalAbility >= 70).toList();
+      
+      if (regularPlayers.isNotEmpty) {
+        // 高能力値選手から発掘
+        final player = regularPlayers[Random().nextInt(regularPlayers.length)];
+        player.isDiscovered = true;
+        player.discoveredAt = DateTime.now();
+        player.discoveredCount = 1;
+        player.scoutedDates.add(DateTime.now());
+        
+        // 試合観戦では発掘のみ行い、詳細分析はスカウト分析システムで処理する
         
         return ScoutActionResult(
           success: true,
-          message: '⚾ ${school.name}の試合観戦: 「${player.name}」の試合での印象が強く残りました',
+          message: '⚾ ${school.name}の試合観戦: レギュラーとして出場していた「${player.name}」の実力が印象的でした！',
+          discoveredPlayer: player,
+          improvedPlayer: null,
+        );
+      } else {
+        // 既に発掘済みの選手から情報を更新
+        final allPlayers = school.players.where((p) => p.isDiscovered).toList();
+        if (allPlayers.isNotEmpty) {
+          final player = allPlayers[Random().nextInt(allPlayers.length)];
+          // 技術面とフィジカル面の能力値のみ把握度を設定
+          player.abilityKnowledge.updateAll((k, v) {
+            if (k == 'contact' || k == 'power' || k == 'plateDiscipline' || 
+                k == 'oppositeFieldHitting' || k == 'pullHitting' || k == 'batControl' || 
+                k == 'swingSpeed' || k == 'fielding' || k == 'throwing' || 
+                k == 'catcherAbility' || k == 'fastball' || k == 'breakingBall' || 
+                k == 'pitchMovement' || k == 'control' || k == 'stamina' ||
+                k == 'pace' || k == 'acceleration' || k == 'agility' || 
+                k == 'balance' || k == 'jumpingReach' || k == 'naturalFitness' || 
+                k == 'strength' || k == 'injuryProneness') {
+              return 100; // 完全に把握
+            }
+            return v;
+          });
+          
+          return ScoutActionResult(
+            success: true,
+            message: '⚾ ${school.name}の試合観戦: 「${player.name}」の試合での印象が強く残りました',
+            discoveredPlayer: null,
+            improvedPlayer: player,
+          );
+        }
+        
+        return ScoutActionResult(
+          success: true,
+          message: '⚾ ${school.name}の試合観戦: 試合は見応えがありましたが、レギュラークラスの新しい選手は見つかりませんでした',
           discoveredPlayer: null,
-          improvedPlayer: player,
+          improvedPlayer: null,
         );
       }
-      
-      return ScoutActionResult(
-        success: true,
-        message: '⚾ ${school.name}の試合観戦: 試合は見応えがありましたが、特に印象的な選手はいませんでした',
-        discoveredPlayer: null,
-        improvedPlayer: null,
-      );
     }
   }
 
 
 
   /// ビデオ分析アクション
-  static ScoutActionResult videoAnalyze({
+  static Future<ScoutActionResult> videoAnalyze({
     required Player targetPlayer,
     required Map<ScoutSkill, int> scoutSkills,
     required int currentWeek,
-  }) {
+  }) async {
     // ビデオ分析の具体的な処理
     // 才能、成長タイプとポテンシャルのみ把握度を設定
     
@@ -366,7 +484,7 @@ class ActionService {
     final potentialAnalysis = _analyzePotential(targetPlayer);
     
     // 成長履歴の生成（簡易版）
-    final growthHistory = _generateGrowthHistory(targetPlayer, currentWeek);
+    _generateGrowthHistory(targetPlayer, currentWeek);
     
     // 才能、成長タイプ、ポテンシャル関連の能力値のみ把握度を設定
     targetPlayer.abilityKnowledge.updateAll((k, v) {
@@ -376,6 +494,9 @@ class ActionService {
       }
       return v;
     });
+    
+    // 基本情報分析データを生成・保存
+    await _generateBasicInfoAnalysis(targetPlayer, 1, growthTypeAnalysis, injuryRisk, potentialAnalysis);
     
     return ScoutActionResult(
       success: true,
@@ -458,9 +579,9 @@ class ActionService {
     required int currentWeek,
   }) {
     // 選手の総合評価を生成
-    final overallEvaluation = _generateOverallEvaluation(selectedPlayer, scoutSkills);
-    final futurePrediction = _generateFuturePrediction(selectedPlayer, teamRequest.type);
-    final recommendation = _generateRecommendation(selectedPlayer, teamRequest);
+    _generateOverallEvaluation(selectedPlayer, scoutSkills);
+    _generateFuturePrediction(selectedPlayer, teamRequest.type);
+    _generateRecommendation(selectedPlayer, teamRequest);
     
     // レポートの質を計算（交渉スキルに基づく）
     final reportQuality = _calculateReportQuality(scoutSkills);
@@ -474,12 +595,12 @@ class ActionService {
   }
 
   /// 練習試合観戦アクション
-  static ScoutActionResult scrimmage({
+  static Future<ScoutActionResult> scrimmage({
     required School school,
     required Player? targetPlayer,
     required Map<ScoutSkill, int> scoutSkills,
     required int currentWeek,
-  }) {
+  }) async {
     // 練習試合観戦の具体的な処理
     if (targetPlayer != null) {
       // 特定選手の練習試合観戦
@@ -495,6 +616,9 @@ class ActionService {
         return v;
       });
       
+      // スカウト分析データも生成（技術面の能力値のみ）
+      await _generateScoutAnalysisForTechnicalAbilities(targetPlayer, 1); // デフォルトスカウトID 1
+      
       return ScoutActionResult(
         success: true,
         message: '🏟️ ${school.name}の練習試合観戦: 「${targetPlayer.name}」の技術面を詳しく観察できました',
@@ -502,45 +626,70 @@ class ActionService {
         improvedPlayer: targetPlayer,
       );
     } else {
-      // 学校全体の練習試合観戦
-      final allPlayers = school.players.where((p) => p.isDiscovered).toList();
-      if (allPlayers.isNotEmpty) {
-        final player = allPlayers[Random().nextInt(allPlayers.length)];
-        // 技術面の能力値のみ把握度を設定
-        player.abilityKnowledge.updateAll((k, v) {
-          if (k == 'contact' || k == 'power' || k == 'plateDiscipline' || 
-              k == 'oppositeFieldHitting' || k == 'pullHitting' || k == 'batControl' || 
-              k == 'swingSpeed' || k == 'fielding' || k == 'throwing' || 
-              k == 'catcherAbility' || k == 'fastball' || k == 'breakingBall' || 
-              k == 'pitchMovement' || k == 'control' || k == 'stamina') {
-            return 100; // 完全に把握
-          }
-          return v;
-        });
+      // 学校全体の練習試合観戦で高能力値選手を発掘
+      final undiscovered = school.players.where((p) => !p.isDiscovered).toList();
+      
+      // 高能力値選手（レギュラークラス）のみを対象とする
+      final regularPlayers = undiscovered.where((p) => p.trueTotalAbility >= 70).toList();
+      
+      if (regularPlayers.isNotEmpty) {
+        // 高能力値選手から発掘
+        final player = regularPlayers[Random().nextInt(regularPlayers.length)];
+        player.isDiscovered = true;
+        player.discoveredAt = DateTime.now();
+        player.discoveredCount = 1;
+        player.scoutedDates.add(DateTime.now());
+        
+        // 練習試合観戦では発掘のみ行い、詳細分析はスカウト分析システムで処理する
         
         return ScoutActionResult(
           success: true,
-          message: '🏟️ ${school.name}の練習試合観戦: 「${player.name}」の技術面の把握度が上がりました',
+          message: '🏟️ ${school.name}の練習試合観戦: レギュラーとして出場していた「${player.name}」の技術力が目を引きました！',
+          discoveredPlayer: player,
+          improvedPlayer: null,
+        );
+      } else {
+        // 既に発掘済みの選手から情報を更新
+        final allPlayers = school.players.where((p) => p.isDiscovered).toList();
+        if (allPlayers.isNotEmpty) {
+          final player = allPlayers[Random().nextInt(allPlayers.length)];
+          // 技術面の能力値のみ把握度を設定
+          player.abilityKnowledge.updateAll((k, v) {
+            if (k == 'contact' || k == 'power' || k == 'plateDiscipline' || 
+                k == 'oppositeFieldHitting' || k == 'pullHitting' || k == 'batControl' || 
+                k == 'swingSpeed' || k == 'fielding' || k == 'throwing' || 
+                k == 'catcherAbility' || k == 'fastball' || k == 'breakingBall' || 
+                k == 'pitchMovement' || k == 'control' || k == 'stamina') {
+              return 100; // 完全に把握
+            }
+            return v;
+          });
+          
+          return ScoutActionResult(
+            success: true,
+            message: '🏟️ ${school.name}の練習試合観戦: 「${player.name}」の技術面の把握度が上がりました',
+            discoveredPlayer: null,
+            improvedPlayer: player,
+          );
+        }
+        
+        return ScoutActionResult(
+          success: true,
+          message: '🏟️ ${school.name}の練習試合観戦: 練習試合は見応えがありましたが、レギュラークラスの新しい選手は見つかりませんでした',
           discoveredPlayer: null,
-          improvedPlayer: player,
+          improvedPlayer: null,
         );
       }
-      
-      return ScoutActionResult(
-        success: true,
-        message: '🏟️ ${school.name}の練習試合観戦: 練習試合は見応えがありましたが、特に印象的な選手はいませんでした',
-        discoveredPlayer: null,
-        improvedPlayer: null,
-      );
     }
   }
 
   /// インタビューアクション
-  static ScoutActionResult interview({
+  static Future<ScoutActionResult> interview({
     required Player targetPlayer,
+    required Scout scout,
     required Map<ScoutSkill, int> scoutSkills,
     required int currentWeek,
-  }) {
+  }) async {
     // インタビューの具体的な処理
     // 性格と精神力とメンタル面の能力値のみ把握度を設定
     
@@ -575,12 +724,343 @@ class ActionService {
       return v;
     });
     
+    // スカウト分析データも生成（メンタル面の能力値のみ）
+    await _generateScoutAnalysisForMentalAbilities(targetPlayer, 1); // デフォルトスカウトID 1
+    
     return ScoutActionResult(
       success: true,
       message: '💬 ${targetPlayer.name}のインタビュー: 性格「${personality}」、精神力${mentalStrength}、動機「${motivation}」を把握しました',
       discoveredPlayer: null,
       improvedPlayer: targetPlayer,
     );
+  }
+
+  /// メンタル面能力値専用のスカウト分析データ生成
+  static Future<void> _generateScoutAnalysisForMentalAbilities(Player targetPlayer, int scoutId) async {
+    try {
+      final dataService = DataService();
+      final db = await dataService.database;
+      
+      // 既存のスカウト分析データを取得
+      final existingData = await db.query(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId],
+        orderBy: 'analysis_date DESC',
+        limit: 1,
+      );
+      
+      Map<String, dynamic> scoutedAbilities = {};
+      
+      // 既存データがある場合は継承（メンタル面以外の能力値のみ）
+      if (existingData.isNotEmpty) {
+        final existing = existingData.first;
+        final existingMap = Map<String, dynamic>.from(existing);
+        existingMap.remove('id');
+        existingMap.remove('player_id');
+        existingMap.remove('scout_id');
+        existingMap.remove('analysis_date');
+        existingMap.remove('accuracy');
+        
+        // メンタル面の能力値以外のみを継承
+        final mentalAbilities = [
+          'work_rate_scouted', 'self_discipline_scouted', 'pressure_handling_scouted',
+          'clutch_ability_scouted', 'leadership_scouted', 'teamwork_scouted',
+          'concentration_scouted', 'anticipation_scouted', 'vision_scouted', 'composure_scouted',
+          'aggression_scouted', 'bravery_scouted', 'ambition_scouted'
+        ];
+        
+        for (final entry in existingMap.entries) {
+          if (!mentalAbilities.contains(entry.key)) {
+            scoutedAbilities[entry.key] = entry.value;
+          }
+        }
+      }
+      
+      // メンタル面の能力値を追加
+      final mentalAbilities = [
+        {'key': 'work_rate_scouted', 'ability': MentalAbility.workRate},
+        {'key': 'self_discipline_scouted', 'ability': MentalAbility.selfDiscipline},
+        {'key': 'pressure_handling_scouted', 'ability': MentalAbility.pressureHandling},
+        {'key': 'clutch_ability_scouted', 'ability': MentalAbility.clutchAbility},
+        {'key': 'leadership_scouted', 'ability': MentalAbility.leadership},
+        {'key': 'teamwork_scouted', 'ability': MentalAbility.teamwork},
+        {'key': 'concentration_scouted', 'ability': MentalAbility.concentration},
+        {'key': 'anticipation_scouted', 'ability': MentalAbility.anticipation},
+        {'key': 'vision_scouted', 'ability': MentalAbility.vision},
+        {'key': 'composure_scouted', 'ability': MentalAbility.composure},
+        {'key': 'aggression_scouted', 'ability': MentalAbility.aggression},
+        {'key': 'bravery_scouted', 'ability': MentalAbility.bravery},
+        {'key': 'ambition_scouted', 'ability': MentalAbility.ambition}
+      ];
+      
+      for (final abilityInfo in mentalAbilities) {
+        final columnKey = abilityInfo['key'] as String;
+        final ability = abilityInfo['ability'] as MentalAbility;
+        
+        // 真の能力値を取得
+        final trueValue = targetPlayer.getMentalAbility(ability);
+        
+        // インタビューは高精度（誤差±3程度）
+        final errorRange = 3;
+        final random = Random();
+        final error = random.nextInt(errorRange * 2 + 1) - errorRange;
+        final scoutedValue = (trueValue + error).clamp(0, 100);
+        
+        scoutedAbilities[columnKey] = scoutedValue;
+      }
+      
+      // データベースに保存
+      final insertData = {
+        'player_id': targetPlayer.id ?? 0,
+        'scout_id': scoutId,
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': 90, // インタビューは高精度
+        ...scoutedAbilities,
+      };
+      
+      // 既存データを削除してから新しいデータを挿入
+      await db.delete(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId],
+      );
+      
+      await db.insert('ScoutAnalysis', insertData);
+      
+      print('メンタル面スカウト分析データ生成完了: プレイヤーID ${targetPlayer.id}');
+    } catch (e) {
+      print('メンタル面スカウト分析データ生成エラー: $e');
+    }
+  }
+
+  /// フィジカル面能力値専用のスカウト分析データ生成
+  static Future<void> _generateScoutAnalysisForPhysicalAbilities(Player targetPlayer, int scoutId) async {
+    try {
+      final dataService = DataService();
+      final db = await dataService.database;
+      
+      // 既存のスカウト分析データを取得
+      final existingData = await db.query(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId],
+        orderBy: 'analysis_date DESC',
+        limit: 1,
+      );
+      
+      Map<String, dynamic> scoutedAbilities = {};
+      
+      // 既存データがある場合は継承（フィジカル面以外の能力値のみ）
+      if (existingData.isNotEmpty) {
+        final existing = existingData.first;
+        final existingMap = Map<String, dynamic>.from(existing);
+        existingMap.remove('id');
+        existingMap.remove('player_id');
+        existingMap.remove('scout_id');
+        existingMap.remove('analysis_date');
+        existingMap.remove('accuracy');
+        
+        // フィジカル面の能力値以外のみを継承
+        final physicalAbilities = [
+          'pace_scouted', 'acceleration_scouted', 'agility_scouted', 'balance_scouted',
+          'jumping_reach_scouted', 'stamina_scouted', 'strength_scouted', 'flexibility_scouted'
+        ];
+        
+        for (final entry in existingMap.entries) {
+          if (!physicalAbilities.contains(entry.key)) {
+            scoutedAbilities[entry.key] = entry.value;
+          }
+        }
+      }
+      
+      // フィジカル面の能力値を追加
+      final physicalAbilities = [
+        {'key': 'pace_scouted', 'ability': PhysicalAbility.pace},
+        {'key': 'acceleration_scouted', 'ability': PhysicalAbility.acceleration},
+        {'key': 'agility_scouted', 'ability': PhysicalAbility.agility},
+        {'key': 'balance_scouted', 'ability': PhysicalAbility.balance},
+        {'key': 'jumping_reach_scouted', 'ability': PhysicalAbility.jumpingReach},
+        {'key': 'stamina_scouted', 'ability': PhysicalAbility.stamina},
+        {'key': 'strength_scouted', 'ability': PhysicalAbility.strength},
+        {'key': 'flexibility_scouted', 'ability': PhysicalAbility.flexibility}
+      ];
+      
+      for (final abilityInfo in physicalAbilities) {
+        final columnKey = abilityInfo['key'] as String;
+        final ability = abilityInfo['ability'] as PhysicalAbility;
+        
+        // 真の能力値を取得
+        final trueValue = targetPlayer.getPhysicalAbility(ability);
+        
+        // 練習視察は中程度の精度（誤差±8程度）
+        final errorRange = 8;
+        final random = Random();
+        final error = random.nextInt(errorRange * 2 + 1) - errorRange;
+        final scoutedValue = (trueValue + error).clamp(0, 100);
+        
+        scoutedAbilities[columnKey] = scoutedValue;
+      }
+      
+      // データベースに保存
+      final insertData = {
+        'player_id': targetPlayer.id ?? 0,
+        'scout_id': scoutId,
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': 75, // 練習視察は中程度の精度
+        ...scoutedAbilities,
+      };
+      
+      // 既存データを削除してから新しいデータを挿入
+      await db.delete(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId],
+      );
+      
+      await db.insert('ScoutAnalysis', insertData);
+      
+      print('フィジカル面スカウト分析データ生成完了: プレイヤーID ${targetPlayer.id}');
+    } catch (e) {
+      print('フィジカル面スカウト分析データ生成エラー: $e');
+    }
+  }
+
+  /// 技術面能力値専用のスカウト分析データ生成
+  static Future<void> _generateScoutAnalysisForTechnicalAbilities(Player targetPlayer, int scoutId) async {
+    try {
+      final dataService = DataService();
+      final db = await dataService.database;
+      
+      // 既存のスカウト分析データを取得
+      final existingData = await db.query(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId],
+        orderBy: 'analysis_date DESC',
+        limit: 1,
+      );
+      
+      Map<String, dynamic> scoutedAbilities = {};
+      
+      // 既存データがある場合は継承（技術面以外の能力値のみ）
+      if (existingData.isNotEmpty) {
+        final existing = existingData.first;
+        final existingMap = Map<String, dynamic>.from(existing);
+        existingMap.remove('id');
+        existingMap.remove('player_id');
+        existingMap.remove('scout_id');
+        existingMap.remove('analysis_date');
+        existingMap.remove('accuracy');
+        
+        // 技術面の能力値以外のみを継承
+        final technicalAbilities = [
+          'contact_scouted', 'power_scouted', 'plate_discipline_scouted', 'opposite_field_hitting_scouted',
+          'pull_hitting_scouted', 'bat_control_scouted', 'swing_speed_scouted', 'fielding_scouted',
+          'throwing_scouted', 'fastball_scouted', 'breaking_ball_scouted', 'pitch_movement_scouted', 'control_scouted'
+        ];
+        
+        for (final entry in existingMap.entries) {
+          if (!technicalAbilities.contains(entry.key)) {
+            scoutedAbilities[entry.key] = entry.value;
+          }
+        }
+      }
+      
+      // 技術面の能力値を追加
+      final technicalAbilities = [
+        {'key': 'contact_scouted', 'ability': TechnicalAbility.contact},
+        {'key': 'power_scouted', 'ability': TechnicalAbility.power},
+        {'key': 'plate_discipline_scouted', 'ability': TechnicalAbility.plateDiscipline},
+        {'key': 'opposite_field_hitting_scouted', 'ability': TechnicalAbility.oppositeFieldHitting},
+        {'key': 'pull_hitting_scouted', 'ability': TechnicalAbility.pullHitting},
+        {'key': 'bat_control_scouted', 'ability': TechnicalAbility.batControl},
+        {'key': 'swing_speed_scouted', 'ability': TechnicalAbility.swingSpeed},
+        {'key': 'fielding_scouted', 'ability': TechnicalAbility.fielding},
+        {'key': 'throwing_scouted', 'ability': TechnicalAbility.throwing},
+        {'key': 'fastball_scouted', 'ability': TechnicalAbility.fastball},
+        {'key': 'breaking_ball_scouted', 'ability': TechnicalAbility.breakingBall},
+        {'key': 'pitch_movement_scouted', 'ability': TechnicalAbility.pitchMovement},
+        {'key': 'control_scouted', 'ability': TechnicalAbility.control}
+      ];
+      
+      for (final abilityInfo in technicalAbilities) {
+        final columnKey = abilityInfo['key'] as String;
+        final ability = abilityInfo['ability'] as TechnicalAbility;
+        
+        // 真の能力値を取得
+        final trueValue = targetPlayer.getTechnicalAbility(ability);
+        
+        // 試合観戦/練習試合観戦は中程度の精度（誤差±6程度）
+        final errorRange = 6;
+        final random = Random();
+        final error = random.nextInt(errorRange * 2 + 1) - errorRange;
+        final scoutedValue = (trueValue + error).clamp(0, 100);
+        
+        scoutedAbilities[columnKey] = scoutedValue;
+      }
+      
+      // データベースに保存
+      final insertData = {
+        'player_id': targetPlayer.id ?? 0,
+        'scout_id': scoutId,
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': 80, // 試合観戦は高めの精度
+        ...scoutedAbilities,
+      };
+      
+      // 既存データを削除してから新しいデータを挿入
+      await db.delete(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId],
+      );
+      
+      await db.insert('ScoutAnalysis', insertData);
+      
+      print('技術面スカウト分析データ生成完了: プレイヤーID ${targetPlayer.id}');
+    } catch (e) {
+      print('技術面スカウト分析データ生成エラー: $e');
+    }
+  }
+
+  /// 基本情報分析データ生成・保存
+  static Future<void> _generateBasicInfoAnalysis(Player targetPlayer, int scoutId, String growthTypeAnalysis, String injuryRisk, String potentialAnalysis) async {
+    try {
+      final dataService = DataService();
+      final db = await dataService.database;
+      
+      // 既存データを削除してから新しいデータを挿入
+      await db.delete(
+        'ScoutBasicInfoAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId.toString()],
+      );
+      
+      // 基本情報分析データを挿入
+      final insertData = {
+        'player_id': targetPlayer.id ?? 0,
+        'scout_id': scoutId.toString(),
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': 85.0, // ビデオ分析は高精度
+        'personality_analyzed': targetPlayer.personality,
+        'talent_analyzed': '才能レベル${targetPlayer.talent}',
+        'growth_analyzed': growthTypeAnalysis,
+        'mental_grit_analyzed': '精神力${targetPlayer.mentalGrit}',
+        'potential_analyzed': potentialAnalysis,
+        'personality_accuracy': 85.0,
+        'talent_accuracy': 85.0,
+        'growth_accuracy': 85.0,
+        'mental_grit_accuracy': 85.0,
+        'potential_accuracy': 85.0,
+      };
+      
+      await db.insert('ScoutBasicInfoAnalysis', insertData);
+      
+      print('基本情報分析データ生成完了: プレイヤーID ${targetPlayer.id}');
+    } catch (e) {
+      print('基本情報分析データ生成エラー: $e');
+    }
   }
 
 
@@ -711,8 +1191,6 @@ class ActionService {
 
   /// 総合評価の生成
   static String _generateOverallEvaluation(Player player, Map<ScoutSkill, int> scoutSkills) {
-    final analysisSkill = scoutSkills[ScoutSkill.analysis] ?? 50;
-    final insightSkill = scoutSkills[ScoutSkill.insight] ?? 50;
     
     // 選手の能力値を総合的に評価
     final contact = player.technicalAbilities[TechnicalAbility.contact] ?? 50;
@@ -737,8 +1215,6 @@ class ActionService {
   /// 将来予測の生成
   static String _generateFuturePrediction(Player player, TeamRequestType requestType) {
     final growthType = player.growthType;
-    final growthRate = player.growthRate;
-    final peakAbility = player.peakAbility;
     
     switch (requestType) {
       case TeamRequestType.immediateImpact:
@@ -782,6 +1258,136 @@ class ActionService {
     // 交渉スキルと洞察力に基づいて品質を計算
     final baseQuality = (negotiationSkill + insightSkill) / 200.0;
     return baseQuality.clamp(0.3, 1.0); // 最低30%、最高100%
+  }
+
+  /// 技術面・フィジカル面能力値専用のスカウト分析データ生成（試合観戦用）
+  static Future<void> _generateScoutAnalysisForTechnicalAndPhysicalAbilities(Player targetPlayer, int scoutId) async {
+    try {
+      final dataService = DataService();
+      final db = await dataService.database;
+      
+      // 既存のスカウト分析データを取得
+      final existingData = await db.query(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId],
+        orderBy: 'analysis_date DESC',
+        limit: 1,
+      );
+      
+      Map<String, dynamic> scoutedAbilities = {};
+      
+      // 既存データがある場合は継承（技術面・フィジカル面以外の能力値のみ）
+      if (existingData.isNotEmpty) {
+        final existing = existingData.first;
+        final existingMap = Map<String, dynamic>.from(existing);
+        existingMap.remove('id');
+        existingMap.remove('player_id');
+        existingMap.remove('scout_id');
+        existingMap.remove('analysis_date');
+        existingMap.remove('accuracy');
+        
+        // 技術面・フィジカル面の能力値以外のみを継承
+        final technicalAndPhysicalAbilities = [
+          // 技術面
+          'contact_scouted', 'power_scouted', 'plate_discipline_scouted', 'opposite_field_hitting_scouted',
+          'pull_hitting_scouted', 'bat_control_scouted', 'swing_speed_scouted', 'fielding_scouted',
+          'throwing_scouted', 'fastball_scouted', 'breaking_ball_scouted', 'pitch_movement_scouted', 'control_scouted',
+          // フィジカル面
+          'pace_scouted', 'acceleration_scouted', 'agility_scouted', 'balance_scouted',
+          'jumping_reach_scouted', 'stamina_scouted', 'strength_scouted', 'flexibility_scouted'
+        ];
+        
+        for (final entry in existingMap.entries) {
+          if (!technicalAndPhysicalAbilities.contains(entry.key)) {
+            scoutedAbilities[entry.key] = entry.value;
+          }
+        }
+      }
+      
+      // 技術面の能力値を追加
+      final technicalAbilities = [
+        {'key': 'contact_scouted', 'ability': TechnicalAbility.contact},
+        {'key': 'power_scouted', 'ability': TechnicalAbility.power},
+        {'key': 'plate_discipline_scouted', 'ability': TechnicalAbility.plateDiscipline},
+        {'key': 'opposite_field_hitting_scouted', 'ability': TechnicalAbility.oppositeFieldHitting},
+        {'key': 'pull_hitting_scouted', 'ability': TechnicalAbility.pullHitting},
+        {'key': 'bat_control_scouted', 'ability': TechnicalAbility.batControl},
+        {'key': 'swing_speed_scouted', 'ability': TechnicalAbility.swingSpeed},
+        {'key': 'fielding_scouted', 'ability': TechnicalAbility.fielding},
+        {'key': 'throwing_scouted', 'ability': TechnicalAbility.throwing},
+        {'key': 'fastball_scouted', 'ability': TechnicalAbility.fastball},
+        {'key': 'breaking_ball_scouted', 'ability': TechnicalAbility.breakingBall},
+        {'key': 'pitch_movement_scouted', 'ability': TechnicalAbility.pitchMovement},
+        {'key': 'control_scouted', 'ability': TechnicalAbility.control}
+      ];
+      
+      for (final abilityInfo in technicalAbilities) {
+        final columnKey = abilityInfo['key'] as String;
+        final ability = abilityInfo['ability'] as TechnicalAbility;
+        
+        // 真の能力値を取得
+        final trueValue = targetPlayer.getTechnicalAbility(ability);
+        
+        // 試合観戦は中程度の精度（誤差±6程度）
+        final errorRange = 6;
+        final random = Random();
+        final error = random.nextInt(errorRange * 2 + 1) - errorRange;
+        final scoutedValue = (trueValue + error).clamp(0, 100);
+        
+        scoutedAbilities[columnKey] = scoutedValue;
+      }
+      
+      // フィジカル面の能力値を追加
+      final physicalAbilities = [
+        {'key': 'pace_scouted', 'ability': PhysicalAbility.pace},
+        {'key': 'acceleration_scouted', 'ability': PhysicalAbility.acceleration},
+        {'key': 'agility_scouted', 'ability': PhysicalAbility.agility},
+        {'key': 'balance_scouted', 'ability': PhysicalAbility.balance},
+        {'key': 'jumping_reach_scouted', 'ability': PhysicalAbility.jumpingReach},
+        {'key': 'stamina_scouted', 'ability': PhysicalAbility.stamina},
+        {'key': 'strength_scouted', 'ability': PhysicalAbility.strength},
+        {'key': 'flexibility_scouted', 'ability': PhysicalAbility.flexibility}
+      ];
+      
+      for (final abilityInfo in physicalAbilities) {
+        final columnKey = abilityInfo['key'] as String;
+        final ability = abilityInfo['ability'] as PhysicalAbility;
+        
+        // 真の能力値を取得
+        final trueValue = targetPlayer.getPhysicalAbility(ability);
+        
+        // 試合観戦は中程度の精度（誤差±6程度）
+        final errorRange = 6;
+        final random = Random();
+        final error = random.nextInt(errorRange * 2 + 1) - errorRange;
+        final scoutedValue = (trueValue + error).clamp(0, 100);
+        
+        scoutedAbilities[columnKey] = scoutedValue;
+      }
+      
+      // データベースに保存
+      final insertData = {
+        'player_id': targetPlayer.id ?? 0,
+        'scout_id': scoutId,
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': 80, // 試合観戦は高めの精度
+        ...scoutedAbilities,
+      };
+      
+      // 既存データを削除してから新しいデータを挿入
+      await db.delete(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId],
+      );
+      
+      await db.insert('ScoutAnalysis', insertData);
+      
+      print('技術面・フィジカル面スカウト分析データ生成完了: プレイヤーID ${targetPlayer.id}');
+    } catch (e) {
+      print('技術面・フィジカル面スカウト分析データ生成エラー: $e');
+    }
   }
 }
 

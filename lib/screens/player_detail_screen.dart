@@ -11,6 +11,9 @@ import '../services/game_manager.dart';
 import '../config/debug_config.dart';
 import 'debug_player_detail_screen.dart';
 
+// カテゴリ状況の判定
+enum CategoryStatus { complete, partial, unknown }
+
 class PlayerDetailScreen extends StatefulWidget {
   final Player player;
 
@@ -27,83 +30,98 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   Map<String, int>? _scoutAnalysisData;
   Map<String, dynamic>? _basicInfoAnalysisData;
 
-  // 表示名から列挙型名への変換マップ
-  static final Map<String, String> _displayNameToEnumName = {
+  // 表示名からデータベースカラム名への変換マップ
+  static final Map<String, String> _displayNameToColumnName = {
     // Technical abilities
-    'ミート': 'contact',
-    'パワー': 'power',
-    '選球眼': 'plateDiscipline',
-    'バント': 'bunt',
-    '流し打ち': 'oppositeFieldHitting',
-    'プルヒッティング': 'pullHitting',
-    'バットコントロール': 'batControl',
-    'スイングスピード': 'swingSpeed',
-    '捕球': 'fielding',
-    '送球': 'throwing',
-    '捕手リード': 'catcherAbility',
-    'コントロール': 'control',
-    '球速': 'fastball',
-    '変化球': 'breakingBall',
-    '球種変化量': 'pitchMovement',
+    'ミート': 'contact_scouted',
+    'パワー': 'power_scouted',
+    '選球眼': 'plate_discipline_scouted',
+    'バント': 'bunt_scouted',
+    '流し打ち': 'opposite_field_hitting_scouted',
+    'プルヒッティング': 'pull_hitting_scouted',
+    'バットコントロール': 'bat_control_scouted',
+    'スイングスピード': 'swing_speed_scouted',
+    '捕球': 'fielding_scouted',
+    '送球': 'throwing_scouted',
+    '捕手リード': 'catcher_ability_scouted',
+    'コントロール': 'control_scouted',
+    '球速': 'fastball_scouted',
+    '変化球': 'breaking_ball_scouted',
+    '球種変化量': 'pitch_movement_scouted',
     
     // Mental abilities
-    '集中力': 'concentration',
-    '予測力': 'anticipation',
-    '視野': 'vision',
-    '冷静さ': 'composure',
-    '積極性': 'aggression',
-    '勇敢さ': 'bravery',
-    'リーダーシップ': 'leadership',
-    '勤勉さ': 'workRate',
-    '自己管理': 'selfDiscipline',
-    '野心': 'ambition',
-    'チームワーク': 'teamwork',
-    'ポジショニング': 'positioning',
-    'プレッシャー耐性': 'pressureHandling',
-    '勝負強さ': 'clutchAbility',
+    '集中力': 'concentration_scouted',
+    '予測力': 'anticipation_scouted',
+    '視野': 'vision_scouted',
+    '冷静さ': 'composure_scouted',
+    '積極性': 'aggression_scouted',
+    '勇敢さ': 'bravery_scouted',
+    'リーダーシップ': 'leadership_scouted',
+    '勤勉さ': 'work_rate_scouted',
+    '自己管理': 'self_discipline_scouted',
+    '野心': 'ambition_scouted',
+    'チームワーク': 'teamwork_scouted',
+    'ポジショニング': 'positioning_scouted',
+    'プレッシャー耐性': 'pressure_handling_scouted',
+    '勝負強さ': 'clutch_ability_scouted',
     
     // Physical abilities
-    '加速力': 'acceleration',
-    '敏捷性': 'agility',
-    'バランス': 'balance',
-    '走力': 'pace',
-    '持久力': 'stamina',
-    '筋力': 'strength',
-    '柔軟性': 'flexibility',
-    'ジャンプ力': 'jumpingReach',
-    '自然体力': 'naturalFitness',
-    '怪我しやすさ': 'injuryProneness',
+    '加速力': 'acceleration_scouted',
+    '敏捷性': 'agility_scouted',
+    'バランス': 'balance_scouted',
+    '走力': 'pace_scouted',
+    '持久力': 'stamina_scouted',
+    '筋力': 'strength_scouted',
+    '柔軟性': 'flexibility_scouted',
+    'ジャンプ力': 'jumping_reach_scouted',
+    '自然体力': 'natural_fitness_scouted',
+    '怪我しやすさ': 'injury_proneness_scouted',
   };
 
   @override
   void initState() {
     super.initState();
     _loadScoutAnalysisData();
+    _debugTableStructure();
+  }
+
+  /// テーブル構造をデバッグ出力
+  Future<void> _debugTableStructure() async {
+    try {
+      await _scoutAnalysisService.debugTableStructure();
+    } catch (e) {
+      print('テーブル構造確認エラー: $e');
+    }
   }
 
   /// スカウト分析データを読み込み
   Future<void> _loadScoutAnalysisData() async {
     if (widget.player.id != null) {
       try {
-        final scoutId = 'default_scout'; // 現在のスカウトID
+        final scoutId = '1'; // 現在のスカウトID（action_service.dartと統一）
+        print('スカウト分析データ読み込み開始: プレイヤーID ${widget.player.id}, スカウトID $scoutId');
         
         // 能力値の分析データを読み込み
         final analysisData = await _scoutAnalysisService.getLatestScoutAnalysis(
           widget.player.id!, 
           scoutId
         );
+        print('能力値分析データ: $analysisData');
         
         // 基本情報の分析データを読み込み
         final basicInfoData = await _scoutAnalysisService.getLatestBasicInfoAnalysis(
           widget.player.id!, 
           scoutId
         );
+        print('基本情報分析データ: $basicInfoData');
         
         setState(() {
           _scoutAnalysisData = analysisData;
           _basicInfoAnalysisData = basicInfoData;
           _isLoading = false;
         });
+        
+        print('スカウト分析データ読み込み完了');
       } catch (e) {
         print('スカウト分析データの読み込みエラー: $e');
         setState(() {
@@ -111,6 +129,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         });
       }
     } else {
+      print('プレイヤーIDがnullのため、スカウト分析データを読み込めません');
       setState(() {
         _isLoading = false;
       });
@@ -124,31 +143,42 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     
     if (scoutData != null && scoutData.containsKey(abilityName)) {
       final value = scoutData[abilityName]!;
+      print('能力値取得: $abilityName = $value (スカウト分析データ)');
       return value;
     }
     
     // スカウト分析データがない場合は0を返す（不明として扱う）
+    print('能力値取得: $abilityName = 不明 (スカウト分析データなし)');
     return 0;
   }
 
   /// 技術面能力値を取得
   int _getDisplayTechnicalAbility(TechnicalAbility ability) {
     final abilityName = _getTechnicalAbilityName(ability);
-    if (abilityName == null) return 25;
+    if (abilityName == null) {
+      print('技術面能力値名取得失敗: $ability');
+      return 0; // 不明として扱う
+    }
     return _getDisplayAbility(abilityName);
   }
 
   /// メンタル面能力値を取得
   int _getDisplayMentalAbility(MentalAbility ability) {
     final abilityName = _getMentalAbilityName(ability);
-    if (abilityName == null) return 25;
+    if (abilityName == null) {
+      print('メンタル面能力値名取得失敗: $ability');
+      return 0; // 不明として扱う
+    }
     return _getDisplayAbility(abilityName);
   }
 
   /// フィジカル面能力値を取得
   int _getDisplayPhysicalAbility(PhysicalAbility ability) {
     final abilityName = _getPhysicalAbilityName(ability);
-    if (abilityName == null) return 25;
+    if (abilityName == null) {
+      print('フィジカル面能力値名取得失敗: $ability');
+      return 0; // 不明として扱う
+    }
     return _getDisplayAbility(abilityName);
   }
 
@@ -248,60 +278,60 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       return widget.player.individualPotentials![abilityName];
   }
 
-  /// 技術面能力値名を取得
+  /// 技術面能力値のデータベースカラム名を取得
   String? _getTechnicalAbilityName(TechnicalAbility ability) {
     switch (ability) {
-      case TechnicalAbility.contact: return 'contact';
-      case TechnicalAbility.power: return 'power';
-      case TechnicalAbility.plateDiscipline: return 'plateDiscipline';
-      case TechnicalAbility.bunt: return 'bunt';
-      case TechnicalAbility.oppositeFieldHitting: return 'oppositeFieldHitting';
-      case TechnicalAbility.pullHitting: return 'pullHitting';
-      case TechnicalAbility.batControl: return 'batControl';
-      case TechnicalAbility.swingSpeed: return 'swingSpeed';
-      case TechnicalAbility.fielding: return 'fielding';
-      case TechnicalAbility.throwing: return 'throwing';
-      case TechnicalAbility.catcherAbility: return 'catcherAbility';
-      case TechnicalAbility.control: return 'control';
-      case TechnicalAbility.fastball: return 'fastball';
-      case TechnicalAbility.breakingBall: return 'breakingBall';
-      case TechnicalAbility.pitchMovement: return 'pitchMovement';
+      case TechnicalAbility.contact: return 'contact_scouted';
+      case TechnicalAbility.power: return 'power_scouted';
+      case TechnicalAbility.plateDiscipline: return 'plate_discipline_scouted';
+      case TechnicalAbility.bunt: return 'bunt_scouted';
+      case TechnicalAbility.oppositeFieldHitting: return 'opposite_field_hitting_scouted';
+      case TechnicalAbility.pullHitting: return 'pull_hitting_scouted';
+      case TechnicalAbility.batControl: return 'bat_control_scouted';
+      case TechnicalAbility.swingSpeed: return 'swing_speed_scouted';
+      case TechnicalAbility.fielding: return 'fielding_scouted';
+      case TechnicalAbility.throwing: return 'throwing_scouted';
+      case TechnicalAbility.catcherAbility: return 'catcher_ability_scouted';
+      case TechnicalAbility.control: return 'control_scouted';
+      case TechnicalAbility.fastball: return 'fastball_scouted';
+      case TechnicalAbility.breakingBall: return 'breaking_ball_scouted';
+      case TechnicalAbility.pitchMovement: return 'pitch_movement_scouted';
     }
   }
 
-  /// メンタル面能力値名を取得
+  /// メンタル面能力値のデータベースカラム名を取得
   String? _getMentalAbilityName(MentalAbility ability) {
     switch (ability) {
-      case MentalAbility.concentration: return 'concentration';
-      case MentalAbility.anticipation: return 'anticipation';
-      case MentalAbility.vision: return 'vision';
-      case MentalAbility.composure: return 'composure';
-      case MentalAbility.aggression: return 'aggression';
-      case MentalAbility.bravery: return 'bravery';
-      case MentalAbility.leadership: return 'leadership';
-      case MentalAbility.workRate: return 'workRate';
-      case MentalAbility.selfDiscipline: return 'selfDiscipline';
-      case MentalAbility.ambition: return 'ambition';
-      case MentalAbility.teamwork: return 'teamwork';
-      case MentalAbility.positioning: return 'positioning';
-      case MentalAbility.pressureHandling: return 'pressureHandling';
-      case MentalAbility.clutchAbility: return 'clutchAbility';
+      case MentalAbility.concentration: return 'concentration_scouted';
+      case MentalAbility.anticipation: return 'anticipation_scouted';
+      case MentalAbility.vision: return 'vision_scouted';
+      case MentalAbility.composure: return 'composure_scouted';
+      case MentalAbility.aggression: return 'aggression_scouted';
+      case MentalAbility.bravery: return 'bravery_scouted';
+      case MentalAbility.leadership: return 'leadership_scouted';
+      case MentalAbility.workRate: return 'work_rate_scouted';
+      case MentalAbility.selfDiscipline: return 'self_discipline_scouted';
+      case MentalAbility.ambition: return 'ambition_scouted';
+      case MentalAbility.teamwork: return 'teamwork_scouted';
+      case MentalAbility.positioning: return 'positioning_scouted';
+      case MentalAbility.pressureHandling: return 'pressure_handling_scouted';
+      case MentalAbility.clutchAbility: return 'clutch_ability_scouted';
     }
   }
 
-  /// フィジカル面能力値名を取得
+  /// フィジカル面能力値のデータベースカラム名を取得
   String? _getPhysicalAbilityName(PhysicalAbility ability) {
     switch (ability) {
-      case PhysicalAbility.acceleration: return 'acceleration';
-      case PhysicalAbility.agility: return 'agility';
-      case PhysicalAbility.balance: return 'balance';
-      case PhysicalAbility.jumpingReach: return 'jumpingReach';
-      case PhysicalAbility.flexibility: return 'flexibility';
-      case PhysicalAbility.naturalFitness: return 'naturalFitness';
-      case PhysicalAbility.injuryProneness: return 'injuryProneness';
-      case PhysicalAbility.stamina: return 'stamina';
-      case PhysicalAbility.strength: return 'strength';
-      case PhysicalAbility.pace: return 'pace';
+      case PhysicalAbility.acceleration: return 'acceleration_scouted';
+      case PhysicalAbility.agility: return 'agility_scouted';
+      case PhysicalAbility.balance: return 'balance_scouted';
+      case PhysicalAbility.jumpingReach: return 'jumping_reach_scouted';
+      case PhysicalAbility.flexibility: return 'flexibility_scouted';
+      case PhysicalAbility.naturalFitness: return 'natural_fitness_scouted';
+      case PhysicalAbility.injuryProneness: return 'injury_proneness_scouted';
+      case PhysicalAbility.stamina: return 'stamina_scouted';
+      case PhysicalAbility.strength: return 'strength_scouted';
+      case PhysicalAbility.pace: return 'pace_scouted';
     }
   }
 
@@ -838,6 +868,8 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   
   // 技術面能力値カード
   Widget _buildTechnicalAbilitiesCard(BuildContext context, Color textColor, Color cardBg, Color primaryColor) {
+    final categoryStatus = _getTechnicalAbilityCategoryStatus();
+    
     return Card(
       color: cardBg,
       child: Padding(
@@ -845,14 +877,24 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '技術面',
-              style: TextStyle(
-                color: primaryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: [
+                Text(
+                  '技術面',
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildCategoryStatusIcon(categoryStatus),
+              ],
             ),
+            const SizedBox(height: 8),
+            
+            // カテゴリ状況メッセージ
+            _buildCategoryStatusMessage(categoryStatus, '技術面', '試合観戦や練習試合観戦', textColor),
             const SizedBox(height: 16),
             
             // 投手技術
@@ -917,6 +959,8 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   
   // メンタル面能力値カード
   Widget _buildMentalAbilitiesCard(BuildContext context, Color textColor, Color cardBg, Color categoryColor) {
+    final categoryStatus = _getMentalAbilityCategoryStatus();
+    
     return Card(
       color: cardBg,
       child: Padding(
@@ -924,14 +968,24 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'メンタル面',
-              style: TextStyle(
-                color: categoryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: [
+                Text(
+                  'メンタル面',
+                  style: TextStyle(
+                    color: categoryColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildCategoryStatusIcon(categoryStatus),
+              ],
             ),
+            const SizedBox(height: 8),
+            
+            // カテゴリ状況メッセージ
+            _buildCategoryStatusMessage(categoryStatus, 'メンタル面', 'インタビュー', textColor),
             const SizedBox(height: 16),
             
             // 集中力・判断力
@@ -995,6 +1049,8 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   
   // フィジカル面能力値カード
   Widget _buildPhysicalAbilitiesCard(BuildContext context, Color textColor, Color cardBg, Color categoryColor) {
+    final categoryStatus = _getPhysicalAbilityCategoryStatus();
+    
     return Card(
       color: cardBg,
       child: Padding(
@@ -1002,14 +1058,24 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'フィジカル面',
-              style: TextStyle(
-                color: categoryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: [
+                Text(
+                  'フィジカル面',
+                  style: TextStyle(
+                    color: categoryColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildCategoryStatusIcon(categoryStatus),
+              ],
             ),
+            const SizedBox(height: 8),
+            
+            // カテゴリ状況メッセージ
+            _buildCategoryStatusMessage(categoryStatus, 'フィジカル面', '練習視察', textColor),
             const SizedBox(height: 16),
             
             // 運動能力
@@ -1242,9 +1308,9 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     );
   }
   
-  // ラベルから能力値名を取得
+  // ラベルからデータベースカラム名を取得
   String? _getAbilityNameFromLabel(String label) {
-    return _displayNameToEnumName[label];
+    return _displayNameToColumnName[label];
   }
 
   // ラベルから真の能力値を取得
@@ -1401,9 +1467,9 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     final recommendations = <Widget>[];
     
     // 基本情報が不明な場合
-    if (_getDisplayPersonality() == '不明' || _getDisplayTalent() == '不明' || 
-        _getDisplayGrowthType() == '不明' || _getDisplayMentalGrit() == '不明' || 
-        _getDisplayPeakAbility() == '不明') {
+    if (_getDisplayPersonality() == '性格不明' || _getDisplayTalent() == '才能不明' || 
+        _getDisplayGrowthType() == '成長不明' || _getDisplayMentalGrit() == '精神力不明' || 
+        _getDisplayPeakAbility() == '将来性不明') {
       recommendations.add(_buildActionRecommendation(
         context,
         '📹 ビデオ分析',
@@ -1580,6 +1646,131 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
               fontSize: 14,
             ),
             overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // カテゴリ状況の判定
+
+  CategoryStatus _getTechnicalAbilityCategoryStatus() {
+    final scoutData = _scoutAnalysisData ?? widget.player.scoutAnalysisData;
+    if (scoutData == null) return CategoryStatus.unknown;
+
+    final technicalAbilities = [
+      'control', 'fastball', 'breakingBall', 'pitchMovement',
+      'contact', 'power', 'plateDiscipline', 'bunt', 'oppositeFieldHitting',
+      'pullHitting', 'batControl', 'swingSpeed',
+      'fielding', 'throwing', 'catching', 'positioning'
+    ];
+
+    int knownCount = 0;
+    for (final ability in technicalAbilities) {
+      if (scoutData.containsKey(ability) && scoutData[ability] != 0) {
+        knownCount++;
+      }
+    }
+
+    if (knownCount == 0) return CategoryStatus.unknown;
+    if (knownCount == technicalAbilities.length) return CategoryStatus.complete;
+    return CategoryStatus.partial;
+  }
+
+  CategoryStatus _getMentalAbilityCategoryStatus() {
+    final scoutData = _scoutAnalysisData ?? widget.player.scoutAnalysisData;
+    if (scoutData == null) return CategoryStatus.unknown;
+
+    final mentalAbilities = [
+      'concentration', 'anticipation', 'vision', 'composure',
+      'aggression', 'bravery', 'leadership', 'workRate',
+      'selfDiscipline', 'ambition', 'teamwork', 'positioning',
+      'pressureHandling', 'clutchAbility'
+    ];
+
+    int knownCount = 0;
+    for (final ability in mentalAbilities) {
+      if (scoutData.containsKey(ability) && scoutData[ability] != 0) {
+        knownCount++;
+      }
+    }
+
+    if (knownCount == 0) return CategoryStatus.unknown;
+    if (knownCount == mentalAbilities.length) return CategoryStatus.complete;
+    return CategoryStatus.partial;
+  }
+
+  CategoryStatus _getPhysicalAbilityCategoryStatus() {
+    final scoutData = _scoutAnalysisData ?? widget.player.scoutAnalysisData;
+    if (scoutData == null) return CategoryStatus.unknown;
+
+    final physicalAbilities = [
+      'acceleration', 'agility', 'balance', 'pace',
+      'stamina', 'strength', 'flexibility', 'jumpingReach'
+    ];
+
+    int knownCount = 0;
+    for (final ability in physicalAbilities) {
+      if (scoutData.containsKey(ability) && scoutData[ability] != 0) {
+        knownCount++;
+      }
+    }
+
+    if (knownCount == 0) return CategoryStatus.unknown;
+    if (knownCount == physicalAbilities.length) return CategoryStatus.complete;
+    return CategoryStatus.partial;
+  }
+
+  Widget _buildCategoryStatusIcon(CategoryStatus status) {
+    switch (status) {
+      case CategoryStatus.complete:
+        return const Icon(Icons.check_circle, color: Colors.green, size: 20);
+      case CategoryStatus.partial:
+        return const Icon(Icons.schedule, color: Colors.orange, size: 20);
+      case CategoryStatus.unknown:
+        return const Icon(Icons.help_outline, color: Colors.grey, size: 20);
+    }
+  }
+
+  Widget _buildCategoryStatusMessage(CategoryStatus status, String categoryName, String actionName, Color textColor) {
+    String message;
+    Color messageColor;
+
+    switch (status) {
+      case CategoryStatus.complete:
+        message = '$categoryNameの能力値は完全に把握済みです';
+        messageColor = Colors.green;
+        break;
+      case CategoryStatus.partial:
+        message = '$categoryNameの一部の能力値を把握しています（$actionNameで追加情報を取得可能）';
+        messageColor = Colors.orange;
+        break;
+      case CategoryStatus.unknown:
+        message = '$categoryNameの能力値を把握するには$actionNameを実行してください';
+        messageColor = Colors.grey;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(8.0),
+      decoration: BoxDecoration(
+        color: messageColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: messageColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: messageColor, size: 16),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: messageColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),

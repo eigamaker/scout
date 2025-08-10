@@ -1,16 +1,15 @@
 import 'dart:math';
-import 'dart:convert';
+
 import '../models/game/game.dart';
 import '../models/player/player.dart';
-import '../models/player/pitch.dart';
+
 import '../models/player/player_abilities.dart';
 import '../models/school/school.dart';
-import '../models/news/news_item.dart';
+
 import 'news_service.dart';
 import 'data_service.dart';
-import 'player_generator.dart';
+
 import 'scouting/action_service.dart' as scouting;
-import 'scouting/scout_analysis_service.dart';
 import 'game_data_manager.dart';
 import 'player_data_generator.dart';
 import 'game_state_manager.dart';
@@ -964,24 +963,7 @@ class GameManager {
     return 4;
   }
 
-  String _actionTypeToText(String type) {
-    switch (type) {
-      case 'PRAC_WATCH':
-        return '練習視察';
-      case 'GAME_WATCH':
-        return '試合観戦';
-      case 'scrimmage':
-        return '練習試合観戦';
-      case 'interview':
-        return 'インタビュー';
-      case 'videoAnalyze':
-        return 'ビデオ分析';
-      case 'reportWrite':
-        return 'レポート作成';
-      default:
-        return type;
-    }
-  }
+
 
   void advanceWeek(NewsService newsService, DataService dataService) async {
     if (_currentGame != null) {
@@ -1102,12 +1084,15 @@ class GameManager {
     final results = <String>[];
     
     if (_currentGame == null || _currentGame!.weeklyActions.isEmpty) {
+      print('週送り時のスカウトアクション: アクションなし');
       return results;
     }
     
-    final scoutAnalysisService = ScoutAnalysisService(dataService);
+    print('週送り時のスカウトアクション実行開始: ${_currentGame!.weeklyActions.length}件');
     
     for (final action in _currentGame!.weeklyActions) {
+      print('アクション実行: ${action.type}');
+      
       if (action.type == 'SCOUT_SCHOOL') {
         // 学校視察アクションの実行をActionServiceに委譲
         final schoolIndex = action.schoolId;
@@ -1122,43 +1107,12 @@ class GameManager {
           
           // 結果をゲーム状態に反映
           if (scoutResult.discoveredPlayer != null) {
+            print('選手発掘: ${scoutResult.discoveredPlayer!.name}');
             discoverPlayer(scoutResult.discoveredPlayer!);
-            
-                      // スカウト分析データを保存
-          final scoutId = 'default_scout';
-          final accuracy = 0.6 + (Random().nextDouble() * 0.3);
-          await scoutAnalysisService.saveScoutAnalysis(
-            scoutResult.discoveredPlayer!, 
-            scoutId, 
-            accuracy
-          );
-          
-          // 基本情報の分析データも保存
-          final basicInfoAccuracies = {
-            'personality': 0.5 + (Random().nextDouble() * 0.3),
-            'talent': 0.6 + (Random().nextDouble() * 0.3),
-            'growth': 0.4 + (Random().nextDouble() * 0.3),
-            'mental': 0.5 + (Random().nextDouble() * 0.3),
-            'potential': 0.4 + (Random().nextDouble() * 0.3),
-          };
-          await scoutAnalysisService.saveBasicInfoAnalysis(
-            scoutResult.discoveredPlayer!,
-            scoutId,
-            basicInfoAccuracies,
-          );
           }
           
           if (scoutResult.improvedPlayer != null) {
             updatePlayerKnowledge(scoutResult.improvedPlayer!);
-            
-            // スカウト分析データを更新
-            final scoutId = 'default_scout';
-            final accuracy = 0.7 + (Random().nextDouble() * 0.2);
-            await scoutAnalysisService.saveScoutAnalysis(
-              scoutResult.improvedPlayer!, 
-              scoutId, 
-              accuracy
-            );
           }
           
           results.add(scoutResult.message);
@@ -1179,57 +1133,11 @@ class GameManager {
           if (result.discoveredPlayers.isNotEmpty) {
             for (final player in result.discoveredPlayers) {
               discoverPlayer(player);
-              
-              // 練習視察で判明する能力値のみスカウト分析データを保存
-              final scoutId = 'default_scout';
-              final accuracy = 0.3 + (Random().nextDouble() * 0.2); // 30-50%の精度
-              await scoutAnalysisService.saveScoutAnalysis(
-                player, 
-                scoutId, 
-                accuracy
-              );
-              
-              // 基本情報の分析データも保存（精度は低め）
-              final basicInfoAccuracies = {
-                'personality': 0.1 + (Random().nextDouble() * 0.1), // 10-20%
-                'talent': 0.2 + (Random().nextDouble() * 0.2), // 20-40%
-                'growth': 0.1 + (Random().nextDouble() * 0.1), // 10-20%
-                'mental': 0.1 + (Random().nextDouble() * 0.1), // 10-20%
-                'potential': 0.1 + (Random().nextDouble() * 0.1), // 10-20%
-              };
-              await scoutAnalysisService.saveBasicInfoAnalysis(
-                player,
-                scoutId,
-                basicInfoAccuracies,
-              );
             }
           }
           
           if (result.improvedPlayer != null) {
             updatePlayerKnowledge(result.improvedPlayer!);
-            
-            // スカウト分析データを更新
-            final scoutId = 'default_scout';
-            final accuracy = 0.75 + (Random().nextDouble() * 0.15);
-            await scoutAnalysisService.saveScoutAnalysis(
-              result.improvedPlayer!, 
-              scoutId, 
-              accuracy
-            );
-            
-            // 基本情報の分析データも更新
-            final basicInfoAccuracies = {
-              'personality': 0.6 + (Random().nextDouble() * 0.3),
-              'talent': 0.7 + (Random().nextDouble() * 0.2),
-              'growth': 0.5 + (Random().nextDouble() * 0.3),
-              'mental': 0.6 + (Random().nextDouble() * 0.3),
-              'potential': 0.5 + (Random().nextDouble() * 0.3),
-            };
-            await scoutAnalysisService.saveBasicInfoAnalysis(
-              result.improvedPlayer!,
-              scoutId,
-              basicInfoAccuracies,
-            );
           }
           
           results.add(result.message);
@@ -1250,7 +1158,7 @@ class GameManager {
             );
           }
           
-          final result = scouting.ActionService.practiceWatch(
+          final result = await scouting.ActionService.practiceWatch(
             school: school,
             targetPlayer: targetPlayer,
             scoutSkills: _currentGame!.scoutSkills,
@@ -1260,55 +1168,10 @@ class GameManager {
           // 結果をゲーム状態に反映
           if (result.discoveredPlayer != null) {
             discoverPlayer(result.discoveredPlayer!);
-            
-                      // スカウト分析データを保存
-          final scoutId = 'default_scout';
-          final accuracy = 0.65 + (Random().nextDouble() * 0.25);
-          await scoutAnalysisService.saveScoutAnalysis(
-            result.discoveredPlayer!, 
-            scoutId, 
-            accuracy
-          );
-          
-          // 基本情報の分析データも保存
-          final basicInfoAccuracies = {
-            'personality': 0.5 + (Random().nextDouble() * 0.3),
-            'talent': 0.6 + (Random().nextDouble() * 0.3),
-            'growth': 0.4 + (Random().nextDouble() * 0.3),
-            'mental': 0.5 + (Random().nextDouble() * 0.3),
-            'potential': 0.4 + (Random().nextDouble() * 0.3),
-          };
-          await scoutAnalysisService.saveBasicInfoAnalysis(
-            result.discoveredPlayer!,
-            scoutId,
-            basicInfoAccuracies,
-          );
           }
+          
           if (result.improvedPlayer != null) {
             updatePlayerKnowledge(result.improvedPlayer!);
-            
-                      // スカウト分析データを更新
-          final scoutId = 'default_scout';
-          final accuracy = 0.75 + (Random().nextDouble() * 0.15);
-          await scoutAnalysisService.saveScoutAnalysis(
-            result.improvedPlayer!, 
-            scoutId, 
-            accuracy
-          );
-          
-          // 基本情報の分析データも更新
-          final basicInfoAccuracies = {
-            'personality': 0.6 + (Random().nextDouble() * 0.3),
-            'talent': 0.7 + (Random().nextDouble() * 0.2),
-            'growth': 0.5 + (Random().nextDouble() * 0.3),
-            'mental': 0.6 + (Random().nextDouble() * 0.3),
-            'potential': 0.5 + (Random().nextDouble() * 0.3),
-          };
-          await scoutAnalysisService.saveBasicInfoAnalysis(
-            result.improvedPlayer!,
-            scoutId,
-            basicInfoAccuracies,
-          );
           }
           
           results.add(result.message);
@@ -1329,7 +1192,7 @@ class GameManager {
             );
           }
           
-          final result = scouting.ActionService.gameWatch(
+          final result = await scouting.ActionService.gameWatch(
             school: school,
             targetPlayer: targetPlayer,
             scoutSkills: _currentGame!.scoutSkills,
@@ -1339,107 +1202,15 @@ class GameManager {
           // 結果をゲーム状態に反映
           if (result.discoveredPlayer != null) {
             discoverPlayer(result.discoveredPlayer!);
-            
-            // スカウト分析データを保存
-            final scoutId = 'default_scout';
-            final accuracy = 0.7 + (Random().nextDouble() * 0.2);
-            await scoutAnalysisService.saveScoutAnalysis(
-              result.discoveredPlayer!, 
-              scoutId, 
-              accuracy
-            );
           }
+          
           if (result.improvedPlayer != null) {
             updatePlayerKnowledge(result.improvedPlayer!);
-            
-            // スカウト分析データを更新
-            final scoutId = 'default_scout';
-            final accuracy = 0.8 + (Random().nextDouble() * 0.1);
-            await scoutAnalysisService.saveScoutAnalysis(
-              result.improvedPlayer!, 
-              scoutId, 
-              accuracy
-            );
           }
           
           results.add(result.message);
         }
-      } else if (action.type == 'INTERVIEW') {
-        // インタビューアクション
-        final playerId = action.playerId;
-        if (playerId != null) {
-          // 全学校から対象選手を検索
-          Player? targetPlayer;
-          for (final school in _currentGame!.schools) {
-            try {
-              targetPlayer = school.players.firstWhere((p) => p.id == playerId);
-              break;
-            } catch (e) {
-              continue;
-            }
-          }
-          
-          if (targetPlayer != null) {
-            final result = scouting.ActionService.interview(
-              targetPlayer: targetPlayer,
-              scoutSkills: _currentGame!.scoutSkills,
-              currentWeek: _currentGame!.currentWeekOfMonth,
-            );
-            
-            if (result.improvedPlayer != null) {
-              updatePlayerKnowledge(result.improvedPlayer!);
-              
-              // スカウト分析データを更新
-              final scoutId = 'default_scout';
-              final accuracy = 0.85 + (Random().nextDouble() * 0.1);
-              await scoutAnalysisService.saveScoutAnalysis(
-                result.improvedPlayer!, 
-                scoutId, 
-                accuracy
-              );
-            }
-            
-            results.add(result.message);
-          }
-        }
-      } else if (action.type == 'VIDEO_ANALYZE') {
-        // ビデオ分析アクション
-        final playerId = action.playerId;
-        if (playerId != null) {
-          // 全学校から対象選手を検索
-          Player? targetPlayer;
-          for (final school in _currentGame!.schools) {
-            try {
-              targetPlayer = school.players.firstWhere((p) => p.id == playerId);
-              break;
-            } catch (e) {
-              continue;
-            }
-          }
-          
-          if (targetPlayer != null) {
-            final result = scouting.ActionService.videoAnalyze(
-              targetPlayer: targetPlayer,
-              scoutSkills: _currentGame!.scoutSkills,
-              currentWeek: _currentGame!.currentWeekOfMonth,
-            );
-            
-            if (result.improvedPlayer != null) {
-              updatePlayerKnowledge(result.improvedPlayer!);
-              
-              // 才能、成長タイプ、ポテンシャル関連の能力値のみスカウト分析データを更新
-              final scoutId = 'default_scout';
-              final accuracy = 0.7 + (Random().nextDouble() * 0.2); // 70-90%の精度
-              await scoutAnalysisService.saveScoutAnalysis(
-                result.improvedPlayer!, 
-                scoutId, 
-                accuracy
-              );
-            }
-            
-            results.add(result.message);
-          }
-        }
+
       } else if (action.type == 'scrimmage') {
         // 練習試合観戦アクション
         final schoolIndex = action.schoolId;
@@ -1456,7 +1227,7 @@ class GameManager {
             );
           }
           
-          final result = scouting.ActionService.scrimmage(
+          final result = await scouting.ActionService.scrimmage(
             school: school,
             targetPlayer: targetPlayer,
             scoutSkills: _currentGame!.scoutSkills,
@@ -1466,27 +1237,10 @@ class GameManager {
           // 結果をゲーム状態に反映
           if (result.discoveredPlayer != null) {
             discoverPlayer(result.discoveredPlayer!);
-            
-            // 技術面の能力値のみスカウト分析データを保存
-            final scoutId = 'default_scout';
-            final accuracy = 0.4 + (Random().nextDouble() * 0.3); // 40-70%の精度
-            await scoutAnalysisService.saveScoutAnalysis(
-              result.discoveredPlayer!, 
-              scoutId, 
-              accuracy
-            );
           }
+          
           if (result.improvedPlayer != null) {
             updatePlayerKnowledge(result.improvedPlayer!);
-            
-            // 技術面の能力値のみスカウト分析データを更新
-            final scoutId = 'default_scout';
-            final accuracy = 0.5 + (Random().nextDouble() * 0.3); // 50-80%の精度
-            await scoutAnalysisService.saveScoutAnalysis(
-              result.improvedPlayer!, 
-              scoutId, 
-              accuracy
-            );
           }
           
           results.add(result.message);
@@ -1503,8 +1257,9 @@ class GameManager {
             orElse: () => school.players.first,
           );
           
-          final result = scouting.ActionService.interview(
+          final result = await scouting.ActionService.interview(
             targetPlayer: targetPlayer,
+            scout: _currentScout ?? Scout.createDefault('デフォルトスカウト'),
             scoutSkills: _currentGame!.scoutSkills,
             currentWeek: _currentGame!.currentWeekOfMonth,
           );
@@ -1512,18 +1267,38 @@ class GameManager {
           // 結果をゲーム状態に反映
           if (result.improvedPlayer != null) {
             updatePlayerKnowledge(result.improvedPlayer!);
-            
-            // メンタル面の能力値のみスカウト分析データを更新
-            final scoutId = 'default_scout';
-            final accuracy = 0.6 + (Random().nextDouble() * 0.3); // 60-90%の精度
-            await scoutAnalysisService.saveScoutAnalysis(
-              result.improvedPlayer!, 
-              scoutId, 
-              accuracy
-            );
           }
           
           results.add(result.message);
+        }
+      } else if (action.type == 'videoAnalyze') {
+        // ビデオ分析アクション
+        final playerId = action.playerId;
+        if (playerId != null) {
+          // 全学校から対象選手を検索
+          Player? targetPlayer;
+          for (final school in _currentGame!.schools) {
+            try {
+              targetPlayer = school.players.firstWhere((p) => p.id == playerId);
+              break;
+            } catch (e) {
+              continue;
+            }
+          }
+          
+          if (targetPlayer != null) {
+            final result = await scouting.ActionService.videoAnalyze(
+              targetPlayer: targetPlayer,
+              scoutSkills: _currentGame!.scoutSkills,
+              currentWeek: _currentGame!.currentWeekOfMonth,
+            );
+            
+            if (result.improvedPlayer != null) {
+              updatePlayerKnowledge(result.improvedPlayer!);
+            }
+            
+            results.add(result.message);
+          }
         }
       } else if (action.type == 'reportWrite') {
         // レポート作成アクション

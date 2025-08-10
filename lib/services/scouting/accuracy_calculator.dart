@@ -5,6 +5,9 @@ class AccuracyCalculator {
   // 選手情報とスキルの関連性マップ
   static const Map<String, Map<String, dynamic>> _infoSkillMapping = {
     '現在の能力値': {'primary': ScoutSkill.observation, 'primaryCoef': 0.7, 'sub': ScoutSkill.analysis, 'subCoef': 0.3},
+    'フィジカル面能力値': {'primary': ScoutSkill.observation, 'primaryCoef': 0.7, 'sub': ScoutSkill.analysis, 'subCoef': 0.3},
+    '技術面能力値': {'primary': ScoutSkill.observation, 'primaryCoef': 0.7, 'sub': ScoutSkill.analysis, 'subCoef': 0.3},
+    'メンタル面能力値': {'primary': ScoutSkill.communication, 'primaryCoef': 0.7, 'sub': ScoutSkill.insight, 'subCoef': 0.3},
     '成長スピード': {'primary': ScoutSkill.analysis, 'primaryCoef': 0.6, 'sub': ScoutSkill.observation, 'subCoef': 0.4},
     '成長タイプ': {'primary': ScoutSkill.analysis, 'primaryCoef': 0.5, 'sub': ScoutSkill.insight, 'subCoef': 0.5},
     'ポテンシャル': {'primary': ScoutSkill.insight, 'primaryCoef': 0.6, 'sub': ScoutSkill.analysis, 'subCoef': 0.4},
