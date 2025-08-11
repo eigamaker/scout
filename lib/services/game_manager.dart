@@ -24,9 +24,24 @@ class GameManager {
   late final GameDataManager _gameDataManager;
   late final PlayerDataGenerator _playerDataGenerator;
   Scout? _currentScout;
+  
+  // 成長処理状態の管理
+  bool _isProcessingGrowth = false;
+  String _growthStatusMessage = '';
 
   Game? get currentGame => _currentGame;
   Scout? get currentScout => _currentScout;
+  
+  // 成長処理状態のゲッター
+  bool get isProcessingGrowth => _isProcessingGrowth;
+  String get growthStatusMessage => _growthStatusMessage;
+
+  // 成長処理状態を更新するプライベートメソッド
+  void _updateGrowthStatus(bool isProcessing, String message) {
+    _isProcessingGrowth = isProcessing;
+    _growthStatusMessage = message;
+    print('GameManager: 成長処理状態更新 - $isProcessing: $message');
+  }
 
   GameManager(DataService dataService) {
     _gameDataManager = GameDataManager(dataService);
@@ -399,17 +414,48 @@ class GameManager {
   // 3月1週→2週の週送り時に卒業処理（3年生を削除）
   Future<void> graduateThirdYearStudents(DataService dataService) async {
     if (_currentGame == null) return;
-    final db = await dataService.database;
-    final updatedSchools = <School>[];
-    for (final school in _currentGame!.schools) {
-      final remaining = school.players.where((p) => p.grade < 3).toList();
-      // DBからも3年生を削除
-      for (final p in school.players.where((p) => p.grade == 3)) {
-        await db.delete('Player', where: 'name = ? AND school_id = ?', whereArgs: [p.name, school.name]);
+    
+    print('GameManager.graduateThirdYearStudents: 卒業処理開始');
+    _updateGrowthStatus(true, '3年生の卒業処理を実行中...');
+    
+    try {
+      final db = await dataService.database;
+      final updatedSchools = <School>[];
+      
+      for (final school in _currentGame!.schools) {
+        print('GameManager.graduateThirdYearStudents: 学校 ${school.name} の卒業処理開始');
+        print('GameManager.graduateThirdYearStudents: ${school.name} - 全選手数: ${school.players.length}名');
+        
+        final remaining = school.players.where((p) => p.grade < 3).toList();
+        final graduating = school.players.where((p) => p.grade == 3).toList();
+        
+        print('GameManager.graduateThirdYearStudents: ${school.name} - 残る選手: ${remaining.length}名, 卒業: ${graduating.length}名');
+        
+        // 卒業する選手の詳細情報をログ出力
+        for (final p in graduating) {
+          print('GameManager.graduateThirdYearStudents: 卒業予定選手 - ID: ${p.id}, 名前: ${p.name}, 学年: ${p.grade}年生, 学校: ${p.school}');
+        }
+        
+        // DBからも3年生を削除
+        for (final p in graduating) {
+          print('GameManager.graduateThirdYearStudents: 選手 ${p.name} (${p.grade}年生) を卒業処理中...');
+          final deleteResult = await db.delete('Player', where: 'name = ? AND school_id = ?', whereArgs: [p.name, school.name]);
+          print('GameManager.graduateThirdYearStudents: 選手 ${p.name} の卒業処理完了 - 削除結果: $deleteResult');
+        }
+        
+        updatedSchools.add(school.copyWith(players: remaining));
+        print('GameManager.graduateThirdYearStudents: 学校 ${school.name} の卒業処理完了 - 残り選手数: ${remaining.length}名');
       }
-      updatedSchools.add(school.copyWith(players: remaining));
+      
+      _currentGame = _currentGame!.copyWith(schools: updatedSchools);
+      _updateGrowthStatus(false, '卒業処理完了');
+      print('GameManager.graduateThirdYearStudents: 全学校の卒業処理完了');
+      
+    } catch (e) {
+      _updateGrowthStatus(false, '卒業処理でエラーが発生しました');
+      print('GameManager.graduateThirdYearStudents: エラーが発生しました: $e');
+      rethrow;
     }
-    _currentGame = _currentGame!.copyWith(schools: updatedSchools);
   }
 
   // 3月5週→4月1週の週送り時に全選手のgradeを+1
@@ -430,10 +476,90 @@ class GameManager {
     _currentGame = _currentGame!.copyWith(schools: updatedSchools);
   }
 
-  // 全選手の成長処理（3か月ごと）
-  void growAllPlayers() {
+  // 全選手の成長処理（半年ごと）
+  Future<void> growAllPlayers(DataService dataService) async {
     if (_currentGame == null) return;
-    _currentGame = GameStateManager.growAllPlayers(_currentGame!);
+    
+    print('GameManager.growAllPlayers: 全選手の成長処理開始');
+    _updateGrowthStatus(true, '選手の成長処理を実行中...');
+    
+    try {
+      _currentGame = GameStateManager.growAllPlayers(_currentGame!);
+      
+      // 成長後の選手データをデータベースに保存
+      _updateGrowthStatus(true, '成長データをデータベースに保存中...');
+      await _saveGrownPlayersToDatabase(dataService);
+      
+      _updateGrowthStatus(false, '成長処理完了');
+      print('GameManager.growAllPlayers: 全選手の成長処理完了（データベース保存済み）');
+    } catch (e) {
+      _updateGrowthStatus(false, '成長処理でエラーが発生しました');
+      print('GameManager.growAllPlayers: エラーが発生しました: $e');
+      rethrow;
+    }
+  }
+
+  // 成長後の選手データをデータベースに保存
+  Future<void> _saveGrownPlayersToDatabase(DataService dataService) async {
+    try {
+      final db = await dataService.database;
+      
+      // バッチ更新用のデータを準備
+      final batch = db.batch();
+      int updateCount = 0;
+      
+      for (final school in _currentGame!.schools) {
+        for (final player in school.players) {
+          final updates = <String, dynamic>{};
+          
+          // 技術面能力値を収集
+          for (final entry in player.technicalAbilities.entries) {
+            final columnName = _getDatabaseColumnName(entry.key.name);
+            updates[columnName] = entry.value;
+          }
+          
+          // メンタル面能力値を収集
+          for (final entry in player.mentalAbilities.entries) {
+            final columnName = _getDatabaseColumnName(entry.key.name);
+            updates[columnName] = entry.value;
+          }
+          
+          // フィジカル面能力値を収集
+          for (final entry in player.physicalAbilities.entries) {
+            final columnName = _getDatabaseColumnName(entry.key.name);
+            updates[columnName] = entry.value;
+          }
+          
+          // バッチに更新を追加
+          if (updates.isNotEmpty) {
+            batch.update(
+              'Player',
+              updates,
+              where: 'id = ?',
+              whereArgs: [player.id],
+            );
+            updateCount++;
+          }
+        }
+      }
+      
+      // バッチ更新を実行
+      print('GameManager: $updateCount件の選手データをバッチ更新で保存中...');
+      await batch.commit(noResult: true);
+      print('GameManager: 選手データのバッチ更新完了');
+      
+    } catch (e) {
+      print('GameManager: 選手データ保存中にエラーが発生しました: $e');
+    }
+  }
+
+  // 能力値名をデータベースカラム名に変換
+  String _getDatabaseColumnName(String abilityName) {
+    // camelCase → snake_case 変換
+    return abilityName.replaceAllMapped(
+      RegExp(r'([A-Z])'),
+      (match) => '_${match.group(1)!.toLowerCase()}'
+    );
   }
 
   // スカウトスキル成長メソッド
@@ -851,89 +977,164 @@ class GameManager {
     final results = <String>[];
     if (_currentGame == null) return results;
     
-
+    print('GameManager.advanceWeekWithResults: 週送り処理開始');
+    print('GameManager.advanceWeekWithResults: 現在の状態 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 年: ${_currentGame!.currentYear}');
     
     // スカウトアクションを実行
+    print('GameManager.advanceWeekWithResults: スカウトアクション実行開始');
     final scoutResults = await executeScoutActions(dataService);
     results.addAll(scoutResults);
+    print('GameManager.advanceWeekWithResults: スカウトアクション実行完了 - 結果数: ${scoutResults.length}');
     
     // 3月1週→2週の週送り時に卒業処理
     final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 1;
+    print('GameManager.advanceWeekWithResults: 卒業処理判定 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 卒業処理: $isGraduation');
+    
     if (isGraduation) {
-      await graduateThirdYearStudents(dataService);
-      await _refreshPlayersFromDb(dataService);
-      results.add('3年生が卒業しました。学校には1・2年生のみが在籍しています。');
+      print('GameManager.advanceWeekWithResults: 卒業処理開始');
+      _updateGrowthStatus(true, '3年生の卒業処理を実行中...');
+      
+      try {
+        await graduateThirdYearStudents(dataService);
+        print('GameManager.advanceWeekWithResults: 卒業処理完了、データベース更新開始');
+        await _refreshPlayersFromDb(dataService);
+        print('GameManager.advanceWeekWithResults: データベース更新完了');
+        results.add('3年生が卒業しました。学校には1・2年生のみが在籍しています。');
+        print('GameManager.advanceWeekWithResults: 卒業処理完了');
+      } catch (e) {
+        print('GameManager.advanceWeekWithResults: 卒業処理でエラーが発生しました: $e');
+        _updateGrowthStatus(false, '卒業処理でエラーが発生しました');
+        rethrow;
+      }
     }
     
     // 3月5週→4月1週の週送り時に学年アップ＋新入生生成
     final isNewYear = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 5;
+    print('GameManager.advanceWeekWithResults: 新年度処理判定 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 新年度処理: $isNewYear');
+    
     if (isNewYear) {
-      await promoteAllStudents(dataService);
-      await generateNewStudentsForAllSchoolsDb(dataService);
-      await _refreshPlayersFromDb(dataService);
-      results.add('新年度が始まり、全学校で学年が1つ上がり新1年生が入学しました！');
+      print('GameManager.advanceWeekWithResults: 新年度処理開始');
+      _updateGrowthStatus(true, '新年度処理を実行中...');
       
-      // 新年度開始時のニュース生成
-      newsService.generateAllPlayerNews(
-        _currentGame!.schools,
-        year: _currentGame!.currentYear,
-        month: _currentGame!.currentMonth,
-        weekOfMonth: _currentGame!.currentWeekOfMonth,
-      );
-      newsService.generateDraftNews(
-        year: _currentGame!.currentYear,
-        month: _currentGame!.currentMonth,
-        weekOfMonth: _currentGame!.currentWeekOfMonth,
-      );
+      try {
+        print('GameManager.advanceWeekWithResults: 学年アップ処理開始');
+        await promoteAllStudents(dataService);
+        print('GameManager.advanceWeekWithResults: 学年アップ処理完了');
+        
+        print('GameManager.advanceWeekWithResults: 新入生生成開始');
+        await generateNewStudentsForAllSchoolsDb(dataService);
+        print('GameManager.advanceWeekWithResults: 新入生生成完了');
+        
+        print('GameManager.advanceWeekWithResults: データベース更新開始');
+        await _refreshPlayersFromDb(dataService);
+        print('GameManager.advanceWeekWithResults: データベース更新完了');
+        
+        results.add('新年度が始まり、全学校で学年が1つ上がり新1年生が入学しました！');
+        
+        // 新年度開始時のニュース生成
+        print('GameManager.advanceWeekWithResults: 新年度ニュース生成開始');
+        _updateGrowthStatus(true, '新年度ニュースを生成中...');
+        newsService.generateAllPlayerNews(
+          _currentGame!.schools,
+          year: _currentGame!.currentYear,
+          month: _currentGame!.currentMonth,
+          weekOfMonth: _currentGame!.currentWeekOfMonth,
+        );
+        newsService.generateDraftNews(
+          year: _currentGame!.currentYear,
+          month: _currentGame!.currentMonth,
+          weekOfMonth: _currentGame!.currentWeekOfMonth,
+        );
+        print('GameManager.advanceWeekWithResults: 新年度ニュース生成完了');
+        
+        _updateGrowthStatus(false, '新年度処理完了');
+        print('GameManager.advanceWeekWithResults: 新年度処理完了');
+      } catch (e) {
+        print('GameManager.advanceWeekWithResults: 新年度処理でエラーが発生しました: $e');
+        _updateGrowthStatus(false, '新年度処理でエラーが発生しました');
+        rethrow;
+      }
     }
     
-    // 半年ごとの成長処理（3月1週と9月1週）
+    // 半年ごとの成長処理（2月末週から3月1週、8月末週から9月1週）
+    print('GameManager.advanceWeekWithResults: 成長判定開始');
     final currentWeek = _calculateCurrentWeek(_currentGame!.currentMonth, _currentGame!.currentWeekOfMonth);
     final isGrowthWeek = GrowthService.shouldGrow(currentWeek);
+    print('GameManager.advanceWeek: 現在週: $currentWeek, 成長週か: $isGrowthWeek');
+    
     if (isGrowthWeek) {
-      growAllPlayers();
+      print('GameManager.advanceWeek: 成長週を検出 - 全選手の成長処理を開始');
+      _updateGrowthStatus(true, '選手の成長期が訪れました。成長処理を実行中...');
       
-      // 成長後に新たに注目選手になった選手をチェック
-      _updatePubliclyKnownPlayersAfterGrowth();
-      
-      results.add('選手たちの成長期が訪れました。選手たちが成長しています。');
-      
-      // 成長後のニュース生成
-      newsService.generateAllPlayerNews(
-        _currentGame!.schools,
-        year: _currentGame!.currentYear,
-        month: _currentGame!.currentMonth,
-        weekOfMonth: _currentGame!.currentWeekOfMonth,
-      );
+      try {
+        await growAllPlayers(dataService);
+        
+        // 成長後に新たに注目選手になった選手をチェック
+        _updateGrowthStatus(true, '注目選手の更新を確認中...');
+        _updatePubliclyKnownPlayersAfterGrowth();
+        
+        results.add('選手たちの成長期が訪れました。選手たちが成長しています。');
+        
+        // 成長後のニュース生成
+        _updateGrowthStatus(true, '成長ニュースを生成中...');
+        newsService.generateAllPlayerNews(
+          _currentGame!.schools,
+          year: _currentGame!.currentYear,
+          month: _currentGame!.currentMonth,
+          weekOfMonth: _currentGame!.currentWeekOfMonth,
+        );
+        
+        _updateGrowthStatus(false, '成長処理完了');
+        print('GameManager.advanceWeek: 成長処理完了');
+      } catch (e) {
+        print('GameManager.advanceWeek: 成長処理でエラーが発生しました: $e');
+        _updateGrowthStatus(false, '成長処理でエラーが発生しました');
+        rethrow;
+      }
+    } else {
+      print('GameManager.advanceWeek: 成長週ではありません - 成長処理はスキップ');
     }
     
     // 週送り時のニュース生成（毎週）
+    print('GameManager.advanceWeekWithResults: ニュース生成開始');
     _generateWeeklyNews(newsService);
+    print('GameManager.advanceWeekWithResults: ニュース生成完了');
     
     // 週送り（週進行、AP/予算リセット、アクションリセット）
+    print('GameManager.advanceWeekWithResults: 週送り処理開始');
+    print('GameManager.advanceWeekWithResults: 週送り前 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}');
+    
     _currentGame = _currentGame!
       .advanceWeek()
       .resetWeeklyResources(newAp: 15, newBudget: _currentGame!.budget)
       .resetActions();
     
+    print('GameManager.advanceWeekWithResults: 週送り後 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}');
+    print('GameManager.advanceWeekWithResults: 週送り処理完了');
+    
     // スカウトのAPを最大値まで回復
     if (_currentScout != null) {
+      print('GameManager.advanceWeekWithResults: スカウトAP回復処理開始');
       _currentScout = _currentScout!.restoreActionPoints(_currentScout!.maxActionPoints);
       // GameインスタンスのAPも更新
       _currentGame = _currentGame!.copyWith(
         ap: _currentScout!.actionPoints,
       );
+      print('GameManager.advanceWeekWithResults: スカウトAP回復処理完了 - 現在AP: ${_currentScout!.actionPoints}');
     }
     
     // ニュースをゲームデータに保存
+    print('GameManager.advanceWeekWithResults: ニュース保存開始');
     saveNewsToGame(newsService);
+    print('GameManager.advanceWeekWithResults: ニュース保存完了');
     
     // オートセーブ（週送り完了後）
+    print('GameManager.advanceWeekWithResults: オートセーブ開始');
     await saveGame();
     await _gameDataManager.saveAutoGameData(_currentGame!);
+    print('GameManager.advanceWeekWithResults: オートセーブ完了');
     
-
-    
+    print('GameManager.advanceWeekWithResults: 週送り処理完了');
     return results;
   }
 
@@ -971,13 +1172,16 @@ class GameManager {
     return 0;
   }
 
-  // 現在の週番号を計算（4月1週を1週目として計算）
+  // 現在の週番号を計算（2月1週を1週目として計算）
   int _calculateCurrentWeek(int month, int weekOfMonth) {
     int totalWeeks = 0;
-    for (int m = 4; m < month; m++) {
+    for (int m = 2; m < month; m++) {
       totalWeeks += _getWeeksInMonth(m);
     }
     totalWeeks += weekOfMonth;
+    
+    print('GameManager._calculateCurrentWeek: 月=$month, 月内週=$weekOfMonth → 総週数=$totalWeeks');
+    
     return totalWeeks;
   }
 

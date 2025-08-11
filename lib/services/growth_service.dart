@@ -11,7 +11,15 @@ class GrowthService {
 
   // 成長タイミングの判定
   static bool shouldGrow(int currentWeek) {
-    return _isSpringGrowthPeriod(currentWeek) || _isSummerGrowthPeriod(currentWeek);
+    final isSpring = _isSpringGrowthPeriod(currentWeek);
+    final isSummer = _isSummerGrowthPeriod(currentWeek);
+    final shouldGrow = isSpring || isSummer;
+    
+    if (shouldGrow) {
+      print('GrowthService: 週$currentWeekで選手成長を実行します');
+    }
+    
+    return shouldGrow;
   }
 
   static bool _isSpringGrowthPeriod(int week) {
@@ -24,8 +32,6 @@ class GrowthService {
 
   // 選手の成長処理
   static Player growPlayer(Player player) {
-    print('GrowthService.growPlayer: 選手ID ${player.id} (${player.name}) の成長処理開始');
-    print('GrowthService.growPlayer: 選手情報 - 学年: ${player.grade}, 成長タイプ: ${player.growthType}, 成長率: ${player.growthRate}');
     final random = Random();
     
     // 各能力値を成長させる
@@ -55,7 +61,6 @@ class GrowthService {
       mentalAbilities: updatedMentalAbilities,
       physicalAbilities: updatedPhysicalAbilities,
     );
-    print('GrowthService.growPlayer: 選手ID ${player.id} (${player.name}) の成長処理完了');
     return grownPlayer;
   }
 
@@ -113,12 +118,6 @@ class GrowthService {
 
     final growthAmount = baseGrowth * growthRate * mentalGritBonus * talentBonus * randomFactor * potentialPenalty;
     final finalGrowthAmount = growthAmount.round().clamp(0, 10); // 最大成長量を10に制限
-    
-    // 詳細な成長計算ログ（デバッグ用）
-    if (finalGrowthAmount > 0) {
-      print('GrowthService._calculateGrowthAmount: 選手ID ${player.id} - 現在値: $currentValue, ポテンシャル: $potential, 成長量: $finalGrowthAmount');
-      print('GrowthService._calculateGrowthAmount: 計算要素 - baseGrowth: ${baseGrowth.toStringAsFixed(2)}, growthRate: ${growthRate.toStringAsFixed(2)}, mentalGritBonus: ${mentalGritBonus.toStringAsFixed(2)}, talentBonus: ${talentBonus.toStringAsFixed(2)}, randomFactor: ${randomFactor.toStringAsFixed(2)}, potentialPenalty: ${potentialPenalty.toStringAsFixed(2)}');
-    }
     
     return finalGrowthAmount;
   }

@@ -100,167 +100,95 @@ class _GameScreenState extends State<GameScreen> {
               onTap: () => Navigator.pushNamed(context, '/scoutSkill'),
             ),
             ListTile(
-              leading: const Icon(Icons.assignment),
-              title: const Text('球団からの要望'),
-              onTap: () => Navigator.pushNamed(context, '/teamRequests'),
+              leading: const Icon(Icons.settings),
+              title: const Text('設定'),
+              onTap: () => Navigator.pushNamed(context, '/settings'),
             ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.save),
-              title: const Text('セーブ'),
+              title: const Text('ゲーム保存'),
               onTap: () async {
-                final dataService = Provider.of<DataService>(context, listen: false);
                 final gameManager = Provider.of<GameManager>(context, listen: false);
-                final slot = await showDialog<int>(
-                  context: context,
-                  builder: (context) => SimpleDialog(
-                    title: const Text('セーブスロットを選択'),
-                    children: [
-                      for (int i = 1; i <= 3; i++)
-                        SimpleDialogOption(
-                          onPressed: () => Navigator.pop(context, i),
-                          child: Text('スロット$i'),
-                        ),
-                    ],
-                  ),
-                );
-                if (slot != null) {
-                  await gameManager.saveGame();
+                final newsService = Provider.of<NewsService>(context, listen: false);
+                await gameManager.saveGameWithNews(newsService);
+                if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('スロット$slotにセーブしました')),
+                    const SnackBar(content: Text('ゲームを保存しました')),
                   );
                 }
               },
             ),
             ListTile(
-              leading: const Icon(Icons.folder_open),
-              title: const Text('ロード'),
-              onTap: () async {
-                final dataService = Provider.of<DataService>(context, listen: false);
-                final loaded = await gameManager.loadGame(1, dataService); // デフォルトスロット1を使用
-                if (loaded) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ロードしました')),
-                  );
-                  // UIを更新するためにsetStateを呼び出し
-                  setState(() {});
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('セーブデータがありません')),
-                  );
-                }
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text('ホームに戻る'),
-              onTap: () {
-                Navigator.pushNamedAndRemoveUntil(context, '/mainMenu', (route) => false);
-              },
+              leading: const Icon(Icons.exit_to_app),
+              title: const Text('メインメニュー'),
+              onTap: () => Navigator.pushReplacementNamed(context, '/mainMenu'),
             ),
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 基礎情報カード（統合）
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.info_outline),
-                        const SizedBox(width: 8),
-                        Text(
-                          '基礎情報',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _infoRow(Icons.calendar_today, '日付', game.getFormattedDate()),
-                        ),
-                        Expanded(
-                          child: _infoRow(Icons.flash_on, 'AP', '${game.ap}/${game.ap}'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _infoRow(Icons.attach_money, '予算', '¥${game.budget ~/ 1000}k'),
-                        ),
-                        Expanded(
-                          child: _infoRow(Icons.star, '評判', game.reputation.toString()),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _infoRow(Icons.trending_up, '経験値', game.experience.toString()),
-                        ),
-                        Expanded(
-                          child: _infoRow(Icons.leaderboard, 'レベル', game.level.toString()),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // スカウトスキル概要
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _infoRow(Icons.explore, '探索', '${game.scoutSkills['exploration'] ?? 3}'),
-                        ),
-                        Expanded(
-                          child: _infoRow(Icons.visibility, '観察', '${game.scoutSkills['observation'] ?? 3}'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _infoRow(Icons.analytics, '分析', '${game.scoutSkills['analysis'] ?? 2}'),
-                        ),
-                        Expanded(
-                          child: _infoRow(Icons.lightbulb, '洞察', '${game.scoutSkills['insight'] ?? 2}'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // 統計情報
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _statChip('発掘選手', game.discoveredPlayers.length.toString()),
-                        _statChip('注目選手', game.watchedPlayers.length.toString()),
-                        _statChip('お気に入り', game.favoritePlayers.length.toString()),
-                        _statChip('ニュース', newsService.newsList.length.toString()),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // 重要な情報の縦並びアコーディオン
-            Column(
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 最新ニュース
+                // ゲーム情報カード
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ゲーム情報',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 16),
+                        _infoRow(Icons.calendar_today, '現在の日付', '${game.currentYear}年${game.currentMonth}月${game.currentWeekOfMonth}週目'),
+                        const SizedBox(height: 8),
+                        _infoRow(Icons.school, '学校数', '${game.schools.length}校'),
+                        const SizedBox(height: 8),
+                        _infoRow(Icons.people, '発掘済み選手', '${game.discoveredPlayers.length}名'),
+                        const SizedBox(height: 8),
+                        _infoRow(Icons.favorite, 'お気に入り選手', '${game.favoritePlayers.length}名'),
+                        const SizedBox(height: 8),
+                        _infoRow(Icons.visibility, '視察済み選手', '${game.watchedPlayers.length}名'),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // スカウト情報カード
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'スカウト情報',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 16),
+                        _infoRow(Icons.flash_on, 'アクションポイント', '${game.ap}/15'),
+                        const SizedBox(height: 8),
+                        _infoRow(Icons.attach_money, '予算', '¥${game.budget.toStringAsFixed(0)}'),
+                        const SizedBox(height: 8),
+                        _infoRow(Icons.star, '評判', '${game.reputation}'),
+                        const SizedBox(height: 8),
+                        _infoRow(Icons.trending_up, '経験値', '${game.experience}'),
+                        const SizedBox(height: 8),
+                        _infoRow(Icons.speed, 'レベル', '${game.level}'),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // ニュース
                 _buildExpandableCard(
                   icon: Icons.article,
                   title: '最新ニュース',
@@ -274,9 +202,9 @@ class _GameScreenState extends State<GameScreen> {
                 ),
                 const SizedBox(height: 8),
                 
-                // 今週のアクションキュー
+                // アクションキュー
                 _buildExpandableCard(
-                  icon: Icons.list_alt,
+                  icon: Icons.queue,
                   title: '今週のアクションキュー',
                   isExpanded: _actionsExpanded,
                   onTap: () => setState(() {
@@ -302,8 +230,52 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          // 成長処理状態の表示
+          if (gameManager.isProcessingGrowth)
+            Positioned(
+              bottom: 100,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        gameManager.growthStatusMessage,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {

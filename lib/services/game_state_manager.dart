@@ -3,6 +3,8 @@ import '../models/game/game.dart';
 import '../models/player/player.dart';
 import '../models/news/news_item.dart';
 import 'news_service.dart';
+import 'growth_service.dart';
+import 'data_service.dart';
 
 class GameStateManager {
   
@@ -64,16 +66,21 @@ class GameStateManager {
     return game;
   }
 
-  // 全選手の成長処理（3か月ごと）
+  // 全選手の成長処理（半年ごと - 2月末週から3月1週、8月末週から9月1週）
   static Game growAllPlayers(Game game) {
+    print('GameStateManager.growAllPlayers: 全選手の成長処理開始');
     final updatedSchools = game.schools.map((school) {
       final grownPlayers = school.players.map((p) {
-        final player = p.copyWith();
-        player.grow();
-        return player;
+        print('GameStateManager.growAllPlayers: 選手ID ${p.id} (${p.name}) の成長処理');
+        // GrowthServiceを使用して適切な成長処理を実行
+        final grownPlayer = GrowthService.growPlayer(p);
+        print('GameStateManager.growAllPlayers: 選手ID ${p.id} (${p.name}) の成長処理完了');
+        return grownPlayer;
       }).toList();
       return school.copyWith(players: grownPlayers);
     }).toList();
+    
+    print('GameStateManager.growAllPlayers: 全選手の成長処理完了');
     return game.copyWith(schools: updatedSchools);
   }
 } 
