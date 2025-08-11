@@ -28,7 +28,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
@@ -47,6 +47,19 @@ class DataService {
         if (oldVersion < 4) {
           // バージョン4ではスキーマを更新
           print('データベーススキーマを更新中（バージョン4）...');
+        }
+        if (oldVersion < 9) {
+          // バージョン9: is_publicly_knownフィールドを追加
+          print('データベーススキーマを更新中（バージョン9）: is_publicly_knownフィールドを追加...');
+          try {
+            await db.execute('ALTER TABLE Player ADD COLUMN is_publicly_known INTEGER DEFAULT 0');
+            print('is_publicly_knownフィールドの追加完了');
+            
+            // 既存選手の注目選手フラグを再計算して設定
+            await _updateExistingPlayersPubliclyKnown(db);
+          } catch (e) {
+            print('is_publicly_knownフィールド追加エラー: $e');
+          }
         }
         if (oldVersion < 5) {
           // バージョン5では強制的に新しいスキーマで再作成
@@ -346,6 +359,7 @@ class DataService {
         grade INTEGER,
         position TEXT,
         fame INTEGER,
+        is_publicly_known INTEGER DEFAULT 0,
         growth_rate REAL,
         talent INTEGER,
         growth_type TEXT,
@@ -563,5 +577,54 @@ class DataService {
         FOREIGN KEY (player_id) REFERENCES Player (id)
       )
     ''');
+  }
+
+  /// 既存選手の注目選手フラグを再計算して設定（マイグレーション用）
+  Future<void> _updateExistingPlayersPubliclyKnown(Database db) async {
+    try {
+      print('既存選手の注目選手フラグを再計算中...');
+      
+      // 全選手を取得
+      final players = await db.query('Player');
+      int updatedCount = 0;
+      
+      for (final player in players) {
+        final fame = player['fame'] as int? ?? 0;
+        final talent = player['talent'] as int? ?? 1;
+        final grade = player['grade'] as int? ?? 1;
+        
+        // 注目選手判定ロジック（PlayerDataGeneratorと同じ）
+        bool shouldBePubliclyKnown = false;
+        
+        // 基本条件: 知名度65以上または才能6以上
+        if (fame >= 65 || talent >= 6) {
+          shouldBePubliclyKnown = true;
+        }
+        // 3年生で知名度55以上なら注目選手（進路注目）
+        else if (grade == 3 && fame >= 55) {
+          shouldBePubliclyKnown = true;
+        }
+        // 才能5で知名度50以上なら注目選手
+        else if (talent >= 5 && fame >= 50) {
+          shouldBePubliclyKnown = true;
+        }
+        
+        // 注目選手フラグを更新（注目選手でない場合も明示的に0を設定）
+        await db.update(
+          'Player',
+          {'is_publicly_known': shouldBePubliclyKnown ? 1 : 0},
+          where: 'id = ?',
+          whereArgs: [player['id']],
+        );
+        
+        if (shouldBePubliclyKnown) {
+          updatedCount++;
+        }
+      }
+      
+      print('注目選手フラグ再計算完了: ${updatedCount}人が注目選手に設定されました');
+    } catch (e) {
+      print('注目選手フラグ再計算エラー: $e');
+    }
   }
 } 

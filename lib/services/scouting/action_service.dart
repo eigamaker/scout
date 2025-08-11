@@ -752,7 +752,12 @@ class ActionService {
     await generateScoutAnalysisForMentalAbilities(targetPlayer, 1); // デフォルトスカウトID 1
     
     // 基本情報分析データも生成（性格・精神力情報）
-    await _generateBasicInfoAnalysisForInterview(targetPlayer, 1, personality, mentalStrength, motivation);
+    try {
+      await _generateBasicInfoAnalysisForInterview(targetPlayer, 1, personality, mentalStrength, motivation);
+      print('インタビュー基本情報分析データ生成呼び出し完了: プレイヤーID ${targetPlayer.id}');
+    } catch (e) {
+      print('インタビュー基本情報分析データ生成呼び出しエラー: $e');
+    }
     
     return ScoutActionResult(
       success: true,
@@ -1054,15 +1059,17 @@ class ActionService {
   /// インタビュー用基本情報分析データ生成・保存
   static Future<void> _generateBasicInfoAnalysisForInterview(Player targetPlayer, int scoutId, String personality, int mentalStrength, String motivation) async {
     try {
+      print('インタビュー基本情報分析データ生成開始: プレイヤーID ${targetPlayer.id}');
       final dataService = DataService();
       final db = await dataService.database;
       
       // 既存データを削除してから新しいデータを挿入
-      await db.delete(
+      final deleteCount = await db.delete(
         'ScoutBasicInfoAnalysis',
         where: 'player_id = ? AND scout_id = ?',
         whereArgs: [targetPlayer.id ?? 0, scoutId.toString()],
       );
+      print('既存データ削除: ${deleteCount}件削除');
       
       // 基本情報分析データを挿入
       final insertData = {
@@ -1082,11 +1089,14 @@ class ActionService {
         'potential_accuracy': null,
       };
       
-      await db.insert('ScoutBasicInfoAnalysis', insertData);
+      print('インタビュー基本情報分析データ挿入: $insertData');
+      final insertId = await db.insert('ScoutBasicInfoAnalysis', insertData);
+      print('インタビュー基本情報分析データ挿入完了: ID $insertId');
       
       print('インタビュー基本情報分析データ生成完了: プレイヤーID ${targetPlayer.id}');
     } catch (e) {
       print('インタビュー基本情報分析データ生成エラー: $e');
+      print('エラースタックトレース: ${StackTrace.current}');
     }
   }
 

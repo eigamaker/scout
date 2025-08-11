@@ -176,7 +176,8 @@ class ScoutAnalysisService {
       
       if (results.isNotEmpty) {
         final record = results.first;
-        return {
+        print('基本情報分析レコード: $record');
+        final analysisData = {
           'personality': record['personality_analyzed'] as String?,
           'talent': record['talent_analyzed'] as String?,
           'growth': record['growth_analyzed'] as String?,
@@ -188,6 +189,8 @@ class ScoutAnalysisService {
           'mental_grit_accuracy': record['mental_grit_accuracy'] as double?,
           'potential_accuracy': record['potential_accuracy'] as double?,
         };
+        print('基本情報分析データ変換結果: $analysisData');
+        return analysisData;
       } else {
         print('基本情報分析データが見つかりません (プレイヤーID: $playerId, スカウトID: $scoutId)');
         return null;
@@ -394,6 +397,31 @@ class ScoutAnalysisService {
       if (count > 0) {
         final latestData = await db.rawQuery("SELECT * FROM ScoutAnalysis ORDER BY analysis_date DESC LIMIT 1");
         print('最新のスカウト分析データ: ${latestData.first}');
+      }
+      
+      // ScoutBasicInfoAnalysisテーブルの構造も確認
+      final basicTableInfo = await db.rawQuery("PRAGMA table_info(ScoutBasicInfoAnalysis)");
+      print('ScoutBasicInfoAnalysisテーブル構造:');
+      for (final column in basicTableInfo) {
+        print('  ${column['name']}: ${column['type']}');
+      }
+      
+      // ScoutBasicInfoAnalysisテーブルのデータ数を確認
+      final basicCountResult = await db.rawQuery("SELECT COUNT(*) as count FROM ScoutBasicInfoAnalysis");
+      final basicCount = basicCountResult.first['count'] as int;
+      print('ScoutBasicInfoAnalysisテーブルのデータ数: $basicCount');
+      
+      // 最新の基本情報分析データを確認
+      if (basicCount > 0) {
+        final latestBasicData = await db.rawQuery("SELECT * FROM ScoutBasicInfoAnalysis ORDER BY analysis_date DESC LIMIT 1");
+        print('最新の基本情報分析データ: ${latestBasicData.first}');
+        
+        // 全ての基本情報分析データを確認
+        final allBasicData = await db.rawQuery("SELECT * FROM ScoutBasicInfoAnalysis ORDER BY analysis_date DESC");
+        print('全ての基本情報分析データ:');
+        for (int i = 0; i < allBasicData.length; i++) {
+          print('  ${i + 1}: ${allBasicData[i]}');
+        }
       }
       
     } catch (e) {

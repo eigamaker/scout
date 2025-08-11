@@ -67,13 +67,20 @@ class PlayerDataGenerator {
       pitches.addAll(_generatePitches(_random));
     }
 
+    // 知名度を生成
+    final fame = _generateFame(talent);
+    
+    // 注目選手かどうかを判定（初期生成時のみ、後で変更されない）
+    final isPubliclyKnown = _shouldBePubliclyKnown(fame, talent, grade);
+
     // Playerテーブルに挿入
     final playerId = await db.insert('Player', {
       'id': personId,
       'school_id': school.id,
       'grade': grade,
       'position': position,
-      'fame': _generateFame(talent), // 知名度を追加
+      'fame': fame, // 知名度を追加
+      'is_publicly_known': isPubliclyKnown ? 1 : 0, // 注目選手フラグを追加
       'growth_rate': growthRate,
       'talent': talent,
       'growth_type': growthType,
@@ -125,9 +132,6 @@ class PlayerDataGenerator {
 
     // ポテンシャルデータを生成・保存
     await _generateAndSavePotentials(playerId, individualPotentials);
-
-    // 知名度を生成
-    final fame = _generateFame(talent);
     
     // Playerオブジェクトを作成
     final player = Player(
@@ -138,6 +142,7 @@ class PlayerDataGenerator {
       position: position,
       personality: personality,
       fame: fame, // 知名度を設定
+      isPubliclyKnown: isPubliclyKnown, // 注目選手フラグを設定
       pitches: pitches,
       technicalAbilities: technicalAbilities,
       mentalAbilities: mentalAbilities,
@@ -680,5 +685,25 @@ class PlayerDataGenerator {
     // ランダム要素を追加（±15）
     final randomVariation = _random.nextInt(31) - 15;
     return (baseFame + randomVariation).clamp(0, 100);
+  }
+
+  /// 注目選手になるかどうかを判定（初期生成時のみ、安定化のため）
+  bool _shouldBePubliclyKnown(int fame, int talent, int grade) {
+    // 基本条件: 知名度65以上または才能6以上
+    if (fame >= 65 || talent >= 6) {
+      return true;
+    }
+    
+    // 3年生で知名度55以上なら注目選手（進路注目）
+    if (grade == 3 && fame >= 55) {
+      return true;
+    }
+    
+    // 才能5で知名度50以上なら注目選手
+    if (talent >= 5 && fame >= 50) {
+      return true;
+    }
+    
+    return false;
   }
 } 

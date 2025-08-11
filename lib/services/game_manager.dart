@@ -254,7 +254,7 @@ class GameManager {
           'personality': personality,
         });
         
-        print('デバッグ: 選手 ${player.name} を学校 ${school.name} (ID: ${school.id}) に割り当て');
+
                   playerBatch.add({
             'school_id': school.id, // 正しい学校IDを使用
           'grade': 1,
@@ -611,6 +611,7 @@ class GameManager {
   Future<void> _refreshPlayersFromDb(DataService dataService) async {
     try {
       print('_refreshPlayersFromDb: 開始, _currentGame = ${_currentGame != null ? "loaded" : "null"}');
+      print('_refreshPlayersFromDb: 呼び出し元のスタックトレース: ${StackTrace.current}');
       if (_currentGame == null) {
         print('_refreshPlayersFromDb: _currentGameがnullのため終了');
         return;
@@ -618,7 +619,7 @@ class GameManager {
           final db = await dataService.database;
       print('_refreshPlayersFromDb: データベース接続完了');
       final playerMaps = await db.query('Player');
-      print('デバッグ: データベースから ${playerMaps.length} 人の選手を読み込み');
+      
     
     // school_idの分布を確認
     final schoolIdCounts = <int, int>{};
@@ -626,7 +627,7 @@ class GameManager {
       final schoolId = p['school_id'] as int? ?? 0;
       schoolIdCounts[schoolId] = (schoolIdCounts[schoolId] ?? 0) + 1;
     }
-    print('デバッグ: school_id分布: $schoolIdCounts');
+    
     
     final personIds = playerMaps.map((p) => p['id'] as int).toList();
     final persons = <int, Map<String, dynamic>>{};
@@ -684,7 +685,7 @@ class GameManager {
       }
     }
     
-    print('デバッグ: scoutAnalysesマップの内容: $scoutAnalyses');
+    
     
     // 学校ごとにplayersを再構築
     final updatedSchools = _currentGame!.schools.map((school) {
@@ -746,11 +747,10 @@ class GameManager {
 
         
         final scoutAnalysisData = scoutAnalyses[playerId];
-        print('デバッグ: プレイヤーID $playerId のscoutAnalysisData: $scoutAnalysisData');
         
-        // 現在のゲーム状態から発掘情報を復元
-        final existingPlayer = _currentGame!.discoveredPlayers.firstWhere(
-          (p) => p.name == (person['name'] as String? ?? '名無し') && p.school == school.name,
+        // 現在のゲーム状態から発掘情報を復元（学校の選手リストから検索）
+        final existingPlayer = school.players.firstWhere(
+          (p) => p.name == (person['name'] as String? ?? '名無し'),
           orElse: () => Player(
             name: person['name'] as String? ?? '名無し',
             school: school.name,
@@ -759,7 +759,7 @@ class GameManager {
             personality: person['personality'] as String? ?? '',
             fame: _safeIntCast(p['fame']),
             isDiscovered: false,
-            isPubliclyKnown: false,
+            isPubliclyKnown: (p['is_publicly_known'] as int?) == 1, // データベースから読み込み
             isScoutFavorite: false,
             discoveredAt: null,
             discoveredBy: null,
@@ -783,6 +783,8 @@ class GameManager {
           ),
         );
 
+        final isPubliclyKnownFromDb = (p['is_publicly_known'] as int?) == 1;
+
         final player = Player(
           id: playerId,
           name: person['name'] as String? ?? '名無し',
@@ -793,7 +795,7 @@ class GameManager {
           fame: _safeIntCast(p['fame']), // fameフィールドを追加
           isWatched: existingPlayer.isWatched,
           isDiscovered: existingPlayer.isDiscovered,
-          isPubliclyKnown: existingPlayer.isPubliclyKnown,
+          isPubliclyKnown: isPubliclyKnownFromDb, // データベースから読み込み
           isScoutFavorite: existingPlayer.isScoutFavorite,
           discoveredAt: existingPlayer.discoveredAt,
           discoveredBy: existingPlayer.discoveredBy,
@@ -821,9 +823,11 @@ class GameManager {
       return school.copyWith(players: schoolPlayers.cast<Player>());
     }).toList();
     _currentGame = _currentGame!.copyWith(schools: updatedSchools);
-    } catch (e, stackTrace) {
+    
+
+    
+    } catch (e) {
       print('_refreshPlayersFromDb: エラーが発生しました: $e');
-      print('_refreshPlayersFromDb: スタックトレース: $stackTrace');
       rethrow;
     }
   }
@@ -832,6 +836,8 @@ class GameManager {
   Future<List<String>> advanceWeekWithResults(NewsService newsService, DataService dataService) async {
     final results = <String>[];
     if (_currentGame == null) return results;
+    
+
     
     // スカウトアクションを実行
     final scoutResults = await executeScoutActions(dataService);
@@ -872,6 +878,10 @@ class GameManager {
     final isGrowthWeek = GrowthService.shouldGrow(currentWeek);
     if (isGrowthWeek) {
       growAllPlayers();
+      
+      // 成長後に新たに注目選手になった選手をチェック
+      _updatePubliclyKnownPlayersAfterGrowth();
+      
       results.add('選手たちの成長期が訪れました。選手たちが成長しています。');
       
       // 成長後のニュース生成
@@ -907,6 +917,8 @@ class GameManager {
     // オートセーブ（週送り完了後）
     await saveGame();
     await _gameDataManager.saveAutoGameData(_currentGame!);
+    
+
     
     return results;
   }
@@ -1353,6 +1365,50 @@ class GameManager {
     return results;
   }
 
+  /// 成長後に新たに注目選手になった選手を更新
+  void _updatePubliclyKnownPlayersAfterGrowth() {
+    if (_currentGame == null) return;
+    
+    final updatedSchools = _currentGame!.schools.map((school) {
+      final updatedPlayers = school.players.map((player) {
+        // 既に注目選手の場合は変更なし（削除されない）
+        if (player.isPubliclyKnown) {
+          return player;
+        }
+        
+        // 成長により新たに注目選手の条件を満たした場合
+        final shouldBeKnown = _shouldBecomePubliclyKnownAfterGrowth(player);
+        if (shouldBeKnown) {
+          return player.copyWith(isPubliclyKnown: true);
+        }
+        
+        return player;
+      }).toList();
+      
+      return school.copyWith(players: updatedPlayers);
+    }).toList();
+    
+    _currentGame = _currentGame!.copyWith(schools: updatedSchools);
+  }
+
+  /// 成長後に注目選手になるかどうかを判定
+  bool _shouldBecomePubliclyKnownAfterGrowth(Player player) {
+    // 成長により総合能力が大幅に向上した場合
+    final totalAbility = player.trueTotalAbility;
+    
+    // 才能6以上または総合能力80以上で注目選手
+    if (player.talent >= 6 || totalAbility >= 80) {
+      return true;
+    }
+    
+    // 3年生で才能5以上または総合能力75以上（進路注目）
+    if (player.grade == 3 && (player.talent >= 5 || totalAbility >= 75)) {
+      return true;
+    }
+    
+    return false;
+  }
+
   /// ニュースをゲームデータに保存
   void saveNewsToGame(NewsService newsService) {
     if (_currentGame != null) {
@@ -1404,6 +1460,9 @@ class GameManager {
     for (final school in _currentGame!.schools) {
       allPlayers.addAll(school.players);
     }
+    
+
+    
     return allPlayers;
   }
 } 

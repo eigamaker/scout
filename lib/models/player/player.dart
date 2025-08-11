@@ -217,14 +217,45 @@ class Player {
     return false;
   }
 
-  // 選手の分類を取得（UI表示用）
+  // 選手の分類を取得（UI表示用）- 単一カテゴリ（後方互換性のため）
   PlayerCategory get category {
+    return _calculateCategory();
+  }
+  
+  // 選手が属する全てのカテゴリを取得（UI表示用）
+  List<PlayerCategory> get allCategories {
+    final categories = <PlayerCategory>[];
+    
+    // お気に入りの場合は必ず含める
+    if (isScoutFavorite) {
+      categories.add(PlayerCategory.favorite);
+    }
+    
+    // 注目選手の場合は必ず含める
+    if (isPubliclyKnown) {
+      categories.add(PlayerCategory.famous);
+    }
+    
+    // 発掘済みの場合は必ず含める
+    if (isDiscovered) {
+      categories.add(PlayerCategory.discovered);
+    }
+    
+    // どのカテゴリにも属していない場合は未発掘
+    if (categories.isEmpty) {
+      categories.add(PlayerCategory.unknown);
+    }
+    
+    return categories;
+  }
+  
+  PlayerCategory _calculateCategory() {
     if (isScoutFavorite) {
       return PlayerCategory.favorite;
+    } else if (isPubliclyKnown) {
+      return PlayerCategory.famous; // isPubliclyKnownフラグを最優先（注目選手として固定）
     } else if (isDiscovered) {
       return PlayerCategory.discovered;
-    } else if (fame >= 65 || isPubliclyKnown) {
-      return PlayerCategory.famous;
     } else {
       return PlayerCategory.unknown;
     }

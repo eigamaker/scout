@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/player/player.dart';
 import '../services/game_manager.dart';
-import '../services/player_generator.dart';
 import '../widgets/player_card.dart';
 
 class PlayerListScreen extends StatefulWidget {
@@ -28,10 +27,12 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
     super.dispose();
   }
 
-  // 分類別の選手リストを取得
+  // 分類別の選手リストを取得（複数カテゴリ対応）
   List<Player> _getPlayersByCategory(List<Player> allPlayers, PlayerCategory category) {
-    return allPlayers.where((player) => player.category == category).toList();
+    return allPlayers.where((player) => player.allCategories.contains(category)).toList();
   }
+
+
 
   // ソート適用
   List<Player> _getSortedPlayers(List<Player> players) {
