@@ -555,7 +555,7 @@ class GameManager {
   }
 
   // 選手のお気に入り状態を更新
-  void togglePlayerFavorite(Player player) {
+  Future<void> togglePlayerFavorite(Player player, DataService dataService) async {
     final newFavoriteState = !player.isScoutFavorite;
     
     // discoveredPlayersリスト内の選手を更新
@@ -572,6 +572,19 @@ class GameManager {
         final updatedPlayer = player.copyWith(isScoutFavorite: newFavoriteState);
         school.players[playerIndex] = updatedPlayer;
       }
+    }
+    
+    // データベースにも保存
+    try {
+      final db = await dataService.database;
+      await db.update(
+        'Player',
+        {'is_scout_favorite': newFavoriteState ? 1 : 0},
+        where: 'id = ?',
+        whereArgs: [player.id],
+      );
+    } catch (e) {
+      print('お気に入り状態のデータベース保存エラー: $e');
     }
   }
 
@@ -784,6 +797,7 @@ class GameManager {
         );
 
         final isPubliclyKnownFromDb = (p['is_publicly_known'] as int?) == 1;
+        final isScoutFavoriteFromDb = (p['is_scout_favorite'] as int?) == 1;
 
         final player = Player(
           id: playerId,
@@ -796,7 +810,7 @@ class GameManager {
           isWatched: existingPlayer.isWatched,
           isDiscovered: existingPlayer.isDiscovered,
           isPubliclyKnown: isPubliclyKnownFromDb, // データベースから読み込み
-          isScoutFavorite: existingPlayer.isScoutFavorite,
+          isScoutFavorite: isScoutFavoriteFromDb, // データベースから読み込み
           discoveredAt: existingPlayer.discoveredAt,
           discoveredBy: existingPlayer.discoveredBy,
           discoveredCount: existingPlayer.discoveredCount,
@@ -1051,12 +1065,19 @@ class GameManager {
       final game = await _gameDataManager.loadGameData(slot);
       if (game != null) {
         _currentGame = game;
-        print('GameManager: ゲームデータ読み込み完了、_refreshPlayersFromDbを呼び出し');
+        print('GameManager: ゲームデータ読み込み完了');
         
-        // ゲームデータをロードした後、データベースからプレイヤーデータを更新
-        await _refreshPlayersFromDb(dataService);
+        // ゲームデータから選手データが正しく復元されているかチェック
+        final totalPlayers = game.schools.fold<int>(0, (sum, school) => sum + school.players.length);
+        print('GameManager: 復元された選手数: $totalPlayers');
         
-        print('GameManager: _refreshPlayersFromDb完了');
+        // 選手データが不足している場合のみ_refreshPlayersFromDbを呼び出し
+        if (totalPlayers == 0) {
+          print('GameManager: 選手データが不足しているため、データベースから再読み込み');
+          await _refreshPlayersFromDb(dataService);
+          print('GameManager: _refreshPlayersFromDb完了');
+        }
+        
         return true;
       }
       print('GameManager: ゲームデータが見つかりませんでした');

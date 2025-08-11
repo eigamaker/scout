@@ -28,7 +28,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
@@ -59,6 +59,16 @@ class DataService {
             await _updateExistingPlayersPubliclyKnown(db);
           } catch (e) {
             print('is_publicly_knownフィールド追加エラー: $e');
+          }
+        }
+        if (oldVersion < 10) {
+          // バージョン10: is_scout_favoriteフィールドを追加
+          print('データベーススキーマを更新中（バージョン10）: is_scout_favoriteフィールドを追加...');
+          try {
+            await db.execute('ALTER TABLE Player ADD COLUMN is_scout_favorite INTEGER DEFAULT 0');
+            print('is_scout_favoriteフィールドの追加完了');
+          } catch (e) {
+            print('is_scout_favoriteフィールド追加エラー: $e');
           }
         }
         if (oldVersion < 5) {
@@ -360,6 +370,7 @@ class DataService {
         position TEXT,
         fame INTEGER,
         is_publicly_known INTEGER DEFAULT 0,
+        is_scout_favorite INTEGER DEFAULT 0,
         growth_rate REAL,
         talent INTEGER,
         growth_type TEXT,

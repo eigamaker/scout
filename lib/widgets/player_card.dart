@@ -90,7 +90,7 @@ class PlayerCard extends StatelessWidget {
               const SizedBox(height: 6),
               
               // 小さなアクションボタン（発掘済みまたは注目選手の場合）
-              if (player.isDiscovered || player.category == PlayerCategory.famous) ...[
+              if (player.isDiscovered || player.isPubliclyKnown) ...[
                 _buildSmallActionButtons(context),
               ],
             ],

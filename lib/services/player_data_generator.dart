@@ -81,6 +81,7 @@ class PlayerDataGenerator {
       'position': position,
       'fame': fame, // 知名度を追加
       'is_publicly_known': isPubliclyKnown ? 1 : 0, // 注目選手フラグを追加
+      'is_scout_favorite': 0, // お気に入りフラグを追加（初期値はfalse）
       'growth_rate': growthRate,
       'talent': talent,
       'growth_type': growthType,

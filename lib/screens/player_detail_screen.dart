@@ -736,10 +736,11 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                     widget.player.isScoutFavorite ? Icons.favorite : Icons.favorite_border,
                     color: widget.player.isScoutFavorite ? Colors.red : Colors.grey,
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     // GameManagerを通じてお気に入り状態を更新
                     final gameManager = Provider.of<GameManager>(context, listen: false);
-                    gameManager.togglePlayerFavorite(widget.player);
+                    final dataService = Provider.of<DataService>(context, listen: false);
+                    await gameManager.togglePlayerFavorite(widget.player, dataService);
                     
                     // UIを更新
                     setState(() {});
