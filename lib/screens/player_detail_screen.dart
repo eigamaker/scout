@@ -417,6 +417,14 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     }
   }
 
+  /// 分析データが存在するかを確認
+  bool _hasAnyAnalysisData() {
+    // スカウト分析データまたは基本情報分析データがあるかを確認
+    final hasScoutData = _scoutAnalysisData != null && _scoutAnalysisData!.isNotEmpty;
+    final hasBasicInfoData = _basicInfoAnalysisData != null && _basicInfoAnalysisData!.isNotEmpty;
+    return hasScoutData || hasBasicInfoData;
+  }
+
   /// 表示用性格を取得
   String _getDisplayPersonality() {
     if (DebugConfig.showTrueValues) {
@@ -664,13 +672,13 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 const SizedBox(height: 16),
                 
                 // 能力値システム
-                if (widget.player.isDiscovered || widget.player.fameLevel >= 2) ...[
+                if (widget.player.isDiscovered || widget.player.fame >= 65) ...[
                   _buildNewAbilityCard(context, textColor, cardBg, primaryColor),
                   const SizedBox(height: 16),
                 ],
                 
                 // 球種情報
-                if ((widget.player.isDiscovered || widget.player.fameLevel >= 3) && 
+                if ((widget.player.isDiscovered || widget.player.fame >= 80) && 
                     widget.player.isPitcher && widget.player.pitches != null && 
                     widget.player.pitches!.isNotEmpty) ...[
                   _buildPitchesCard(context, textColor, cardBg),
@@ -678,7 +686,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 ],
                 
                 // ポジション適性
-                if (widget.player.isDiscovered || widget.player.fameLevel >= 3) ...[
+                if (widget.player.isDiscovered || widget.player.fame >= 80) ...[
                   _buildPositionFitCard(context, textColor, cardBg, primaryColor),
                   const SizedBox(height: 16),
                 ],
@@ -690,7 +698,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 ],
                 
                 // 情報が表示されない場合のメッセージ
-                if (!widget.player.isDiscovered && widget.player.fameLevel < 2) ...[
+                if (!widget.player.isDiscovered && widget.player.fame < 65) ...[
                   _buildInfoInsufficientCard(context, textColor),
                 ],
               ],
@@ -774,11 +782,12 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          _buildStatusChip(
-                            widget.player.isDiscovered ? 'スカウト完了' : 'スカウト未完了',
-                            widget.player.isDiscovered ? '✓' : '未',
-                            widget.player.isDiscovered ? Colors.green : Colors.orange,
-                          ),
+                          if (_hasAnyAnalysisData())
+                            _buildStatusChip(
+                              '分析済み',
+                              '✓',
+                              Colors.green,
+                            ),
                         ],
                       ),
                     ],

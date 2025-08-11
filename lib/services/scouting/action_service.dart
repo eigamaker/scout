@@ -322,7 +322,7 @@ class ActionService {
           });
           
           // スカウト分析データも生成（フィジカル面の能力値のみ）
-          await _generateScoutAnalysisForPhysicalAbilities(player, 1); // デフォルトスカウトID 1
+          await generateScoutAnalysisForPhysicalAbilities(player, 1); // デフォルトスカウトID 1
           
           // メッセージは選手のポテンシャルに応じて変化
           String message;
@@ -394,7 +394,7 @@ class ActionService {
       });
       
       // スカウト分析データも生成（技術面・フィジカル面の能力値）
-      await _generateScoutAnalysisForTechnicalAndPhysicalAbilities(targetPlayer, 1); // デフォルトスカウトID 1
+      await generateScoutAnalysisForTechnicalAndPhysicalAbilities(targetPlayer, 1); // デフォルトスカウトID 1
       
       return ScoutActionResult(
         success: true,
@@ -473,6 +473,18 @@ class ActionService {
   }) async {
     // ビデオ分析の具体的な処理
     // 才能、成長タイプとポテンシャルのみ把握度を設定
+    
+    // 選手を発掘状態にする（まだ発掘されていない場合）
+    if (!targetPlayer.isDiscovered) {
+      targetPlayer.isDiscovered = true;
+      targetPlayer.discoveredAt = DateTime.now();
+      targetPlayer.discoveredCount = 1;
+      targetPlayer.scoutedDates.add(DateTime.now());
+    } else {
+      // 既に発掘済みの場合は視察回数を増やす
+      targetPlayer.discoveredCount += 1;
+      targetPlayer.scoutedDates.add(DateTime.now());
+    }
     
     // 成長タイプの分析（既存の成長タイプを詳細化）
     final growthTypeAnalysis = _analyzeGrowthType(targetPlayer);
@@ -693,6 +705,18 @@ class ActionService {
     // インタビューの具体的な処理
     // 性格と精神力とメンタル面の能力値のみ把握度を設定
     
+    // 選手を発掘状態にする（まだ発掘されていない場合）
+    if (!targetPlayer.isDiscovered) {
+      targetPlayer.isDiscovered = true;
+      targetPlayer.discoveredAt = DateTime.now();
+      targetPlayer.discoveredCount = 1;
+      targetPlayer.scoutedDates.add(DateTime.now());
+    } else {
+      // 既に発掘済みの場合は視察回数を増やす
+      targetPlayer.discoveredCount += 1;
+      targetPlayer.scoutedDates.add(DateTime.now());
+    }
+    
     // 性格タイプの分析
     final personalityTypes = ['リーダー型', '努力型', '天才型', '冷静型', '情熱型'];
     final personality = personalityTypes[Random().nextInt(personalityTypes.length)];
@@ -725,7 +749,10 @@ class ActionService {
     });
     
     // スカウト分析データも生成（メンタル面の能力値のみ）
-    await _generateScoutAnalysisForMentalAbilities(targetPlayer, 1); // デフォルトスカウトID 1
+    await generateScoutAnalysisForMentalAbilities(targetPlayer, 1); // デフォルトスカウトID 1
+    
+    // 基本情報分析データも生成（性格・精神力情報）
+    await _generateBasicInfoAnalysisForInterview(targetPlayer, 1, personality, mentalStrength, motivation);
     
     return ScoutActionResult(
       success: true,
@@ -736,7 +763,7 @@ class ActionService {
   }
 
   /// メンタル面能力値専用のスカウト分析データ生成
-  static Future<void> _generateScoutAnalysisForMentalAbilities(Player targetPlayer, int scoutId) async {
+  static Future<void> generateScoutAnalysisForMentalAbilities(Player targetPlayer, int scoutId) async {
     try {
       final dataService = DataService();
       final db = await dataService.database;
@@ -835,7 +862,7 @@ class ActionService {
   }
 
   /// フィジカル面能力値専用のスカウト分析データ生成
-  static Future<void> _generateScoutAnalysisForPhysicalAbilities(Player targetPlayer, int scoutId) async {
+  static Future<void> generateScoutAnalysisForPhysicalAbilities(Player targetPlayer, int scoutId) async {
     try {
       final dataService = DataService();
       final db = await dataService.database;
@@ -1021,6 +1048,45 @@ class ActionService {
       print('技術面スカウト分析データ生成完了: プレイヤーID ${targetPlayer.id}');
     } catch (e) {
       print('技術面スカウト分析データ生成エラー: $e');
+    }
+  }
+
+  /// インタビュー用基本情報分析データ生成・保存
+  static Future<void> _generateBasicInfoAnalysisForInterview(Player targetPlayer, int scoutId, String personality, int mentalStrength, String motivation) async {
+    try {
+      final dataService = DataService();
+      final db = await dataService.database;
+      
+      // 既存データを削除してから新しいデータを挿入
+      await db.delete(
+        'ScoutBasicInfoAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId.toString()],
+      );
+      
+      // 基本情報分析データを挿入
+      final insertData = {
+        'player_id': targetPlayer.id ?? 0,
+        'scout_id': scoutId.toString(),
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': 90.0, // インタビューは高精度
+        'personality_analyzed': personality,
+        'talent_analyzed': null, // インタビューでは才能は分析しない
+        'growth_analyzed': null, // インタビューでは成長タイプは分析しない
+        'mental_grit_analyzed': '精神力${mentalStrength}',
+        'potential_analyzed': null, // インタビューではポテンシャルは分析しない
+        'personality_accuracy': 90.0,
+        'talent_accuracy': null,
+        'growth_accuracy': null,
+        'mental_grit_accuracy': 90.0,
+        'potential_accuracy': null,
+      };
+      
+      await db.insert('ScoutBasicInfoAnalysis', insertData);
+      
+      print('インタビュー基本情報分析データ生成完了: プレイヤーID ${targetPlayer.id}');
+    } catch (e) {
+      print('インタビュー基本情報分析データ生成エラー: $e');
     }
   }
 
@@ -1261,7 +1327,7 @@ class ActionService {
   }
 
   /// 技術面・フィジカル面能力値専用のスカウト分析データ生成（試合観戦用）
-  static Future<void> _generateScoutAnalysisForTechnicalAndPhysicalAbilities(Player targetPlayer, int scoutId) async {
+  static Future<void> generateScoutAnalysisForTechnicalAndPhysicalAbilities(Player targetPlayer, int scoutId) async {
     try {
       final dataService = DataService();
       final db = await dataService.database;

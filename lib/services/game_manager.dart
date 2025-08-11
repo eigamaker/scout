@@ -1133,6 +1133,8 @@ class GameManager {
           if (result.discoveredPlayers.isNotEmpty) {
             for (final player in result.discoveredPlayers) {
               discoverPlayer(player);
+              // 新たに発掘した選手のフィジカル面分析データを生成
+              await scouting.ActionService.generateScoutAnalysisForPhysicalAbilities(player, 1);
             }
           }
           
@@ -1140,7 +1142,21 @@ class GameManager {
             updatePlayerKnowledge(result.improvedPlayer!);
           }
           
-          results.add(result.message);
+          // 既に発掘済みの場合もフィジカル面の分析を行う
+          if (result.discoveredPlayers.isEmpty && result.improvedPlayer == null) {
+            // 発掘済み選手からランダムで1人選んでフィジカル面分析
+            final discoveredPlayers = school.players.where((p) => p.isDiscovered).toList();
+            if (discoveredPlayers.isNotEmpty) {
+              final random = Random();
+              final targetPlayer = discoveredPlayers[random.nextInt(discoveredPlayers.length)];
+              await scouting.ActionService.generateScoutAnalysisForPhysicalAbilities(targetPlayer, 1);
+              results.add('🏃 ${school.name}の練習視察: 「${targetPlayer.name}」のフィジカル面を詳しく観察できました');
+            } else {
+              results.add(result.message);
+            }
+          } else {
+            results.add(result.message);
+          }
         }
       } else if (action.type == 'PRACTICE_WATCH') {
         // 練習視察アクション（単一選手版）
