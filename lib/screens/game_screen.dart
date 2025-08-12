@@ -279,43 +279,83 @@ class _GameScreenState extends State<GameScreen> {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final gameManager = Provider.of<GameManager>(context, listen: false);
-          final newsService = Provider.of<NewsService>(context, listen: false);
-          final dataService = Provider.of<DataService>(context, listen: false);
-          final results = await gameManager.advanceWeekWithResults(newsService, dataService);
-          setState(() {
-            _weekLogs.insert(0, results);
-            // 履歴を最新20週分に制限
-            if (_weekLogs.length > 20) {
-              _weekLogs.removeRange(20, _weekLogs.length);
-            }
-          });
-          await showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('今週の行動リザルト'),
-              content: SizedBox(
-                width: 300,
-                child: ListView(
-                  shrinkWrap: true,
-                  children: results.isEmpty
-                    ? [const Text('今週は行動がありませんでした')] 
-                    : results.map((r) => Text(r)).toList(),
+      floatingActionButton: Consumer<GameManager>(
+        builder: (context, gameManager, child) {
+          final isProcessing = !gameManager.canAdvanceWeek;
+          final statusMessage = gameManager.growthStatusMessage;
+          
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 処理状態メッセージ
+              if (isProcessing && statusMessage.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[100],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.orange[300]!),
+                  ),
+                  child: Text(
+                    statusMessage,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange[800],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
+              // 週送りボタン
+              FloatingActionButton.extended(
+                onPressed: isProcessing ? null : () async {
+                  final newsService = Provider.of<NewsService>(context, listen: false);
+                  final dataService = Provider.of<DataService>(context, listen: false);
+                  final results = await gameManager.advanceWeekWithResults(newsService, dataService);
+                  setState(() {
+                    _weekLogs.insert(0, results);
+                    // 履歴を最新20週分に制限
+                    if (_weekLogs.length > 20) {
+                      _weekLogs.removeRange(20, _weekLogs.length);
+                    }
+                  });
+                  await showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('今週の行動リザルト'),
+                      content: SizedBox(
+                        width: 300,
+                        child: ListView(
+                          shrinkWrap: true,
+                          children: results.isEmpty
+                            ? [const Text('今週は行動がありませんでした')] 
+                            : results.map((r) => Text(r)).toList(),
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                icon: Icon(
+                  isProcessing ? Icons.hourglass_empty : Icons.skip_next,
+                  color: isProcessing ? Colors.grey[400] : null,
+                ),
+                label: Text(
+                  isProcessing ? '処理中...' : '次の週へ進める',
+                  style: TextStyle(
+                    color: isProcessing ? Colors.grey[400] : null,
+                  ),
+                ),
+                backgroundColor: isProcessing ? Colors.grey[300] : null,
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
+            ],
           );
         },
-        icon: const Icon(Icons.skip_next),
-        label: const Text('次の週へ進める'),
       ),
     );
   }
