@@ -137,7 +137,7 @@ class Player {
     List<Achievement>? achievements,
     this.scoutAnalysisData,
   }) :
-    age = age ?? (15 + (grade - 1)), // 学年から年齢を計算（1年生=15歳、2年生=16歳、3年生=17歳）
+    age = age ?? (type == PlayerType.highSchool ? (15 + (grade - 1)) : 18), // 高校生は学年から年齢を計算、プロ選手は18歳以上
     scoutedDates = scoutedDates ?? [],
     abilityKnowledge = abilityKnowledge ?? _initializeAbilityKnowledge(),
     achievements = achievements ?? [],
@@ -767,6 +767,7 @@ class Player {
     'name': name,
     'school': school,
     'grade': grade,
+    'age': age, // 年齢フィールドを追加
     'position': position,
     'personality': personality,
     'trustLevel': trustLevel,
@@ -808,6 +809,7 @@ class Player {
     name: json['name'],
     school: json['school'],
     grade: json['grade'],
+    age: json['age'], // 年齢フィールドを追加
     position: json['position'],
     personality: json['personality'],
     trustLevel: json['trustLevel'] ?? 0,
@@ -920,7 +922,7 @@ class Player {
       name: name ?? this.name,
       school: school ?? this.school,
       grade: grade ?? this.grade,
-      age: age ?? this.age,
+      age: age ?? this.age, // 年齢フィールドを追加
       position: position ?? this.position,
       personality: personality ?? this.personality,
       trustLevel: trustLevel ?? this.trustLevel,
