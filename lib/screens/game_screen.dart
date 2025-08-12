@@ -155,6 +155,8 @@ class _GameScreenState extends State<GameScreen> {
                         _infoRow(Icons.favorite, 'お気に入り選手', '${game.favoritePlayers.length}名'),
                         const SizedBox(height: 8),
                         _infoRow(Icons.visibility, '視察済み選手', '${game.watchedPlayers.length}名'),
+                        const SizedBox(height: 8),
+                        _infoRow(Icons.school, '卒業生', '${game.schools.fold(0, (sum, school) => sum + school.players.where((p) => p.isGraduated).length)}名'),
                       ],
                     ),
                   ),

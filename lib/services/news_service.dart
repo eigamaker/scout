@@ -374,39 +374,38 @@ class NewsService {
     }
   }
 
-  /// ドラフト関連ニュース生成
-  void generateDraftNews({int? year, int? month, int? weekOfMonth}) {
-    final draftNewsTemplates = [
-      {
-        'title': 'ドラフト候補選手の調査強化',
-        'content': '各球団のスカウト陣がドラフト候補選手の調査を強化している。特に投手候補への注目が高まっている。',
-        'importance': NewsImportance.medium,
-      },
-      {
-        'title': 'ドラフト会議の日程が決定',
-        'content': '今年のドラフト会議は10月25日に開催されることが決定した。各球団の指名順位も発表された。',
-        'importance': NewsImportance.medium,
-      },
-      {
-        'title': 'ドラフト候補選手の合同練習会',
-        'content': 'ドラフト候補選手による合同練習会が開催された。各球団のスカウト陣が多数参加し、注目選手の実力を確認した。',
-        'importance': NewsImportance.high,
-      },
-    ];
-
-    final template = draftNewsTemplates[_random.nextInt(draftNewsTemplates.length)];
+  /// ドラフト関連のニュースを生成
+  void generateDraftNews({
+    required int year,
+    required int month,
+    required int weekOfMonth,
+  }) {
+    final newsDate = _getNewsDate(year, month, weekOfMonth);
     
-    // ゲーム内日付を使用
-    final newsDate = year != null && month != null && weekOfMonth != null
-        ? _getNewsDate(year, month, weekOfMonth, daysOffset: -_random.nextInt(30))
-        : DateTime.now().subtract(Duration(days: _random.nextInt(30)));
-    
-    addNews(NewsItem(
-      title: template['title'] as String,
-      content: template['content'] as String,
+    _newsList.add(NewsItem(
+      title: 'ドラフト会議の日程が決定',
+      content: '今年のドラフト会議は10月25日に開催されることが決定した。各球団のスカウト陣が注目選手の調査を強化している。',
       date: newsDate,
-      importance: template['importance'] as NewsImportance,
+      importance: NewsImportance.medium,
       category: NewsCategory.draft,
+    ));
+  }
+
+  /// 卒業生のニュースを生成
+  void generateGraduationNews({
+    required int year,
+    required int month,
+    required int weekOfMonth,
+    required int totalGraduated,
+  }) {
+    final newsDate = _getNewsDate(year, month, weekOfMonth);
+    
+    _newsList.add(NewsItem(
+      title: '3年生が卒業',
+      content: '今週、全高校で3年生${totalGraduated}名が卒業しました。卒業生たちは新たな道に進み、今後の活躍が期待されています。',
+      date: newsDate,
+      importance: NewsImportance.medium,
+      category: NewsCategory.school,
     ));
   }
 
@@ -481,7 +480,11 @@ class NewsService {
       // ドラフト関連ニュース（30%の確率に上げる）
       if (random.nextDouble() < 0.3) {
         print('NewsService: ドラフト関連ニュース生成');
-        generateDraftNews(year: year, month: month, weekOfMonth: weekOfMonth);
+        generateDraftNews(
+          year: year ?? DateTime.now().year,
+          month: month ?? DateTime.now().month,
+          weekOfMonth: weekOfMonth ?? 1,
+        );
       }
       
       // 学校関連ニュース（50%の確率に上げる）

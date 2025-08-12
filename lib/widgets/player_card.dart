@@ -67,9 +67,18 @@ class PlayerCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${player.position}（${player.school} ${player.grade}年）',
+                          '${player.position}（${player.school} ${player.isGraduated ? '卒業済み' : '${player.grade}年'}）',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
+                        // 卒業生の場合、卒業情報を表示
+                        if (player.isGraduated && player.graduatedAt != null)
+                          Text(
+                            '卒業: ${player.graduatedAt!.year}年${player.graduatedAt!.month}月',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.purple,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
                       ],
                     ),
                   ),

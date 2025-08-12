@@ -18,7 +18,7 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -138,6 +138,10 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
               icon: Icon(Icons.star, color: Colors.orange),
               text: '注目選手',
             ),
+            Tab(
+              icon: Icon(Icons.school, color: Colors.purple),
+              text: '卒業生',
+            ),
           ],
         ),
         actions: [
@@ -167,6 +171,12 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
             _getSortedPlayers(_getPlayersByCategory(allPlayers, PlayerCategory.famous)),
             '注目選手',
             '知名度が高く世間に知られている選手です。視察で発掘できます。',
+          ),
+          // 卒業生タブ
+          _buildPlayerList(
+            _getSortedPlayers(allPlayers.where((p) => p.isGraduated).toList()),
+            '卒業生',
+            '卒業した選手です。彼らの活躍を振り返ってみましょう。',
           ),
         ],
       ),

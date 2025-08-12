@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:io'; // Added for File
+import 'dart:math'; // Added for Random
 
 class DataService {
   static const String saveKey = 'scout_game_save';
@@ -28,7 +29,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
       path,
-      version: 10,
+      version: 14, // バージョンを14に更新
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
@@ -69,6 +70,100 @@ class DataService {
             print('is_scout_favoriteフィールドの追加完了');
           } catch (e) {
             print('is_scout_favoriteフィールド追加エラー: $e');
+          }
+        }
+        if (oldVersion < 11) {
+          // バージョン11: 卒業フラグ関連フィールドを追加
+          print('データベーススキーマを更新中（バージョン11）: 卒業フラグ関連フィールドを追加...');
+          try {
+            await db.execute('ALTER TABLE Player ADD COLUMN is_graduated INTEGER DEFAULT 0');
+            await db.execute('ALTER TABLE Player ADD COLUMN graduated_at TEXT');
+            print('卒業フラグ関連フィールドの追加完了');
+          } catch (e) {
+            print('卒業フラグ関連フィールド追加エラー: $e');
+          }
+        }
+        if (oldVersion < 12) {
+          // バージョン12: 卒業フラグ関連フィールドの再確認
+          print('データベーススキーマを更新中（バージョン12）: 卒業フラグ関連フィールドの再確認...');
+          try {
+            // 既存のカラムが存在するかチェック
+            final tableInfo = await db.rawQuery('PRAGMA table_info(Player)');
+            final columnNames = tableInfo.map((col) => col['name'] as String).toList();
+            
+            if (!columnNames.contains('is_graduated')) {
+              await db.execute('ALTER TABLE Player ADD COLUMN is_graduated INTEGER DEFAULT 0');
+              print('is_graduatedカラムを追加しました');
+            }
+            
+            if (!columnNames.contains('graduated_at')) {
+              await db.execute('ALTER TABLE Player ADD COLUMN graduated_at TEXT');
+              print('graduated_atカラムを追加しました');
+            }
+            
+            print('卒業フラグ関連フィールドの確認完了');
+          } catch (e) {
+            print('卒業フラグ関連フィールド確認エラー: $e');
+          }
+        }
+        if (oldVersion < 13) {
+          // バージョン13: 関連テーブルに卒業フラグを追加
+          print('データベーススキーマを更新中（バージョン13）: 関連テーブルに卒業フラグを追加...');
+          try {
+            // PlayerPotentialsテーブルに卒業フラグを追加
+            try {
+              await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN is_graduated INTEGER DEFAULT 0');
+              print('PlayerPotentialsテーブルにis_graduatedカラムを追加しました');
+            } catch (e) {
+              print('PlayerPotentialsテーブルのis_graduatedカラム追加エラー: $e');
+            }
+            
+            // ScoutAnalysisテーブルに卒業フラグを追加
+            try {
+              await db.execute('ALTER TABLE ScoutAnalysis ADD COLUMN is_graduated INTEGER DEFAULT 0');
+              print('ScoutAnalysisテーブルにis_graduatedカラムを追加しました');
+            } catch (e) {
+              print('ScoutAnalysisテーブルのis_graduatedカラム追加エラー: $e');
+            }
+            
+            // ScoutBasicInfoAnalysisテーブルに卒業フラグを追加
+            try {
+              await db.execute('ALTER TABLE ScoutBasicInfoAnalysis ADD COLUMN is_graduated INTEGER DEFAULT 0');
+              print('ScoutBasicInfoAnalysisテーブルにis_graduatedカラムを追加しました');
+            } catch (e) {
+              print('ScoutBasicInfoAnalysisテーブルのis_graduatedカラム追加エラー: $e');
+            }
+            
+            print('関連テーブルへの卒業フラグ追加完了');
+          } catch (e) {
+            print('関連テーブルへの卒業フラグ追加エラー: $e');
+          }
+        }
+        if (oldVersion < 14) {
+          // バージョン14: 年齢カラムを追加
+          print('データベーススキーマを更新中（バージョン14）: 年齢カラムを追加...');
+          try {
+            await db.execute('ALTER TABLE Player ADD COLUMN age INTEGER DEFAULT 15');
+            print('年齢カラムの追加完了');
+            
+            // 既存選手の年齢を学年から計算して設定
+            await _updateExistingPlayersAge(db);
+          } catch (e) {
+            print('年齢カラム追加エラー: $e');
+          }
+        }
+        if (oldVersion < 15) {
+          // バージョン15: 引退フラグを追加
+          print('データベーススキーマを更新中（バージョン15）: 引退フラグを追加...');
+          try {
+            await db.execute('ALTER TABLE Player ADD COLUMN is_retired INTEGER DEFAULT 0');
+            await db.execute('ALTER TABLE Player ADD COLUMN retired_at TEXT');
+            print('引退フラグの追加完了');
+            
+            // 既存選手の引退判定を実行
+            await _updateExistingPlayersRetirementStatus(db);
+          } catch (e) {
+            print('引退フラグ追加エラー: $e');
           }
         }
         if (oldVersion < 5) {
@@ -367,10 +462,15 @@ class DataService {
         id INTEGER PRIMARY KEY,
         school_id INTEGER,
         grade INTEGER,
+        age INTEGER DEFAULT 15,
         position TEXT,
         fame INTEGER,
         is_publicly_known INTEGER DEFAULT 0,
         is_scout_favorite INTEGER DEFAULT 0,
+        is_graduated INTEGER DEFAULT 0,
+        graduated_at TEXT,
+        is_retired INTEGER DEFAULT 0,
+        retired_at TEXT,
         growth_rate REAL,
         talent INTEGER,
         growth_type TEXT,
@@ -636,6 +736,82 @@ class DataService {
       print('注目選手フラグ再計算完了: ${updatedCount}人が注目選手に設定されました');
     } catch (e) {
       print('注目選手フラグ再計算エラー: $e');
+    }
+  }
+
+  /// 既存選手の年齢を学年から計算して設定（マイグレーション用）
+  Future<void> _updateExistingPlayersAge(Database db) async {
+    try {
+      print('既存選手の年齢を学年から計算中...');
+      
+      // 全選手を取得
+      final players = await db.query('Player');
+      int updatedCount = 0;
+      
+      for (final player in players) {
+        final grade = player['grade'] as int? ?? 1;
+        final age = 15 + (grade - 1); // 1年生=15歳、2年生=16歳、3年生=17歳
+        
+        await db.update(
+          'Player',
+          {'age': age},
+          where: 'id = ?',
+          whereArgs: [player['id']],
+        );
+        
+        updatedCount++;
+      }
+      
+      print('年齢更新完了: ${updatedCount}人の年齢を更新しました');
+    } catch (e) {
+      print('年齢更新エラー: $e');
+    }
+  }
+
+  /// 既存選手の引退判定を実行（マイグレーション用）
+  Future<void> _updateExistingPlayersRetirementStatus(Database db) async {
+    try {
+      print('既存選手の引退判定を実行中...');
+      
+      // 全選手を取得
+      final players = await db.query('Player');
+      int retiredCount = 0;
+      
+      for (final player in players) {
+        final age = player['age'] as int? ?? 15;
+        final grade = player['grade'] as int? ?? 1;
+        
+        // 高校卒業後（18歳以上）で引退判定
+        if (age > 17) {
+          // 簡単な引退判定（年齢ベース）
+          bool shouldRetire = false;
+          
+          if (age >= 40) {
+            shouldRetire = true; // 40歳以上で強制引退
+          } else if (age >= 35) {
+            shouldRetire = Random().nextBool(); // 35歳以上で50%の確率で引退
+          } else if (age >= 30) {
+            shouldRetire = Random().nextInt(10) < 3; // 30歳以上で30%の確率で引退
+          }
+          
+          if (shouldRetire) {
+            await db.update(
+              'Player',
+              {
+                'is_retired': 1,
+                'retired_at': DateTime.now().toIso8601String(),
+              },
+              where: 'id = ?',
+              whereArgs: [player['id']],
+            );
+            retiredCount++;
+          }
+        }
+      }
+      
+      print('引退判定完了: ${retiredCount}人が引退しました');
+    } catch (e) {
+      print('引退判定エラー: $e');
     }
   }
 } 

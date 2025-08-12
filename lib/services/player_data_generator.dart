@@ -47,11 +47,12 @@ class PlayerDataGenerator {
 
     // 選手固有の情報
     final grade = _random.nextInt(3) + 1; // 1-3年生
+    final age = 15 + (grade - 1); // 学年から年齢を計算（1年生=15歳、2年生=16歳、3年生=17歳）
     final talent = _generateTalent();
     final position = _determinePositionByPitchingAbility(talent, _random);
     final growthType = _generateGrowthType();
     final mentalGrit = _generateMentalGrit();
-    final growthRate = _generateGrowthRate();
+    final growthRate = _generateGrowthRate(growthType);
     
     // 個別ポテンシャル生成
     final individualPotentials = _generateIndividualPotentials(talent, _random);
@@ -78,6 +79,7 @@ class PlayerDataGenerator {
       'id': personId,
       'school_id': school.id,
       'grade': grade,
+      'age': age, // 年齢を追加
       'position': position,
       'fame': fame, // 知名度を追加
       'is_publicly_known': isPubliclyKnown ? 1 : 0, // 注目選手フラグを追加
@@ -140,6 +142,7 @@ class PlayerDataGenerator {
       name: name,
       school: school.name,
       grade: grade,
+      age: age, // 年齢を設定
       position: position,
       personality: personality,
       fame: fame, // 知名度を設定
@@ -383,7 +386,7 @@ class PlayerDataGenerator {
     }
   }
 
-  /// 能力値システムの生成
+  /// 能力値システムの生成（バランス調整版）
   Map<TechnicalAbility, int> _generateTechnicalAbilities(int talent, int grade, String position, Random random) {
     final abilities = <TechnicalAbility, int>{};
     final baseAbility = _getBaseAbilityByTalent(talent);
@@ -392,24 +395,29 @@ class PlayerDataGenerator {
     // 才能ランク6の怪物は特別な上限を設定
     final maxAbility = talent == 6 ? 90 : 100;
     
+    // 学年によるランダム要素の調整
+    final randomRange = grade == 1 ? 15 : (grade == 2 ? 12 : 10); // 1年生：15、2年生：12、3年生：10
+    
     // Technical abilitiesを生成
     for (final ability in TechnicalAbility.values) {
-      final baseValue = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+      final baseValue = ((baseAbility * gradeMultiplier + random.nextInt(randomRange)).round()).clamp(25, maxAbility);
       abilities[ability] = baseValue;
     }
     
-    // ポジション別調整を適用
+    // ポジション別調整を適用（学年による調整）
     if (position == '投手') {
-      abilities[TechnicalAbility.control] = (abilities[TechnicalAbility.control]! + random.nextInt(21)).clamp(25, 100);
-      abilities[TechnicalAbility.fastball] = (abilities[TechnicalAbility.fastball]! + random.nextInt(21)).clamp(25, 100);
-      abilities[TechnicalAbility.breakingBall] = (abilities[TechnicalAbility.breakingBall]! + random.nextInt(21)).clamp(25, 100);
-      abilities[TechnicalAbility.pitchMovement] = (abilities[TechnicalAbility.pitchMovement]! + random.nextInt(21)).clamp(25, 100);
+      final positionBonus = grade == 1 ? 15 : (grade == 2 ? 18 : 20); // 学年が上がるほどボーナス増加
+      abilities[TechnicalAbility.control] = (abilities[TechnicalAbility.control]! + random.nextInt(positionBonus)).clamp(25, 100);
+      abilities[TechnicalAbility.fastball] = (abilities[TechnicalAbility.fastball]! + random.nextInt(positionBonus)).clamp(25, 100);
+      abilities[TechnicalAbility.breakingBall] = (abilities[TechnicalAbility.breakingBall]! + random.nextInt(positionBonus)).clamp(25, 100);
+      abilities[TechnicalAbility.pitchMovement] = (abilities[TechnicalAbility.pitchMovement]! + random.nextInt(positionBonus)).clamp(25, 100);
     } else {
-      abilities[TechnicalAbility.contact] = (abilities[TechnicalAbility.contact]! + random.nextInt(21)).clamp(25, 100);
-      abilities[TechnicalAbility.power] = (abilities[TechnicalAbility.power]! + random.nextInt(21)).clamp(25, 100);
-      abilities[TechnicalAbility.batControl] = (abilities[TechnicalAbility.batControl]! + random.nextInt(21)).clamp(25, 100);
-      abilities[TechnicalAbility.fielding] = (abilities[TechnicalAbility.fielding]! + random.nextInt(21)).clamp(25, 100);
-      abilities[TechnicalAbility.throwing] = (abilities[TechnicalAbility.throwing]! + random.nextInt(21)).clamp(25, 100);
+      final positionBonus = grade == 1 ? 15 : (grade == 2 ? 18 : 20); // 学年が上がるほどボーナス増加
+      abilities[TechnicalAbility.contact] = (abilities[TechnicalAbility.contact]! + random.nextInt(positionBonus)).clamp(25, 100);
+      abilities[TechnicalAbility.power] = (abilities[TechnicalAbility.power]! + random.nextInt(positionBonus)).clamp(25, 100);
+      abilities[TechnicalAbility.batControl] = (abilities[TechnicalAbility.batControl]! + random.nextInt(positionBonus)).clamp(25, 100);
+      abilities[TechnicalAbility.fielding] = (abilities[TechnicalAbility.fielding]! + random.nextInt(positionBonus)).clamp(25, 100);
+      abilities[TechnicalAbility.throwing] = (abilities[TechnicalAbility.throwing]! + random.nextInt(positionBonus)).clamp(25, 100);
     }
     
     return abilities;
@@ -423,9 +431,12 @@ class PlayerDataGenerator {
     // 才能ランク6の怪物は特別な上限を設定
     final maxAbility = talent == 6 ? 90 : 100;
     
+    // 学年によるランダム要素の調整
+    final randomRange = grade == 1 ? 15 : (grade == 2 ? 12 : 10); // 1年生：15、2年生：12、3年生：10
+    
     // Mental abilitiesを生成
     for (final ability in MentalAbility.values) {
-      final baseValue = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+      final baseValue = ((baseAbility * gradeMultiplier + random.nextInt(randomRange)).round()).clamp(25, maxAbility);
       abilities[ability] = baseValue;
     }
     
@@ -440,25 +451,28 @@ class PlayerDataGenerator {
     // 才能ランク6の怪物は特別な上限を設定
     final maxAbility = talent == 6 ? 90 : 100;
     
+    // 学年によるランダム要素の調整
+    final randomRange = grade == 1 ? 15 : (grade == 2 ? 12 : 10); // 1年生：15、2年生：12、3年生：10
+    
     // Physical abilitiesを生成
     for (final ability in PhysicalAbility.values) {
-      final baseValue = ((baseAbility * gradeMultiplier + random.nextInt(20)).round()).clamp(25, maxAbility);
+      final baseValue = ((baseAbility * gradeMultiplier + random.nextInt(randomRange)).round()).clamp(25, maxAbility);
       abilities[ability] = baseValue;
     }
     
     return abilities;
   }
 
-  /// 基本能力値を取得
+  /// 基本能力値を取得（バランス調整版）
   int _getBaseAbilityByTalent(int talent) {
     switch (talent) {
-      case 1: return 35;
-      case 2: return 45;
-      case 3: return 55;
-      case 4: return 65;
-      case 5: return 75;
-      case 6: return 85; // 怪物級の基本能力値
-      default: return 45;
+      case 1: return 30;  // 才能1：30（以前は35）
+      case 2: return 40;  // 才能2：40（以前は45）
+      case 3: return 50;  // 才能3：50（以前は55）
+      case 4: return 60;  // 才能4：60（以前は65）
+      case 5: return 70;  // 才能5：70（以前は75）
+      case 6: return 80;  // 才能6：80（以前は85）
+      default: return 40;
     }
   }
 
@@ -475,13 +489,13 @@ class PlayerDataGenerator {
     }
   }
 
-  /// 学年倍率を取得
+  /// 学年倍率を取得（バランス調整版）
   double _getGradeMultiplier(int grade) {
     switch (grade) {
-      case 1: return 0.6;
-      case 2: return 0.8;
-      case 3: return 1.0;
-      default: return 0.8;
+      case 1: return 0.75;  // 1年生：75%（以前は60%）
+      case 2: return 0.85;  // 2年生：85%（以前は80%）
+      case 3: return 0.95;  // 3年生：95%（以前は100%）
+      default: return 0.85;
     }
   }
 
@@ -530,14 +544,32 @@ class PlayerDataGenerator {
     return types[_random.nextInt(types.length)];
   }
 
-  /// メンタルグリットを生成
+  /// メンタルグリットを生成（簡素化版）
   double _generateMentalGrit() {
-    return 0.5 + (_random.nextDouble() * 0.3); // 0.5-0.8
+    // 5段階の値に簡素化
+    final values = [0.5, 0.6, 0.7, 0.8, 0.9];
+    return values[_random.nextInt(values.length)];
   }
 
-  /// 成長率を生成
-  double _generateGrowthRate() {
-    return 0.9 + (_random.nextDouble() * 0.3); // 0.9-1.2
+  /// 成長率を生成（簡素化版）
+  double _generateGrowthRate(String growthType) {
+    // growth typeによって成長率の範囲を制限
+    switch (growthType) {
+      case 'early':
+        // 早期成長型：高い成長率（1.0-1.15）
+        return 1.0 + (_random.nextInt(4) * 0.05); // 1.0, 1.05, 1.1, 1.15
+      case 'normal':
+        // 標準成長型：標準的な成長率（0.9-1.1）
+        return 0.9 + (_random.nextInt(5) * 0.05); // 0.9, 0.95, 1.0, 1.05, 1.1
+      case 'late':
+        // 後期成長型：低い成長率（0.85-1.0）
+        return 0.85 + (_random.nextInt(4) * 0.05); // 0.85, 0.9, 0.95, 1.0
+      case 'spurt':
+        // 急成長型：不安定な成長率（0.9-1.15）
+        return 0.9 + (_random.nextInt(6) * 0.05); // 0.9, 0.95, 1.0, 1.05, 1.1, 1.15
+      default:
+        return 1.0;
+    }
   }
 
   /// ポジション適性を生成

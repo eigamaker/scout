@@ -99,10 +99,35 @@ class Game {
 
   // 月ごとの最大週数を返す
   int getMaxWeeksOfMonth(int month) {
-    if (month == 3 || month == 5 || month == 8 || month == 12) {
-      return 5;
+    // より現実的な週の配分
+    switch (month) {
+      case 2:  // 2月は4週
+        return 4;
+      case 3:  // 3月は5週（年度末）
+        return 5;
+      case 4:  // 4月は4週
+        return 4;
+      case 5:  // 5月は5週
+        return 5;
+      case 6:  // 6月は4週
+        return 4;
+      case 7:  // 7月は4週
+        return 4;
+      case 8:  // 8月は5週（夏休み期間）
+        return 5;
+      case 9:  // 9月は4週
+        return 4;
+      case 10: // 10月は4週
+        return 4;
+      case 11: // 11月は4週
+        return 4;
+      case 12: // 12月は5週（年末）
+        return 5;
+      case 1:  // 1月は4週
+        return 4;
+      default:
+        return 4;
     }
-    return 4;
   }
 
   // 週を進める

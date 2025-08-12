@@ -3,31 +3,81 @@ import '../models/player/player.dart';
 import '../models/player/player_abilities.dart';
 import 'data_service.dart';
 
-class GrowthService {
-  static const int _springGrowthStartWeek = 8; // 2月4週
-  static const int _springGrowthEndWeek = 9;    // 3月1週
-  static const int _summerGrowthStartWeek = 34; // 8月5週
-  static const int _summerGrowthEndWeek = 35;   // 9月1週
+// 年齢段階の定義
+enum AgeStage { young, prime, mature, decline, retirement }
 
-  // 成長タイミングの判定
-  static bool shouldGrow(int currentWeek) {
-    final isSpring = _isSpringGrowthPeriod(currentWeek);
-    final isSummer = _isSummerGrowthPeriod(currentWeek);
-    final shouldGrow = isSpring || isSummer;
+class GrowthService {
+  // 年齢段階を取得
+  static AgeStage _getAgeStage(int age) {
+    if (age <= 20) return AgeStage.young;      // 15-20歳
+    if (age <= 27) return AgeStage.prime;      // 21-27歳
+    if (age <= 32) return AgeStage.mature;     // 28-32歳
+    if (age <= 36) return AgeStage.decline;    // 33-36歳
+    return AgeStage.retirement;                 // 37歳以上
+  }
+
+  // 年齢と成長型に基づく成長係数を取得
+  static double _getAgeBasedGrowthFactor(int age, String growthType) {
+    // 37歳以降は全選手共通の大幅減退
+    if (age >= 37) return -0.4;
     
-    if (shouldGrow) {
+    final ageStage = _getAgeStage(age);
+    
+    switch (growthType) {
+      case 'early':
+        switch (ageStage) {
+          case AgeStage.young: return 1.3;    // 15-20歳：成長率高め
+          case AgeStage.prime: return 1.0;    // 21-27歳：標準成長
+          case AgeStage.mature: return -0.2;  // 28-32歳：減退開始
+          case AgeStage.decline: return -0.3; // 33-36歳：減退加速
+          case AgeStage.retirement: return -0.4; // 37歳以上：大幅減退
+        }
+      case 'normal':
+        switch (ageStage) {
+          case AgeStage.young: return 1.0;    // 15-20歳：標準成長
+          case AgeStage.prime: return 1.2;    // 21-27歳：成長率高め
+          case AgeStage.mature: return 0.0;   // 28-32歳：成長停止
+          case AgeStage.decline: return -0.2; // 33-36歳：能力値減退
+          case AgeStage.retirement: return -0.4; // 37歳以上：大幅減退
+        }
+      case 'late':
+        switch (ageStage) {
+          case AgeStage.young: return 0.8;    // 15-20歳：成長遅い
+          case AgeStage.prime: return 1.0;    // 21-27歳：標準成長
+          case AgeStage.mature: return 0.8;   // 28-32歳：成長継続
+          case AgeStage.decline: return -0.1; // 33-36歳：軽微な減退
+          case AgeStage.retirement: return -0.4; // 37歳以上：大幅減退
+        }
+      case 'spurt':
+        switch (ageStage) {
+          case AgeStage.young: return 1.0;    // 15-20歳：標準成長
+          case AgeStage.prime: return 1.1;    // 21-27歳：やや高め
+          case AgeStage.mature: return 0.0;   // 28-32歳：成長停止
+          case AgeStage.decline: return -0.2; // 33-36歳：能力値減退
+          case AgeStage.retirement: return -0.4; // 37歳以上：大幅減退
+        }
+      default:
+        return 1.0;
+    }
+  }
+
+  // 成長タイミングの判定（3ヶ月に1回）
+  static bool shouldGrow(int currentWeek) {
+    // 5月1週、8月1週、11月1週、2月1週で成長
+    final isGrowthWeek = _isGrowthWeek(currentWeek);
+    
+    if (isGrowthWeek) {
       print('GrowthService: 週$currentWeekで選手成長を実行します');
     }
     
-    return shouldGrow;
+    return isGrowthWeek;
   }
 
-  static bool _isSpringGrowthPeriod(int week) {
-    return week >= _springGrowthStartWeek && week <= _springGrowthEndWeek;
-  }
-
-  static bool _isSummerGrowthPeriod(int week) {
-    return week >= _summerGrowthStartWeek && week <= _summerGrowthEndWeek;
+  // 成長週かどうかを判定
+  static bool _isGrowthWeek(int week) {
+    // 週の計算：4月1週を1週目として計算
+    // 5月1週：週5、8月1週：週21、11月1週：週31、2月1週：週44
+    return week == 5 || week == 21 || week == 31 || week == 44;
   }
 
   // 選手の成長処理
@@ -109,52 +159,17 @@ class GrowthService {
 
   // 成長量の計算
   static int _calculateGrowthAmount(Player player, int currentValue, int potential) {
-    final baseGrowth = _getBaseGrowth(player.grade, player.growthType);
+    final ageBasedFactor = _getAgeBasedGrowthFactor(player.age, player.growthType);
     final growthRate = player.growthRate;
     final mentalGritBonus = 0.8 + player.mentalGrit * 0.4; // 0.8-1.2
     final talentBonus = _getTalentBonus(player.talent);
     final randomFactor = _getRandomFactor();
     final potentialPenalty = _getPotentialPenalty(currentValue, potential);
 
-    final growthAmount = baseGrowth * growthRate * mentalGritBonus * talentBonus * randomFactor * potentialPenalty;
-    final finalGrowthAmount = growthAmount.round().clamp(0, 10); // 最大成長量を10に制限
+    final growthAmount = ageBasedFactor * growthRate * mentalGritBonus * talentBonus * randomFactor * potentialPenalty;
+    final finalGrowthAmount = growthAmount.round().clamp(-5, 10); // マイナス成長も許可（-5から10）
     
     return finalGrowthAmount;
-  }
-
-  // 基本成長係数の計算
-  static double _getBaseGrowth(int grade, String growthType) {
-    double gradeFactor;
-    switch (grade) {
-      case 1:
-        gradeFactor = 1.0;
-        break;
-      case 2:
-        gradeFactor = 1.2;
-        break;
-      case 3:
-        gradeFactor = 1.5;
-        break;
-      default:
-        gradeFactor = 1.0;
-    }
-
-    double typeFactor;
-    switch (growthType) {
-      case 'early':
-        typeFactor = 1.3;
-        break;
-      case 'normal':
-        typeFactor = 1.0;
-        break;
-      case 'late':
-        typeFactor = 0.8;
-        break;
-      default:
-        typeFactor = 1.0;
-    }
-
-    return gradeFactor * typeFactor;
   }
 
   // 才能ランク補正

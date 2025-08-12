@@ -12,6 +12,7 @@ enum PlayerCategory {
   favorite,      // お気に入り選手（個人的に気に入っている）
   discovered,    // 発掘済み選手（視察で発掘・分析済み）
   famous,        // 注目選手（知名度が高く世間に知られている）
+  graduated,     // 卒業生（卒業した選手）
   unknown,       // 未発掘選手（視察していない）
 }
 
@@ -21,6 +22,7 @@ class Player {
   final String name;
   final String school;
   int grade; // 1年生、2年生、3年生（高校生の場合）
+  int age; // 年齢（15-17歳）
   final String position;
   String personality; // 性格（インタビューで判明）
   final int trustLevel; // 信頼度 0-100
@@ -44,6 +46,14 @@ class Player {
   // 選手の種類と卒業後の年数
   PlayerType type;
   int yearsAfterGraduation; // 卒業後の年数（大学生・社会人用）
+  
+  // 卒業状態管理
+  bool isGraduated; // 卒業済みかどうか
+  DateTime? graduatedAt; // 卒業日
+  
+  // 引退状態管理
+  bool isRetired; // 引退済みかどうか
+  DateTime? retiredAt; // 引退日
   
   // 球種（投手のみ）
   List<Pitch>? pitches;
@@ -81,6 +91,7 @@ class Player {
     required this.name,
     required this.school,
     required this.grade,
+    int? age,
     required this.position,
     required this.personality,
     this.trustLevel = 0,
@@ -96,6 +107,10 @@ class Player {
     List<DateTime>? scoutedDates,
     this.type = PlayerType.highSchool,
     this.yearsAfterGraduation = 0,
+    this.isGraduated = false,
+    this.graduatedAt,
+    this.isRetired = false,
+    this.retiredAt,
     this.pitches,
     Map<TechnicalAbility, int>? technicalAbilities,
     Map<MentalAbility, int>? mentalAbilities,
@@ -116,6 +131,7 @@ class Player {
     List<Achievement>? achievements,
     this.scoutAnalysisData,
   }) :
+    age = age ?? (15 + (grade - 1)), // 学年から年齢を計算（1年生=15歳、2年生=16歳、3年生=17歳）
     scoutedDates = scoutedDates ?? [],
     abilityKnowledge = abilityKnowledge ?? _initializeAbilityKnowledge(),
     achievements = achievements ?? [],
@@ -241,6 +257,11 @@ class Player {
       categories.add(PlayerCategory.discovered);
     }
     
+    // 卒業生の場合は必ず含める
+    if (isGraduated) {
+      categories.add(PlayerCategory.graduated);
+    }
+    
     // どのカテゴリにも属していない場合は未発掘
     if (categories.isEmpty) {
       categories.add(PlayerCategory.unknown);
@@ -270,6 +291,8 @@ class Player {
         return '発掘済み';
       case PlayerCategory.famous:
         return '注目選手';
+      case PlayerCategory.graduated:
+        return '卒業生';
       case PlayerCategory.unknown:
         return '未発掘';
     }
@@ -284,6 +307,8 @@ class Player {
         return '視察で発掘・分析済みの選手';
       case PlayerCategory.famous:
         return '知名度が高く世間に知られている選手';
+      case PlayerCategory.graduated:
+        return '卒業した選手';
       case PlayerCategory.unknown:
         return '視察していない未発掘選手';
     }
@@ -298,6 +323,8 @@ class Player {
         return Colors.blue;
       case PlayerCategory.famous:
         return Colors.orange;
+      case PlayerCategory.graduated:
+        return Colors.purple;
       case PlayerCategory.unknown:
         return Colors.grey;
     }
@@ -749,6 +776,10 @@ class Player {
     'abilityKnowledge': abilityKnowledge,
     'type': type.index,
     'yearsAfterGraduation': yearsAfterGraduation,
+    'isGraduated': isGraduated,
+    'graduatedAt': graduatedAt?.toIso8601String(),
+    'isRetired': isRetired,
+    'retiredAt': retiredAt?.toIso8601String(),
     'pitches': pitches?.map((p) => p.toJson()).toList(),
     'technicalAbilities': technicalAbilities.map((key, value) => MapEntry(key.name, value)),
     'mentalAbilities': mentalAbilities.map((key, value) => MapEntry(key.name, value)),
@@ -788,6 +819,10 @@ class Player {
       : null,
     type: PlayerType.values[json['type'] ?? 0],
     yearsAfterGraduation: json['yearsAfterGraduation'] ?? 0,
+    isGraduated: json['isGraduated'] ?? false,
+    graduatedAt: json['graduatedAt'] != null ? DateTime.parse(json['graduatedAt']) : null,
+    isRetired: json['isRetired'] ?? false,
+    retiredAt: json['retiredAt'] != null ? DateTime.parse(json['retiredAt']) : null,
     pitches: json['pitches'] != null
       ? (json['pitches'] as List).map((p) => Pitch.fromJson(p)).toList()
       : null,
@@ -833,6 +868,7 @@ class Player {
     String? name,
     String? school,
     int? grade,
+    int? age,
     String? position,
     String? personality,
     int? trustLevel,
@@ -862,12 +898,17 @@ class Player {
     String? scoutEvaluation,
     String? scoutNotes,
     Map<String, int>? scoutAnalysisData,
+    bool? isGraduated,
+    DateTime? graduatedAt,
+    bool? isRetired,
+    DateTime? retiredAt,
   }) {
     return Player(
       id: id ?? this.id,
       name: name ?? this.name,
       school: school ?? this.school,
       grade: grade ?? this.grade,
+      age: age ?? this.age,
       position: position ?? this.position,
       personality: personality ?? this.personality,
       trustLevel: trustLevel ?? this.trustLevel,
@@ -883,6 +924,10 @@ class Player {
       abilityKnowledge: abilityKnowledge ?? Map<String, int>.from(this.abilityKnowledge),
       type: type ?? this.type,
       yearsAfterGraduation: yearsAfterGraduation ?? this.yearsAfterGraduation,
+      isGraduated: isGraduated ?? this.isGraduated,
+      graduatedAt: graduatedAt ?? this.graduatedAt,
+      isRetired: isRetired ?? this.isRetired,
+      retiredAt: retiredAt ?? this.retiredAt,
       pitches: pitches ?? this.pitches,
       technicalAbilities: technicalAbilities ?? Map<TechnicalAbility, int>.from(this.technicalAbilities),
       mentalAbilities: mentalAbilities ?? Map<MentalAbility, int>.from(this.mentalAbilities),
