@@ -1039,8 +1039,8 @@ class GameManager {
     print('GameManager.advanceWeekWithResults: 週送り後 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}');
     print('GameManager.advanceWeekWithResults: 週送り処理完了');
     
-    // 3月1週の開始時に卒業処理（2月4週の終了後）
-    final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 1;
+    // 3月4週（年度末）に卒業処理
+    final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 4;
     print('GameManager.advanceWeekWithResults: 卒業処理判定 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 卒業処理: $isGraduation');
     
     if (isGraduation) {
@@ -1085,38 +1085,21 @@ class GameManager {
       _updateGrowthStatus(true, '新年度処理を実行中...');
       
       try {
+        // 学年アップ処理
         print('GameManager.advanceWeekWithResults: 学年アップ処理開始');
         await promoteAllStudents(dataService);
         print('GameManager.advanceWeekWithResults: 学年アップ処理完了');
         
-        print('GameManager.advanceWeekWithResults: 新入生生成開始');
+        // 新入生生成処理
+        print('GameManager.advanceWeekWithResults: 新入生生成処理開始');
         await generateNewStudentsForAllSchoolsDb(dataService);
-        print('GameManager.advanceWeekWithResults: 新入生生成完了');
-        
-        print('GameManager.advanceWeekWithResults: データベース更新開始');
-        await _refreshPlayersFromDb(dataService);
-        print('GameManager.advanceWeekWithResults: データベース更新完了');
-        
-        results.add('新年度が始まり、全学校で学年が1つ上がり新1年生が入学しました！');
-        
-        // 新年度開始時のニュース生成
-        print('GameManager.advanceWeekWithResults: 新年度ニュース生成開始');
-        _updateGrowthStatus(true, '新年度ニュースを生成中...');
-        newsService.generateAllPlayerNews(
-          _currentGame!.schools,
-          year: _currentGame!.currentYear,
-          month: _currentGame!.currentMonth,
-          weekOfMonth: _currentGame!.currentWeekOfMonth,
-        );
-        newsService.generateDraftNews(
-          year: _currentGame!.currentYear,
-          month: _currentGame!.currentMonth,
-          weekOfMonth: _currentGame!.currentWeekOfMonth,
-        );
-        print('GameManager.advanceWeekWithResults: 新年度ニュース生成完了');
+        print('GameManager.advanceWeekWithResults: 新入生生成処理完了');
         
         _updateGrowthStatus(false, '新年度処理完了');
         print('GameManager.advanceWeekWithResults: 新年度処理完了');
+        
+        // 新年度のニュース生成
+        results.add('新年度が始まりました。新入生が各学校に入学しました。');
         
       } catch (e) {
         print('GameManager.advanceWeekWithResults: 新年度処理でエラーが発生しました: $e');
@@ -1136,6 +1119,8 @@ class GameManager {
     final isFirstWeekOfMonth = _currentGame!.currentWeekOfMonth == 1;
     final shouldExecuteGrowth = isGrowthWeek && isFirstWeekOfMonth;
     
+    print('GameManager.advanceWeek: 成長判定詳細 - 月: ${_currentGame!.currentMonth}, 月内週: ${_currentGame!.currentWeekOfMonth}, 第1週か: $isFirstWeekOfMonth, 成長実行すべきか: $shouldExecuteGrowth');
+    
     if (shouldExecuteGrowth) {
       print('GameManager.advanceWeek: 成長週を検出（月第1週） - 全選手の成長処理を開始');
       _updateGrowthStatus(true, '選手の成長期が訪れました。成長処理を実行中...');
@@ -1146,16 +1131,16 @@ class GameManager {
         String growthPeriodName;
         switch (currentMonth) {
           case 5:
-            growthPeriodName = '春の成長期';
+            growthPeriodName = '春の成長期（週5）';
             break;
           case 8:
-            growthPeriodName = '夏の成長期';
+            growthPeriodName = '夏の成長期（週17）';
             break;
           case 11:
-            growthPeriodName = '秋の成長期';
+            growthPeriodName = '秋の成長期（週29）';
             break;
           case 2:
-            growthPeriodName = '冬の成長期';
+            growthPeriodName = '冬の成長期（週41）';
             break;
           default:
             growthPeriodName = '成長期';
@@ -1254,55 +1239,21 @@ class GameManager {
     return 0;
   }
 
-  // 現在の週番号を計算（4月1週を1週目として計算）
-  int _calculateCurrentWeek(int month, int weekOfMonth) {
-    int totalWeeks = 0;
-    
-    // 4月から指定月までの週数を計算
-    for (int m = 4; m < month; m++) {
-      totalWeeks += _getWeeksInMonth(m);
-    }
-    
-    // 指定月の週数を追加
-    totalWeeks += weekOfMonth;
-    
-    print('GameManager._calculateCurrentWeek: 月=$month, 月内週=$weekOfMonth → 総週数=$totalWeeks');
-    
-    return totalWeeks;
+  // 月の週数を取得（1年間48週、4週固定）
+  int _getWeeksInMonth(int month) {
+    // 全月4週固定（シンプルで分かりやすい）
+    return 4;
   }
 
-  // 月の週数を取得（1年間52週になるように調整）
-  int _getWeeksInMonth(int month) {
-    // より現実的な週の配分
-    // 2月は4週、その他の月は4週または5週
-    switch (month) {
-      case 2:  // 2月は4週
-        return 4;
-      case 3:  // 3月は5週（年度末）
-        return 5;
-      case 4:  // 4月は4週
-        return 4;
-      case 5:  // 5月は5週
-        return 5;
-      case 6:  // 6月は4週
-        return 4;
-      case 7:  // 7月は4週
-        return 4;
-      case 8:  // 8月は5週（夏休み期間）
-        return 5;
-      case 9:  // 9月は4週
-        return 4;
-      case 10: // 10月は4週
-        return 4;
-      case 11: // 11月は4週
-        return 4;
-      case 12: // 12月は5週（年末）
-        return 5;
-      case 1:  // 1月は4週
-        return 4;
-      default:
-        return 4;
-    }
+  // 現在の週番号を計算（4月1週を1週目として計算）
+  int _calculateCurrentWeek(int month, int weekOfMonth) {
+    // 4週固定なので計算が簡単
+    // 4月1週：週1、5月1週：週5、8月1週：週17、11月1週：週29、2月1週：週41
+    final totalWeeks = (month - 4) * 4 + weekOfMonth;
+    
+    print('GameManager._calculateCurrentWeek: 4週固定計算 - 月=$month, 月内週=$weekOfMonth → 総週数=$totalWeeks');
+    
+    return totalWeeks;
   }
 
 

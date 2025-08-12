@@ -75,9 +75,9 @@ class GrowthService {
 
   // 成長週かどうかを判定
   static bool _isGrowthWeek(int week) {
-    // 週の計算：4月1週を1週目として計算
-    // 5月1週：週5、8月1週：週21、11月1週：週31、2月1週：週44
-    return week == 5 || week == 21 || week == 31 || week == 44;
+    // 4週固定の場合の成長週
+    // 5月1週：週5、8月1週：週17、11月1週：週29、2月1週：週41
+    return week == 5 || week == 17 || week == 29 || week == 41;
   }
 
   // 選手の成長処理
