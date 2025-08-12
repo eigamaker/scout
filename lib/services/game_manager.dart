@@ -15,6 +15,7 @@ import 'player_data_generator.dart';
 import 'game_state_manager.dart';
 import '../models/scouting/scout.dart';
 import '../models/scouting/team_request.dart';
+import '../models/professional/professional_team.dart';
 import 'growth_service.dart';
 
 
@@ -125,9 +126,13 @@ class GameManager {
       weeklyActions: [],
       teamRequests: TeamRequestManager(requests: TeamRequestManager.generateDefaultRequests()),
       newsList: [], // 初期ニュースリストは空
+      professionalTeams: ProfessionalTeamManager(teams: ProfessionalTeamManager.generateDefaultTeams()),
     );
     // 全学校に1〜3年生を生成
     await generateInitialStudentsForAllSchoolsDb(dataService);
+    
+    // プロ野球団に選手を生成
+    _currentGame!.professionalTeams.generatePlayersForAllTeams();
     
     // generateInitialStudentsForAllSchoolsDbで更新された学校リストを取得
     final updatedSchools = _currentGame!.schools;
@@ -190,22 +195,16 @@ class GameManager {
       final updatedSchools = <School>[];
       
       for (final school in _currentGame!.schools) {
-        print('GameManager.generateNewStudentsForAllSchoolsDb: ${school.name}の新入生生成開始');
-        
         try {
           // 新1年生を5人生成
           final newFirstYears = await _playerDataGenerator.generatePlayersForSchool(school, 5);
-          print('GameManager.generateNewStudentsForAllSchoolsDb: ${school.name}に新入生${newFirstYears.length}人を生成');
           
           // 既存の選手と新入生を統合
           final allPlayers = [...school.players, ...newFirstYears];
           final updatedSchool = school.copyWith(players: allPlayers);
           updatedSchools.add(updatedSchool);
           
-          print('GameManager.generateNewStudentsForAllSchoolsDb: ${school.name}の新入生生成完了 - 総選手数: ${allPlayers.length}');
-          
         } catch (e) {
-          print('GameManager.generateNewStudentsForAllSchoolsDb: ${school.name}の新入生生成エラー: $e');
           // エラーが発生しても既存の学校をそのまま追加
           updatedSchools.add(school);
         }
@@ -233,25 +232,13 @@ class GameManager {
       int totalGraduated = 0;
       
       for (final school in _currentGame!.schools) {
-        print('GameManager.graduateThirdYearStudents: 学校 ${school.name} の卒業処理開始');
-        print('GameManager.graduateThirdYearStudents: ${school.name} - 全選手数: ${school.players.length}名');
-        
         final remaining = school.players.where((p) => p.grade < 3).toList();
         final graduating = school.players.where((p) => p.grade == 3).toList();
         
-        print('GameManager.graduateThirdYearStudents: ${school.name} - 残る選手: ${remaining.length}名, 卒業: ${graduating.length}名');
-        
-        // 卒業する選手の詳細情報をログ出力
-        for (final p in graduating) {
-          print('GameManager.graduateThirdYearStudents: 卒業予定選手 - ID: ${p.id}, 名前: ${p.name}, 学年: ${p.grade}年生, 学校: ${p.school}');
-        }
-        
         // DBで3年生を卒業フラグ設定（関連テーブルも含めて更新）
         for (final p in graduating) {
-          print('GameManager.graduateThirdYearStudents: 選手 ${p.name} (${p.grade}年生) を卒業処理中...');
-          
           // Playerテーブルの卒業フラグを更新
-          final playerUpdateResult = await db.update(
+          await db.update(
             'Player',
             {
               'is_graduated': 1,
@@ -260,59 +247,49 @@ class GameManager {
             where: 'id = ?',
             whereArgs: [p.id]
           );
-          print('GameManager.graduateThirdYearStudents: Playerテーブル更新完了 - 結果: $playerUpdateResult');
           
           // PlayerPotentialsテーブルの卒業フラグを更新
           try {
-            final potentialsUpdateResult = await db.update(
+            await db.update(
               'PlayerPotentials',
               {'is_graduated': 1},
               where: 'player_id = ?',
               whereArgs: [p.id]
             );
-            print('GameManager.graduateThirdYearStudents: PlayerPotentialsテーブル更新完了 - 結果: $potentialsUpdateResult');
           } catch (e) {
-            print('GameManager.graduateThirdYearStudents: PlayerPotentialsテーブル更新エラー: $e');
+            // テーブルが存在しない場合は無視
           }
           
           // ScoutAnalysisテーブルの卒業フラグを更新
           try {
-            final analysisUpdateResult = await db.update(
+            await db.update(
               'ScoutAnalysis',
               {'is_graduated': 1},
               where: 'player_id = ?',
               whereArgs: [p.id]
             );
-            print('GameManager.graduateThirdYearStudents: ScoutAnalysisテーブル更新完了 - 結果: $analysisUpdateResult');
           } catch (e) {
-            print('GameManager.graduateThirdYearStudents: ScoutAnalysisテーブル更新エラー: $e');
+            // テーブルが存在しない場合は無視
           }
           
           // ScoutBasicInfoAnalysisテーブルの卒業フラグを更新
           try {
-            final basicAnalysisUpdateResult = await db.update(
+            await db.update(
               'ScoutBasicInfoAnalysis',
               {'is_graduated': 1},
               where: 'player_id = ?',
               whereArgs: [p.id]
             );
-            print('GameManager.graduateThirdYearStudents: ScoutBasicInfoAnalysisテーブル更新完了 - 結果: $basicAnalysisUpdateResult');
           } catch (e) {
-            print('GameManager.graduateThirdYearStudents: ScoutBasicInfoAnalysisテーブル更新エラー: $e');
+            // テーブルが存在しない場合は無視
           }
           
-          print('GameManager.graduateThirdYearStudents: 選手 ${p.name} の卒業処理完了');
+          // 卒業した選手をremainingに追加（卒業フラグ付き）
+          remaining.add(p.copyWith(isGraduated: true, graduatedAt: DateTime.now()));
+          totalGraduated++;
         }
         
-        // 卒業した選手も含めて学校に保持（ただし卒業フラグ付き）
-        final allPlayers = [...remaining, ...graduating.map((p) => p.copyWith(
-          isGraduated: true,
-          graduatedAt: DateTime.now(),
-        ))];
-        
-        updatedSchools.add(school.copyWith(players: allPlayers));
-        totalGraduated += graduating.length;
-        print('GameManager.graduateThirdYearStudents: 学校 ${school.name} の卒業処理完了 - 在籍選手数: ${allPlayers.length}名（卒業生含む）');
+        updatedSchools.add(school.copyWith(players: remaining));
       }
       
       _currentGame = _currentGame!.copyWith(schools: updatedSchools);
@@ -320,13 +297,11 @@ class GameManager {
       print('GameManager.graduateThirdYearStudents: 全学校の卒業処理完了 - 総卒業生数: ${totalGraduated}名');
       
       // 卒業処理後に学校の強さを更新
-      print('GameManager.graduateThirdYearStudents: 学校の強さ更新開始');
       await updateSchoolStrengths(dataService);
-      print('GameManager.graduateThirdYearStudents: 学校の強さ更新完了');
       
     } catch (e) {
+      print('GameManager.graduateThirdYearStudents: 卒業処理でエラーが発生しました: $e');
       _updateGrowthStatus(false, '卒業処理でエラーが発生しました');
-      print('GameManager.graduateThirdYearStudents: エラーが発生しました: $e');
       rethrow;
     }
   }
@@ -342,7 +317,6 @@ class GameManager {
       final updatedSchools = <School>[];
       
       for (final school in _currentGame!.schools) {
-        print('GameManager.promoteAllStudents: ${school.name}の学年アップ処理開始');
         final promoted = <Player>[];
         
         for (final p in school.players) {
@@ -360,14 +334,11 @@ class GameManager {
           
           final newGrade = p.grade + 1;
           final newAge = p.age + 1; // 年齢も+1
-          print('GameManager.promoteAllStudents: 選手 ${p.name} (ID: ${p.id}) の学年を ${p.grade} → ${newGrade} に更新、年齢を ${p.age} → ${newAge} に更新');
           
           // 引退判定
           if (newAge > 17) { // 高校卒業後
             final shouldRetire = _shouldPlayerRetire(p, newAge);
             if (shouldRetire) {
-              print('GameManager.promoteAllStudents: 選手 ${p.name} (ID: ${p.id}) が引退しました（年齢: ${newAge}歳）');
-              
               // 引退フラグを設定
               try {
                 await db.update(
@@ -380,7 +351,7 @@ class GameManager {
                   whereArgs: [p.id]
                 );
               } catch (e) {
-                print('GameManager.promoteAllStudents: 引退フラグ設定エラー: $e');
+                // エラーが発生しても処理を継続
               }
               
               // 引退選手として追加
@@ -396,15 +367,13 @@ class GameManager {
           
           try {
             // DBも更新（idで検索）
-            final updateResult = await db.update(
+            await db.update(
               'Player', 
               {'grade': newGrade, 'age': newAge}, // 年齢も更新
               where: 'id = ?', 
               whereArgs: [p.id]
             );
-            print('GameManager.promoteAllStudents: 選手 ${p.name} のDB更新完了 - 結果: $updateResult');
           } catch (e) {
-            print('GameManager.promoteAllStudents: 選手 ${p.name} のDB更新エラー: $e');
             // エラーが発生しても処理を継続
           }
           
@@ -412,7 +381,6 @@ class GameManager {
         }
         
         updatedSchools.add(school.copyWith(players: promoted));
-        print('GameManager.promoteAllStudents: ${school.name}の学年アップ処理完了 - 選手数: ${promoted.length}');
       }
       
       _currentGame = _currentGame!.copyWith(schools: updatedSchools);
@@ -1039,40 +1007,49 @@ class GameManager {
     print('GameManager.advanceWeekWithResults: 週送り後 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}');
     print('GameManager.advanceWeekWithResults: 週送り処理完了');
     
-    // 3月4週（年度末）に卒業処理
-    final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 4;
-    print('GameManager.advanceWeekWithResults: 卒業処理判定 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 卒業処理: $isGraduation');
+    // 3月1週（年度末）に卒業処理
+    final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 1;
+    final graduationWeek = _calculateCurrentWeek(_currentGame!.currentMonth, _currentGame!.currentWeekOfMonth);
+    print('GameManager.advanceWeekWithResults: 卒業処理判定 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 卒業処理: $isGraduation, 総週数: $graduationWeek');
     
     if (isGraduation) {
-      print('GameManager.advanceWeekWithResults: 卒業処理開始');
-      _updateGrowthStatus(true, '3年生の卒業処理を実行中...');
+      // 卒業処理が既に実行済みかチェック（重複実行を防ぐ）
+      final hasGraduationProcessed = _currentGame!.schools.any((school) => 
+        school.players.any((player) => player.isGraduated)
+      );
       
-      try {
-        await graduateThirdYearStudents(dataService);
-        print('GameManager.advanceWeekWithResults: 卒業処理完了、データベース更新開始');
-        await _refreshPlayersFromDb(dataService);
-        print('GameManager.advanceWeekWithResults: データベース更新完了');
+      if (hasGraduationProcessed) {
+        print('GameManager.advanceWeekWithResults: 卒業処理は既に実行済みです。スキップします。');
+        results.add('卒業処理は既に完了しています。');
+      } else {
+        print('GameManager.advanceWeekWithResults: 卒業処理開始');
+        _updateGrowthStatus(true, '3年生の卒業処理を実行中...');
         
-        // 卒業生数を計算
-        int totalGraduated = 0;
-        for (final school in _currentGame!.schools) {
-          totalGraduated += school.players.where((p) => p.isGraduated).length;
+        try {
+          await graduateThirdYearStudents(dataService);
+          await _refreshPlayersFromDb(dataService);
+          
+          // 卒業生数を計算
+          int totalGraduated = 0;
+          for (final school in _currentGame!.schools) {
+            totalGraduated += school.players.where((p) => p.isGraduated).length;
+          }
+          
+          // 卒業ニュースを生成
+          newsService.generateGraduationNews(
+            year: _currentGame!.currentYear,
+            month: _currentGame!.currentMonth,
+            weekOfMonth: _currentGame!.currentWeekOfMonth,
+            totalGraduated: totalGraduated,
+          );
+          
+          results.add('3年生${totalGraduated}名が卒業しました。卒業生は卒業フラグが設定され、今後の成長を追跡できます。');
+          print('GameManager.advanceWeekWithResults: 卒業処理完了');
+        } catch (e) {
+          print('GameManager.advanceWeekWithResults: 卒業処理でエラーが発生しました: $e');
+          _updateGrowthStatus(false, '卒業処理でエラーが発生しました');
+          rethrow;
         }
-        
-        // 卒業ニュースを生成
-        newsService.generateGraduationNews(
-          year: _currentGame!.currentYear,
-          month: _currentGame!.currentMonth,
-          weekOfMonth: _currentGame!.currentWeekOfMonth,
-          totalGraduated: totalGraduated,
-        );
-        
-        results.add('3年生${totalGraduated}名が卒業しました。卒業生は卒業フラグが設定され、今後の成長を追跡できます。');
-        print('GameManager.advanceWeekWithResults: 卒業処理完了');
-      } catch (e) {
-        print('GameManager.advanceWeekWithResults: 卒業処理でエラーが発生しました: $e');
-        _updateGrowthStatus(false, '卒業処理でエラーが発生しました');
-        rethrow;
       }
     }
     
@@ -1081,31 +1058,41 @@ class GameManager {
     print('GameManager.advanceWeekWithResults: 新年度処理判定 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 新年度処理: $isNewYear');
     
     if (isNewYear) {
-      print('GameManager.advanceWeekWithResults: 新年度処理開始');
-      _updateGrowthStatus(true, '新年度処理を実行中...');
+      // 新年度処理が既に実行済みかチェック（重複実行を防ぐ）
+      final hasNewYearProcessed = _currentGame!.schools.any((school) => 
+        school.players.any((player) => player.grade == 1 && player.age == 15)
+      );
       
-      try {
-        // 学年アップ処理
-        print('GameManager.advanceWeekWithResults: 学年アップ処理開始');
-        await promoteAllStudents(dataService);
-        print('GameManager.advanceWeekWithResults: 学年アップ処理完了');
+      if (hasNewYearProcessed) {
+        print('GameManager.advanceWeekWithResults: 新年度処理は既に実行済みです。スキップします。');
+        results.add('新年度処理は既に完了しています。');
+      } else {
+        print('GameManager.advanceWeekWithResults: 新年度処理開始');
+        _updateGrowthStatus(true, '新年度処理を実行中...');
         
-        // 新入生生成処理
-        print('GameManager.advanceWeekWithResults: 新入生生成処理開始');
-        await generateNewStudentsForAllSchoolsDb(dataService);
-        print('GameManager.advanceWeekWithResults: 新入生生成処理完了');
-        
-        _updateGrowthStatus(false, '新年度処理完了');
-        print('GameManager.advanceWeekWithResults: 新年度処理完了');
-        
-        // 新年度のニュース生成
-        results.add('新年度が始まりました。新入生が各学校に入学しました。');
-        
-      } catch (e) {
-        print('GameManager.advanceWeekWithResults: 新年度処理でエラーが発生しました: $e');
-        _updateGrowthStatus(false, '新年度処理でエラーが発生しました');
-        // エラーが発生しても処理を継続（ゲームが止まらないように）
-        results.add('新年度処理中にエラーが発生しましたが、処理を継続します。');
+        try {
+          // 学年アップ処理
+          print('GameManager.advanceWeekWithResults: 学年アップ処理開始');
+          await promoteAllStudents(dataService);
+          print('GameManager.advanceWeekWithResults: 学年アップ処理完了');
+          
+          // 新入生生成処理
+          print('GameManager.advanceWeekWithResults: 新入生生成処理開始');
+          await generateNewStudentsForAllSchoolsDb(dataService);
+          print('GameManager.advanceWeekWithResults: 新入生生成処理完了');
+          
+          _updateGrowthStatus(false, '新年度処理完了');
+          print('GameManager.advanceWeekWithResults: 新年度処理完了');
+          
+          // 新年度のニュース生成
+          results.add('新年度が始まりました。新入生が各学校に入学しました。');
+          
+        } catch (e) {
+          print('GameManager.advanceWeekWithResults: 新年度処理でエラーが発生しました: $e');
+          _updateGrowthStatus(false, '新年度処理でエラーが発生しました');
+          // エラーが発生しても処理を継続（ゲームが止まらないように）
+          results.add('新年度処理中にエラーが発生しましたが、処理を継続します。');
+        }
       }
     }
     
@@ -1113,13 +1100,10 @@ class GameManager {
     print('GameManager.advanceWeekWithResults: 成長判定開始');
     final currentWeek = _calculateCurrentWeek(_currentGame!.currentMonth, _currentGame!.currentWeekOfMonth);
     final isGrowthWeek = GrowthService.shouldGrow(currentWeek);
-    print('GameManager.advanceWeek: 現在週: $currentWeek, 成長週か: $isGrowthWeek');
     
     // 成長処理は月の第1週にのみ実行（重複実行を防ぐ）
     final isFirstWeekOfMonth = _currentGame!.currentWeekOfMonth == 1;
     final shouldExecuteGrowth = isGrowthWeek && isFirstWeekOfMonth;
-    
-    print('GameManager.advanceWeek: 成長判定詳細 - 月: ${_currentGame!.currentMonth}, 月内週: ${_currentGame!.currentWeekOfMonth}, 第1週か: $isFirstWeekOfMonth, 成長実行すべきか: $shouldExecuteGrowth');
     
     if (shouldExecuteGrowth) {
       print('GameManager.advanceWeek: 成長週を検出（月第1週） - 全選手の成長処理を開始');
@@ -1758,65 +1742,63 @@ class GameManager {
   Future<void> updateSchoolStrengths(DataService dataService) async {
     if (_currentGame == null) return;
     
-    print('GameManager.updateSchoolStrengths: 学校の強さ計算開始');
-    
     try {
       final db = await dataService.database;
+      final updatedSchools = <School>[];
       
       for (final school in _currentGame!.schools) {
-        // 在籍選手（卒業していない選手）の総合能力を計算
+        // 在籍選手（卒業していない選手）のみを対象
         final activePlayers = school.players.where((p) => !p.isGraduated).toList();
         
         if (activePlayers.isEmpty) {
-          print('GameManager.updateSchoolStrengths: ${school.name} - 在籍選手なし');
+          // 在籍選手がいない場合はデフォルト値
+          final updatedSchool = school.copyWith(coachTrust: 70);
+          updatedSchools.add(updatedSchool);
           continue;
         }
         
-        double totalStrength = 0;
-        int playerCount = 0;
+        // 全能力値の平均を計算
+        int totalAbility = 0;
+        int abilityCount = 0;
         
         for (final player in activePlayers) {
-          // 選手の総合能力を計算（技術面、メンタル面、フィジカル面の平均）
-          final technicalAvg = player.technicalAbilities.values.isNotEmpty 
-              ? player.technicalAbilities.values.reduce((a, b) => a + b) / player.technicalAbilities.values.length 
-              : 0;
-          
-          final mentalAvg = player.mentalAbilities.values.isNotEmpty 
-              ? player.mentalAbilities.values.reduce((a, b) => a + b) / player.mentalAbilities.values.length 
-              : 0;
-          
-          final physicalAvg = player.physicalAbilities.values.isNotEmpty 
-              ? player.physicalAbilities.values.reduce((a, b) => a + b) / player.physicalAbilities.values.length 
-              : 0;
-          
-          final playerStrength = (technicalAvg + mentalAvg + physicalAvg) / 3;
-          totalStrength += playerStrength;
-          playerCount++;
+          // 技術能力
+          for (final ability in player.technicalAbilities.values) {
+            totalAbility += ability;
+            abilityCount++;
+          }
+          // 精神能力
+          for (final ability in player.mentalAbilities.values) {
+            totalAbility += ability;
+            abilityCount++;
+          }
+          // 身体能力
+          for (final ability in player.physicalAbilities.values) {
+            totalAbility += ability;
+            abilityCount++;
+          }
         }
         
-        final averageStrength = playerCount > 0 ? totalStrength / playerCount : 0;
+        final averageStrength = abilityCount > 0 ? totalAbility / abilityCount : 70;
         final schoolStrength = averageStrength.round();
         
-        print('GameManager.updateSchoolStrengths: ${school.name} - 平均強さ: ${averageStrength.toStringAsFixed(1)}, 計算された強さ: $schoolStrength');
-        
-        // データベースのOrganizationテーブルを更新
+        // 学校の強さを更新
         try {
-          final updateResult = await db.update(
+          await db.update(
             'Organization',
-            {
-              'school_strength': schoolStrength,
-              'last_year_strength': schoolStrength, // 今年の強さを去年の強さとして記録
-            },
-            where: 'name = ?',
-            whereArgs: [school.name]
+            {'school_strength': schoolStrength},
+            where: 'id = ?',
+            whereArgs: [school.id]
           );
-          print('GameManager.updateSchoolStrengths: ${school.name}の強さ更新完了 - 結果: $updateResult');
         } catch (e) {
-          print('GameManager.updateSchoolStrengths: ${school.name}の強さ更新エラー: $e');
+          // エラーが発生しても処理を継続
         }
+        
+        final updatedSchool = school.copyWith(coachTrust: schoolStrength);
+        updatedSchools.add(updatedSchool);
       }
       
-      print('GameManager.updateSchoolStrengths: 全学校の強さ計算完了');
+      _currentGame = _currentGame!.copyWith(schools: updatedSchools);
       
     } catch (e) {
       print('GameManager.updateSchoolStrengths: エラーが発生しました: $e');

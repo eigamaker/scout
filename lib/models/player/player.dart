@@ -55,6 +55,10 @@ class Player {
   bool isRetired; // 引退済みかどうか
   DateTime? retiredAt; // 引退日
   
+  // プロ野球選手状態管理
+  bool isDrafted; // プロ野球選手かどうか
+  String? professionalTeamId; // 所属プロ野球団ID
+  
   // 球種（投手のみ）
   List<Pitch>? pitches;
   
@@ -111,6 +115,8 @@ class Player {
     this.graduatedAt,
     this.isRetired = false,
     this.retiredAt,
+    this.isDrafted = false,
+    this.professionalTeamId,
     this.pitches,
     Map<TechnicalAbility, int>? technicalAbilities,
     Map<MentalAbility, int>? mentalAbilities,
@@ -780,6 +786,8 @@ class Player {
     'graduatedAt': graduatedAt?.toIso8601String(),
     'isRetired': isRetired,
     'retiredAt': retiredAt?.toIso8601String(),
+    'isDrafted': isDrafted,
+    'professionalTeamId': professionalTeamId,
     'pitches': pitches?.map((p) => p.toJson()).toList(),
     'technicalAbilities': technicalAbilities.map((key, value) => MapEntry(key.name, value)),
     'mentalAbilities': mentalAbilities.map((key, value) => MapEntry(key.name, value)),
@@ -823,6 +831,8 @@ class Player {
     graduatedAt: json['graduatedAt'] != null ? DateTime.parse(json['graduatedAt']) : null,
     isRetired: json['isRetired'] ?? false,
     retiredAt: json['retiredAt'] != null ? DateTime.parse(json['retiredAt']) : null,
+    isDrafted: json['isDrafted'] ?? false,
+    professionalTeamId: json['professionalTeamId'],
     pitches: json['pitches'] != null
       ? (json['pitches'] as List).map((p) => Pitch.fromJson(p)).toList()
       : null,
@@ -902,6 +912,8 @@ class Player {
     DateTime? graduatedAt,
     bool? isRetired,
     DateTime? retiredAt,
+    bool? isDrafted,
+    String? professionalTeamId,
   }) {
     return Player(
       id: id ?? this.id,
@@ -928,6 +940,8 @@ class Player {
       graduatedAt: graduatedAt ?? this.graduatedAt,
       isRetired: isRetired ?? this.isRetired,
       retiredAt: retiredAt ?? this.retiredAt,
+      isDrafted: isDrafted ?? this.isDrafted,
+      professionalTeamId: professionalTeamId ?? this.professionalTeamId,
       pitches: pitches ?? this.pitches,
       technicalAbilities: technicalAbilities ?? Map<TechnicalAbility, int>.from(this.technicalAbilities),
       mentalAbilities: mentalAbilities ?? Map<MentalAbility, int>.from(this.mentalAbilities),

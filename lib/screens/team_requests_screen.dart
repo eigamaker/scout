@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/game/game.dart';
 import '../models/scouting/team_request.dart';
 import '../models/player/player.dart';
+import '../models/professional/professional_team.dart';
 import '../services/game_manager.dart';
 
 class TeamRequestsScreen extends StatefulWidget {
@@ -118,6 +119,22 @@ class _TeamRequestsScreenState extends State<TeamRequestsScreen> {
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // 球団名を表示
+                Row(
+                  children: [
+                    Icon(Icons.sports_baseball, color: Colors.blue, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      _getTeamName(request.teamId, game),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blue,
                       ),
                     ),
                   ],
@@ -363,5 +380,11 @@ class _TeamRequestsScreenState extends State<TeamRequestsScreen> {
     } else {
       return Colors.green;
     }
+  }
+
+  // 球団IDから球団名を取得
+  String _getTeamName(String teamId, Game game) {
+    final team = game.professionalTeams.getTeam(teamId);
+    return team?.shortName ?? '不明な球団';
   }
 } 

@@ -93,6 +93,11 @@ class _GameScreenState extends State<GameScreen> {
               title: const Text('ニュース'),
               onTap: () => Navigator.pushNamed(context, '/news'),
             ),
+            ListTile(
+              leading: const Icon(Icons.sports_baseball),
+              title: const Text('プロ野球団'),
+              onTap: () => Navigator.pushNamed(context, '/professionalTeams'),
+            ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.psychology),

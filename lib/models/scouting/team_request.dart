@@ -13,6 +13,7 @@ enum TeamRequestType {
 // 球団からの要望
 class TeamRequest {
   final String id;
+  final String teamId; // 球団ID
   final TeamRequestType type;
   final String title;
   final String description;
@@ -23,6 +24,7 @@ class TeamRequest {
   
   TeamRequest({
     required this.id,
+    required this.teamId,
     required this.type,
     required this.title,
     required this.description,
@@ -34,6 +36,7 @@ class TeamRequest {
   
   Map<String, dynamic> toJson() => {
     'id': id,
+    'teamId': teamId,
     'type': type.index,
     'title': title,
     'description': description,
@@ -45,6 +48,7 @@ class TeamRequest {
   
   factory TeamRequest.fromJson(Map<String, dynamic> json) => TeamRequest(
     id: json['id'] as String,
+    teamId: json['teamId'] as String,
     type: TeamRequestType.values[json['type'] as int],
     title: json['title'] as String,
     description: json['description'] as String,
@@ -64,6 +68,7 @@ class TeamRequest {
   TeamRequest markAsCompleted(String playerId) {
     return TeamRequest(
       id: id,
+      teamId: teamId,
       type: type,
       title: title,
       description: description,
@@ -123,6 +128,7 @@ class TeamRequestManager {
     return [
       TeamRequest(
         id: 'req_001',
+        teamId: 'giants',
         type: TeamRequestType.immediateImpact,
         title: '即戦力選手の推薦',
         description: '今年のドラフトで即座に戦力として使える選手を推薦してください。',
@@ -131,6 +137,7 @@ class TeamRequestManager {
       ),
       TeamRequest(
         id: 'req_002',
+        teamId: 'tigers',
         type: TeamRequestType.futureCleanup,
         title: '5年後のチームの4番候補',
         description: '5年後にチームの4番打者として期待できる選手を推薦してください。',
@@ -139,6 +146,7 @@ class TeamRequestManager {
       ),
       TeamRequest(
         id: 'req_003',
+        teamId: 'carp',
         type: TeamRequestType.futureSecond,
         title: '5年後のセカンド候補',
         description: '5年後にセカンドベースとして期待できる選手を推薦してください。',
@@ -147,6 +155,7 @@ class TeamRequestManager {
       ),
       TeamRequest(
         id: 'req_004',
+        teamId: 'hawks',
         type: TeamRequestType.futureAce,
         title: '5年後のエース候補',
         description: '5年後にチームのエースとして期待できる投手を推薦してください。',

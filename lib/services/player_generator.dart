@@ -2,6 +2,7 @@ import 'dart:math';
 import '../models/player/player.dart';
 import '../models/player/achievement.dart';
 import '../models/player/player_abilities.dart';
+import '../models/professional/professional_team.dart';
 
 class PlayerGenerator {
   static final Random _random = Random();
@@ -702,5 +703,260 @@ class PlayerGenerator {
     }
     
     return potentials;
+  }
+  
+  // プロ野球選手を生成
+  static List<Player> generateProfessionalPlayers(ProfessionalTeam team) {
+    final players = <Player>[];
+    final random = Random();
+    
+    // チームのポジション別選手数を決定
+    final positionCounts = {
+      '投手': 12,      // 投手12名
+      '捕手': 3,       // 捕手3名
+      '一塁手': 2,     // 一塁手2名
+      '二塁手': 2,     // 二塁手2名
+      '三塁手': 2,     // 三塁手2名
+      '遊撃手': 2,     // 遊撃手2名
+      '左翼手': 2,     // 左翼手2名
+      '中堅手': 2,     // 中堅手2名
+      '右翼手': 2,     // 右翼手2名
+    };
+    
+    // 各ポジションの選手を生成
+    for (final entry in positionCounts.entries) {
+      final position = entry.key;
+      final count = entry.value;
+      
+      for (int i = 0; i < count; i++) {
+        // talentランク3, 4, 5のみ（NPB選手レベル）
+        final talent = random.nextBool() ? 4 : (random.nextBool() ? 3 : 5);
+        
+        // 年齢は18-35歳（プロ野球選手の一般的な年齢）
+        final age = 18 + random.nextInt(18);
+        
+        // プロ野球選手用の能力値生成（高校生より高いレベル）
+        final technicalAbilities = _generateProfessionalTechnicalAbilities(talent, position);
+        final mentalAbilities = _generateProfessionalMentalAbilities(talent);
+        final physicalAbilities = _generateProfessionalPhysicalAbilities(talent, position);
+        
+        // プロ野球選手用のポテンシャル生成
+        final individualPotentials = _generateProfessionalIndividualPotentials(talent, position);
+        
+        final player = Player(
+          name: _generateProfessionalPlayerName(),
+          school: 'プロ野球団',
+          grade: 0, // プロ野球選手は学年なし
+          position: position,
+          personality: _generateProfessionalPersonality(),
+          trustLevel: 80 + random.nextInt(21), // 80-100（プロ選手なので高い信頼度）
+          fame: 60 + random.nextInt(41), // 60-100（プロ選手なので高い知名度）
+          isWatched: true,
+          isDiscovered: true,
+          isPubliclyKnown: true,
+          type: PlayerType.social, // 社会人選手として扱う
+          yearsAfterGraduation: age - 18, // 高校卒業後の年数
+          isGraduated: true, // プロ選手は卒業済み
+          isDrafted: true, // プロ選手フラグ
+          professionalTeamId: team.id, // 所属チームID
+          technicalAbilities: technicalAbilities,
+          mentalAbilities: mentalAbilities,
+          physicalAbilities: physicalAbilities,
+          mentalGrit: 0.6 + random.nextDouble() * 0.4, // 0.6-1.0（プロ選手なので高い精神力）
+          growthRate: 0.9 + random.nextDouble() * 0.2, // 0.9-1.1（プロ選手なので安定した成長）
+          peakAbility: 100 + random.nextInt(51), // 100-150（NPB選手レベル）
+          positionFit: _generateProfessionalPositionFit(position),
+          talent: talent,
+          growthType: '標準型', // プロ選手は標準的な成長
+          individualPotentials: individualPotentials,
+          achievements: _generateProfessionalAchievements(talent),
+        );
+        
+        players.add(player);
+      }
+    }
+    
+    return players;
+  }
+  
+  // プロ野球選手用の技術面能力値生成
+  static Map<TechnicalAbility, int> _generateProfessionalTechnicalAbilities(int talent, String position) {
+    final abilities = <TechnicalAbility, int>{};
+    final random = Random();
+    
+    // NPB選手レベルの基本能力値（100-115）
+    final baseValue = 100 + (talent - 3) * 5; // talent 3: 100, 4: 105, 5: 110
+    
+    for (final ability in TechnicalAbility.values) {
+      int value = baseValue + random.nextInt(21) - 10; // ±10の変動
+      
+      // ポジションによる調整
+      switch (position) {
+        case '投手':
+          if (ability == TechnicalAbility.control || ability == TechnicalAbility.breakingBall) {
+            value += random.nextInt(16); // 投手の投球能力+0-15
+          }
+          break;
+        case '捕手':
+          if (ability == TechnicalAbility.fielding || ability == TechnicalAbility.throwing) {
+            value += random.nextInt(16); // 捕手の守備能力+0-15
+          }
+          break;
+        case '内野手':
+          if (ability == TechnicalAbility.fielding || ability == TechnicalAbility.throwing) {
+            value += random.nextInt(16); // 内野手の守備能力+0-15
+          }
+          break;
+        case '外野手':
+          if (ability == TechnicalAbility.fielding || ability == TechnicalAbility.throwing) {
+            value += random.nextInt(16); // 外野手の守備能力+0-15
+          }
+          break;
+      }
+      
+      abilities[ability] = value.clamp(95, 120); // NPB選手レベルに制限
+    }
+    
+    return abilities;
+  }
+  
+  // プロ野球選手用のメンタル面能力値生成
+  static Map<MentalAbility, int> _generateProfessionalMentalAbilities(int talent) {
+    final abilities = <MentalAbility, int>{};
+    final random = Random();
+    
+    // NPB選手レベルの基本能力値（100-115）
+    final baseValue = 100 + (talent - 3) * 5; // talent 3: 100, 4: 105, 5: 110
+    
+    for (final ability in MentalAbility.values) {
+      int value = baseValue + random.nextInt(21) - 10; // ±10の変動
+      abilities[ability] = value.clamp(95, 120); // NPB選手レベルに制限
+    }
+    
+    return abilities;
+  }
+  
+  // プロ野球選手用のフィジカル面能力値生成
+  static Map<PhysicalAbility, int> _generateProfessionalPhysicalAbilities(int talent, String position) {
+    final abilities = <PhysicalAbility, int>{};
+    final random = Random();
+    
+    // NPB選手レベルの基本能力値（100-115）
+    final baseValue = 100 + (talent - 3) * 5; // talent 3: 100, 4: 105, 5: 110
+    
+    for (final ability in PhysicalAbility.values) {
+      int value = baseValue + random.nextInt(21) - 10; // ±10の変動
+      
+      // ポジションによる調整
+      switch (position) {
+        case '投手':
+          if (ability == PhysicalAbility.stamina) {
+            value += random.nextInt(16); // 投手のスタミナ+0-15
+          }
+          break;
+        case '外野手':
+          if (ability == PhysicalAbility.pace || ability == PhysicalAbility.acceleration) {
+            value += random.nextInt(16); // 外野手の走力+0-15
+          }
+          break;
+        case '内野手':
+          if (ability == PhysicalAbility.agility || ability == PhysicalAbility.balance) {
+            value += random.nextInt(16); // 内野手の敏捷性+0-15
+          }
+          break;
+      }
+      
+      abilities[ability] = value.clamp(95, 120); // NPB選手レベルに制限
+    }
+    
+    return abilities;
+  }
+  
+  // プロ野球選手用の個別ポテンシャル生成
+  static Map<String, int> _generateProfessionalIndividualPotentials(int talent, String position) {
+    final potentials = <String, int>{};
+    final random = Random();
+    
+    // NPB選手レベルの基本ポテンシャル（100-120）
+    final basePotential = 100 + (talent - 3) * 5; // talent 3: 100, 4: 105, 5: 110
+    
+    // Technical（技術面）能力値ポテンシャル
+    final technicalPotentials = _generateProfessionalTechnicalAbilities(talent, position);
+    for (final entry in technicalPotentials.entries) {
+      potentials[entry.key.name] = entry.value + random.nextInt(11) - 5; // ±5の変動
+    }
+    
+    // Mental（メンタル面）能力値ポテンシャル
+    final mentalPotentials = _generateProfessionalMentalAbilities(talent);
+    for (final entry in mentalPotentials.entries) {
+      potentials[entry.key.name] = entry.value + random.nextInt(11) - 5; // ±5の変動
+    }
+    
+    // Physical（フィジカル面）能力値ポテンシャル
+    final physicalPotentials = _generateProfessionalPhysicalAbilities(talent, position);
+    for (final entry in physicalPotentials.entries) {
+      potentials[entry.key.name] = entry.value + random.nextInt(11) - 5; // ±5の変動
+    }
+    
+    return potentials;
+  }
+  
+  // プロ野球選手用のポジション適性生成
+  static Map<String, int> _generateProfessionalPositionFit(String position) {
+    final fit = <String, int>{};
+    
+    // メインポジションは90-100
+    fit[position] = 90 + Random().nextInt(11);
+    
+    // 他のポジションは適度に低く
+    final otherPositions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '左翼手', '中堅手', '右翼手'];
+    for (final otherPosition in otherPositions) {
+      if (otherPosition != position) {
+        fit[otherPosition] = 20 + Random().nextInt(41); // 20-60
+      }
+    }
+    
+    return fit;
+  }
+  
+  // プロ野球選手用の実績生成
+  static List<Achievement> _generateProfessionalAchievements(int talent) {
+    final achievements = <Achievement>[];
+    final random = Random();
+    
+    // talentランクに応じて実績を生成
+    if (talent >= 4) {
+      achievements.add(Achievement.create(
+        type: AchievementType.nationalChampionship,
+        year: 2024,
+        month: random.nextInt(12) + 1,
+        team: 'プロ野球団',
+      ));
+    }
+    
+    if (talent >= 3) {
+      achievements.add(Achievement.create(
+        type: AchievementType.homeRunKing,
+        year: 2024,
+        month: random.nextInt(12) + 1,
+        team: 'プロ野球団',
+      ));
+    }
+    
+    return achievements;
+  }
+  
+  // プロ野球選手用の名前生成
+  static String _generateProfessionalPlayerName() {
+    final surnames = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
+    final givenNames = ['翔太', '健一', '大輔', '雄一', '達也', '智也', '誠', '勇', '剛', '正'];
+    
+    return '${surnames[Random().nextInt(surnames.length)]} ${givenNames[Random().nextInt(givenNames.length)]}';
+  }
+  
+  // プロ野球選手用の性格生成
+  static String _generateProfessionalPersonality() {
+    final personalities = ['リーダー', '冷静', '積極的', '謙虚', '情熱的', '集中力', '責任感'];
+    return personalities[Random().nextInt(personalities.length)];
   }
 }

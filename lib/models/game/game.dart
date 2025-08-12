@@ -3,6 +3,7 @@ import '../school/school.dart';
 import '../scouting/scout.dart';
 import '../scouting/team_request.dart';
 import '../news/news_item.dart';
+import '../professional/professional_team.dart';
 
 // ゲーム状態
 enum GameState {
@@ -74,6 +75,7 @@ class Game {
   final List<GameAction> weeklyActions; // 今週の行動計画
   final TeamRequestManager teamRequests; // 球団からの要望
   final List<NewsItem> newsList; // ニュースリスト
+  final ProfessionalTeamManager professionalTeams; // プロ野球団管理
   
   Game({
     required this.scoutName,
@@ -95,6 +97,7 @@ class Game {
     required this.weeklyActions,
     required this.teamRequests,
     required this.newsList,
+    required this.professionalTeams,
   });
 
   // 月ごとの最大週数を返す
@@ -388,6 +391,7 @@ class Game {
       weeklyActions: (json['weeklyActions'] as List?)?.map((a) => GameAction.fromJson(a)).toList() ?? [],
       teamRequests: TeamRequestManager(),
       newsList: newsList,
+      professionalTeams: ProfessionalTeamManager(teams: ProfessionalTeamManager.generateDefaultTeams()),
     );
   }
   
@@ -412,6 +416,7 @@ class Game {
     Map<ScoutSkill, int>? scoutSkills,
     TeamRequestManager? teamRequests,
     List<NewsItem>? newsList,
+    ProfessionalTeamManager? professionalTeams,
   }) {
     return Game(
       scoutName: scoutName ?? this.scoutName,
@@ -433,6 +438,7 @@ class Game {
       scoutSkills: scoutSkills ?? this.scoutSkills,
       teamRequests: teamRequests ?? this.teamRequests,
       newsList: newsList ?? this.newsList,
+      professionalTeams: professionalTeams ?? this.professionalTeams,
     );
   }
 } 
