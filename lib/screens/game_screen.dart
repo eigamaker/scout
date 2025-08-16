@@ -4,6 +4,7 @@ import '../services/game_manager.dart';
 import '../services/news_service.dart';
 import '../services/data_service.dart';
 import '../models/game/game.dart';
+import '../models/professional/professional_team.dart';
 
 
 class GameScreen extends StatefulWidget {
@@ -97,6 +98,11 @@ class _GameScreenState extends State<GameScreen> {
               leading: const Icon(Icons.sports_baseball),
               title: const Text('プロ野球団'),
               onTap: () => Navigator.pushNamed(context, '/professionalTeams'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.emoji_events),
+              title: const Text('ペナントレース'),
+              onTap: () => Navigator.pushNamed(context, '/pennantRace'),
             ),
             const Divider(),
             ListTile(
@@ -194,6 +200,17 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                
+                // ペナントレース情報
+                if (gameManager.isPennantRaceActive)
+                  _buildExpandableCard(
+                    icon: Icons.emoji_events,
+                    title: 'ペナントレース',
+                    isExpanded: false,
+                    onTap: () => Navigator.pushNamed(context, '/pennantRace'),
+                    child: _buildPennantRaceContent(gameManager),
+                  ),
+                const SizedBox(height: 8),
                 
                 // ニュース
                 _buildExpandableCard(
@@ -541,5 +558,62 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  // ペナントレースコンテンツ
+  Widget _buildPennantRaceContent(GameManager gameManager) {
+    final game = gameManager.currentGame;
+    if (game?.pennantRace == null) {
+      return const Text('ペナントレースデータがありません');
+    }
+
+    final pennantRace = game!.pennantRace!;
+    final progress = gameManager.pennantRaceProgress;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('進行状況: $progress'),
+        const SizedBox(height: 8),
+        Text('現在: ${pennantRace.currentMonth}月${pennantRace.currentWeek}週'),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('セ・リーグ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('1位: ${_getTeamNameById(pennantRace.getLeagueStandings(League.central).firstOrNull?.teamId, game)}'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('パ・リーグ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('1位: ${_getTeamNameById(pennantRace.getLeagueStandings(League.pacific).firstOrNull?.teamId, game)}'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: () => Navigator.pushNamed(context, '/pennantRace'),
+          child: const Text('詳細を見る'),
+        ),
+      ],
+    );
+  }
+
+  String _getTeamNameById(String? teamId, Game game) {
+    if (teamId == null) return '未定';
+    try {
+      final team = game.professionalTeams.teams.firstWhere((t) => t.id == teamId);
+      return team.shortName;
+    } catch (e) {
+      return '未定';
+    }
+  }
 
 } 

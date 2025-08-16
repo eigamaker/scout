@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/game/game.dart';
 import '../models/professional/professional_team.dart';
 import '../services/game_manager.dart';
-import '../widgets/professional_player_card.dart';
+import 'team_detail_screen.dart';
 
 class ProfessionalTeamsScreen extends StatefulWidget {
   const ProfessionalTeamsScreen({Key? key}) : super(key: key);
@@ -34,7 +34,7 @@ class _ProfessionalTeamsScreenState extends State<ProfessionalTeamsScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('プロ野球団'),
-        backgroundColor: Colors.blue[800],
+        backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
@@ -131,220 +131,71 @@ class _ProfessionalTeamsScreenState extends State<ProfessionalTeamsScreen>
   Widget _buildTeamCard(ProfessionalTeam team) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ExpansionTile(
-        leading: CircleAvatar(
-          backgroundColor: _getTeamColor(team.league),
-          child: Text(
-            team.shortName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TeamDetailScreen(team: team),
             ),
-          ),
-        ),
-        title: Text(
-          team.name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(team.characteristics),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                _buildStrengthIndicator(team.totalStrength),
-                const SizedBox(width: 8),
-                Text('ドラフト${team.draftOrder}位'),
-              ],
-            ),
-          ],
-        ),
-        children: [
-          _buildTeamDetails(team),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTeamDetails(ProfessionalTeam team) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 基本情報
-          _buildInfoSection('基本情報', team.detailedInfo),
-          
-          const SizedBox(height: 16),
-          
-          // 戦力状況
-          _buildStrengthSection(team),
-          
-          const SizedBox(height: 16),
-          
-          // 球団ニーズ
-          _buildNeedsSection(team),
-          
-          const SizedBox(height: 16),
-          
-          // スカウトとの関係性
-          _buildScoutRelationsSection(team),
-          
-          const SizedBox(height: 16),
-          
-          // 選手リスト
-          _buildPlayersSection(team),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoSection(String title, Map<String, String> info) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
-          ),
-        ),
-        const SizedBox(height: 8),
-        ...info.entries.map((entry) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              SizedBox(
-                width: 80,
+              CircleAvatar(
+                backgroundColor: _getTeamColor(team.league),
+                radius: 25,
                 child: Text(
-                  '${entry.key}:',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-              ),
-              Expanded(child: Text(entry.value)),
-            ],
-          ),
-        )),
-      ],
-    );
-  }
-
-  Widget _buildStrengthSection(ProfessionalTeam team) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '戦力状況',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: team.teamStrength.entries.map((entry) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _getStrengthColor(entry.value),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                '${entry.key}: ${entry.value}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNeedsSection(ProfessionalTeam team) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '球団ニーズ',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: team.needs.map((need) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.orange,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                need,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildScoutRelationsSection(ProfessionalTeam team) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'スカウトとの関係性',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (team.scoutRelations.isEmpty)
-          const Text('まだ関係性が構築されていません')
-        else
-          ...team.scoutRelations.entries.map((entry) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 100,
-                  child: Text('スカウト${entry.key}:'),
-                ),
-                Expanded(
-                  child: LinearProgressIndicator(
-                    value: entry.value / 100,
-                    backgroundColor: Colors.grey[300],
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      _getRelationColor(entry.value),
-                    ),
+                  team.shortName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text('${entry.value}%'),
-              ],
-            ),
-          )),
-      ],
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      team.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      team.characteristics,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildStrengthIndicator(team.totalStrength),
+                        const SizedBox(width: 8),
+                        Text('ドラフト${team.draftOrder}位'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.grey[400],
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -389,159 +240,6 @@ class _ProfessionalTeamsScreenState extends State<ProfessionalTeamsScreen>
         return Colors.red;
       case League.pacific:
         return Colors.blue;
-    }
-  }
-
-  Color _getStrengthColor(int strength) {
-    if (strength >= 80) return Colors.red;
-    if (strength >= 60) return Colors.orange;
-    if (strength >= 40) return Colors.yellow;
-    return Colors.grey;
-  }
-
-  Color _getRelationColor(int relation) {
-    if (relation >= 80) return Colors.green;
-    if (relation >= 60) return Colors.blue;
-    if (relation >= 40) return Colors.orange;
-    return Colors.red;
-  }
-  
-  Widget _buildPlayersSection(ProfessionalTeam team) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '所属選手 (${team.players.length}名)',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.green,
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (team.players.isEmpty)
-          const Text('選手が登録されていません')
-        else
-          Column(
-            children: [
-              // ポジション別選手数
-              _buildPositionSummary(team),
-              const SizedBox(height: 8),
-              // 選手リスト（最初の5名のみ表示）
-              _buildPlayersList(team),
-            ],
-          ),
-      ],
-    );
-  }
-  
-  Widget _buildPositionSummary(ProfessionalTeam team) {
-    final positionCounts = <String, int>{};
-    for (final player in team.players) {
-      positionCounts[player.position] = (positionCounts[player.position] ?? 0) + 1;
-    }
-    
-    return Wrap(
-      spacing: 8,
-      runSpacing: 4,
-      children: positionCounts.entries.map((entry) => Chip(
-        label: Text('${entry.key}: ${entry.value}名'),
-        backgroundColor: Colors.blue[100],
-      )).toList(),
-    );
-  }
-  
-  Widget _buildPlayersList(ProfessionalTeam team) {
-    // プロ野球選手の詳細表示
-    if (team.professionalPlayers?.isNotEmpty == true) {
-      return Column(
-        children: [
-          // 選手数と表示切り替えボタン
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '全${team.professionalPlayers!.length}名の選手',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.green,
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  // TODO: 選手詳細画面への遷移
-                },
-                child: const Text('詳細表示'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // 選手カードの表示（最初の10名まで）
-          ...team.professionalPlayers!.take(10).map((professionalPlayer) => 
-            ProfessionalPlayerCard(
-              professionalPlayer: professionalPlayer,
-              onTap: () {
-                // TODO: 選手詳細画面への遷移
-              },
-            ),
-          ),
-          if (team.professionalPlayers!.length > 10)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                '他${team.professionalPlayers!.length - 10}名の選手がいます',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-        ],
-      );
-    }
-    
-    // 従来の表示（高校選手の場合）
-    final displayPlayers = team.players.take(5).toList();
-    return Column(
-      children: displayPlayers.map((player) => ListTile(
-        leading: CircleAvatar(
-          backgroundColor: _getPlayerPositionColor(player.position),
-          child: Text(
-            player.position.substring(0, 1),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        title: Text(player.name),
-        subtitle: Text('${player.position} | 才能ランク${player.talent}'),
-        trailing: Text('能力値: ${player.trueTotalAbility}'),
-      )).toList(),
-    );
-  }
-  
-  Color _getPlayerPositionColor(String position) {
-    switch (position) {
-      case '投手':
-        return Colors.red;
-      case '捕手':
-        return Colors.orange;
-      case '内野手':
-      case '一塁手':
-      case '二塁手':
-      case '三塁手':
-      case '遊撃手':
-        return Colors.blue;
-      case '外野手':
-      case '左翼手':
-      case '中堅手':
-      case '右翼手':
-        return Colors.green;
-      default:
-        return Colors.grey;
     }
   }
 }

@@ -16,7 +16,9 @@ import 'game_state_manager.dart';
 import '../models/scouting/scout.dart';
 import '../models/scouting/team_request.dart';
 import '../models/professional/professional_team.dart';
+import '../models/game/pennant_race.dart';
 import 'growth_service.dart';
+import 'pennant_race_service.dart';
 
 
 
@@ -45,6 +47,82 @@ class GameManager {
     _isProcessingGrowth = isProcessing;
     _growthStatusMessage = message;
     print('GameManager: 成長処理状態更新 - $isProcessing: $message');
+  }
+
+  /// ペナントレースを初期化
+  void _initializePennantRace() {
+    if (_currentGame != null && _currentGame!.pennantRace == null) {
+      final pennantRace = PennantRaceService.createInitialPennantRace(
+        _currentGame!.currentYear,
+        _currentGame!.professionalTeams.teams,
+      );
+      
+      _currentGame = _currentGame!.copyWith(pennantRace: pennantRace);
+      print('GameManager: ペナントレースを初期化しました');
+    }
+  }
+
+  /// ペナントレースの進行状況を取得
+  String get pennantRaceProgress {
+    if (_currentGame?.pennantRace == null) return '未開始';
+    return PennantRaceService.getSeasonProgress(_currentGame!.pennantRace!);
+  }
+
+  /// ペナントレースが進行中かチェック
+  bool get isPennantRaceActive {
+    if (_currentGame?.pennantRace == null) return false;
+    final month = _currentGame!.currentMonth;
+    final week = _currentGame!.currentWeekOfMonth;
+    return month >= 4 && month <= 10 && (month != 4 || week >= 1) && (month != 10 || week <= 2);
+  }
+
+  /// ペナントレースを進行させる
+  void _advancePennantRace() {
+    if (_currentGame?.pennantRace == null) return;
+    
+    final currentPennantRace = _currentGame!.pennantRace!;
+    final month = _currentGame!.currentMonth;
+    final week = _currentGame!.currentWeekOfMonth;
+    
+    // ペナントレースシーズン中の場合のみ進行
+    if (month >= 4 && month <= 10 && (month != 4 || week >= 1) && (month != 10 || week <= 2)) {
+      // 今週の試合を実行
+      final updatedPennantRace = PennantRaceService.executeWeekGames(
+        currentPennantRace,
+        month,
+        week,
+        _currentGame!.professionalTeams.teams,
+      );
+      
+      _currentGame = _currentGame!.copyWith(pennantRace: updatedPennantRace);
+      
+      // 試合結果のニュースを生成
+      _generateGameResultsNews(updatedPennantRace, month, week);
+      
+      print('GameManager: ペナントレースを進行しました - ${month}月${week}週');
+    }
+  }
+
+  /// 試合結果のニュースを生成
+  void _generateGameResultsNews(PennantRace pennantRace, int month, int week) {
+    // 今週完了した試合の結果をニュースとして生成
+    final weekGames = pennantRace.schedule.getGamesForWeek(month, week);
+    final completedGames = weekGames.where((game) => game.isCompleted).toList();
+    
+    for (final game in completedGames) {
+      if (game.result != null) {
+        final homeTeam = _currentGame!.professionalTeams.teams
+            .firstWhere((t) => t.id == game.homeTeamId);
+        final awayTeam = _currentGame!.professionalTeams.teams
+            .firstWhere((t) => t.id == game.awayTeamId);
+        
+        final result = game.result!;
+        final winner = result.isHomeWin ? homeTeam : awayTeam;
+        final loser = result.isHomeWin ? awayTeam : homeTeam;
+        
+        print('GameManager: 試合結果ニュース生成 - ${homeTeam.shortName} ${result.homeScore}-${result.awayScore} ${awayTeam.shortName}');
+      }
+    }
   }
 
   GameManager(DataService dataService) {
@@ -133,6 +211,9 @@ class GameManager {
     
     // プロ野球団に選手を生成
     _currentGame!.professionalTeams.generatePlayersForAllTeams();
+    
+    // ペナントレースを初期化
+    _initializePennantRace();
     
     // generateInitialStudentsForAllSchoolsDbで更新された学校リストを取得
     final updatedSchools = _currentGame!.schools;
@@ -1006,6 +1087,13 @@ class GameManager {
     
     print('GameManager.advanceWeekWithResults: 週送り後 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}');
     print('GameManager.advanceWeekWithResults: 週送り処理完了');
+
+    // ペナントレースの進行
+    if (isPennantRaceActive) {
+      print('GameManager.advanceWeekWithResults: ペナントレース進行開始');
+      _advancePennantRace();
+      print('GameManager.advanceWeekWithResults: ペナントレース進行完了');
+    }
     
     // 3月1週（年度末）に卒業処理
     final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 1;

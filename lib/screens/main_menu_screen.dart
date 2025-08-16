@@ -138,7 +138,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               },
               child: const Text('セーブデータコピー'),
             ),
-            const SizedBox(height: 20),
+
             // デバッグモード切り替えボタン
             ElevatedButton(
               onPressed: () {
