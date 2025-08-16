@@ -29,7 +29,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
       path,
-      version: 14, // バージョンを14に更新
+              version: 20, // バージョンを20に更新
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
@@ -340,11 +340,11 @@ class DataService {
   Future<void> insertInitialData() async {
     final db = await database;
     // 既にデータが存在する場合はスキップ
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM Organization')) ?? 0;
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM School')) ?? 0;
     if (count > 0) return;
     
     // サンプルデータは削除（実際の選手生成はGameManagerで行う）
-    // 組織（神奈川県の高校）
+    // 学校（神奈川県の高校）
     final schoolIds = <int>[];
     final schools = [
       {'name': '横浜工業高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 80, 'last_year_strength': 75, 'scouting_popularity': 70},
@@ -361,7 +361,7 @@ class DataService {
       {'name': '平塚高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 71, 'last_year_strength': 67, 'scouting_popularity': 63},
     ];
     for (final school in schools) {
-      final id = await db.insert('Organization', school);
+      final id = await db.insert('School', school);
       schoolIds.add(id);
     }
   }
@@ -373,7 +373,7 @@ class DataService {
     final path = join(dbPath, dbName);
     return await openDatabase(
       path,
-      version: 7, // バージョンを7に更新
+              version: 20, // バージョンを20に更新
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
@@ -391,6 +391,22 @@ class DataService {
           await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
           await db.execute('DROP TABLE IF EXISTS Person');
           await _createAllTables(db);
+        }
+        if (oldVersion < 20) {
+          // バージョン20では新しいリレーショナルスキーマで再作成
+          print('データベーススキーマを強制更新中（バージョン20）...');
+          // 古いテーブルを削除して新しいスキーマで再作成
+          await db.execute('DROP TABLE IF EXISTS Player');
+          await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+          await db.execute('DROP TABLE IF EXISTS Person');
+          await db.execute('DROP TABLE IF EXISTS Coach');
+          await db.execute('DROP TABLE IF EXISTS Scout');
+          await db.execute('DROP TABLE IF EXISTS Career');
+          await db.execute('DROP TABLE IF EXISTS Organization');
+          await db.execute('DROP TABLE IF EXISTS ScoutAnalysis');
+          await db.execute('DROP TABLE IF EXISTS ScoutBasicInfoAnalysis');
+          await _createAllTables(db);
+          await _insertProfessionalTeams(db);
         }
       },
     );
@@ -445,249 +461,524 @@ class DataService {
     return 1;
   }
 
+  // データベースの作成
+  Future<void> _createDatabase(Database db, int version) async {
+    print('データベーススキーマを作成中（バージョン$version）...');
+    
+    // 基本テーブルの作成
+    await _createAllTables(db);
+    
+    // プロ野球団の初期データを挿入
+    await _insertProfessionalTeams(db);
+    
+    print('データベーススキーマの作成完了');
+  }
+
+  // データベースのアップグレード
+  Future<void> _upgradeDatabase(Database db, int oldVersion, int newVersion) async {
+    print('データベーススキーマをアップグレード中（$oldVersion → $newVersion）...');
+    
+    if (oldVersion < 20) {
+      // バージョン20: 新しいテーブル構造に完全移行
+      print('データベーススキーマを完全更新中（バージョン20）...');
+      
+      // 既存のテーブルを削除して再作成
+      await db.execute('DROP TABLE IF EXISTS Player');
+      await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+      await db.execute('DROP TABLE IF EXISTS Person');
+      await db.execute('DROP TABLE IF EXISTS ProfessionalTeam');
+      await db.execute('DROP TABLE IF EXISTS ProfessionalPlayer');
+      await db.execute('DROP TABLE IF EXISTS PlayerStats');
+      await db.execute('DROP TABLE IF EXISTS TeamHistory');
+      
+      // 新しいテーブルを作成
+      await _createAllTables(db);
+      
+      // プロ野球団の初期データを挿入
+      await _insertProfessionalTeams(db);
+      
+      print('データベーススキーマの完全更新完了');
+    }
+    
+    print('データベーススキーマのアップグレード完了');
+  }
+
   // テーブル作成処理を共通化
   Future<void> _createAllTables(Database db) async {
+    // Schoolテーブル（学校情報）
+    await db.execute('''
+      CREATE TABLE School (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        location TEXT NOT NULL,
+        school_strength INTEGER DEFAULT 50,
+        last_year_strength INTEGER DEFAULT 50,
+        scouting_popularity INTEGER DEFAULT 50,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
+    // Personテーブル（個人基本情報）
     await db.execute('''
       CREATE TABLE Person (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        birth_date TEXT,
-        gender TEXT,
+        name TEXT NOT NULL,
+        birth_date TEXT NOT NULL,
+        gender TEXT DEFAULT '男性',
         hometown TEXT,
-        personality TEXT
+        personality TEXT,
+        is_drafted INTEGER DEFAULT 0,
+        drafted_at TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     ''');
+
+    // Playerテーブル（選手情報）
     await db.execute('''
       CREATE TABLE Player (
         id INTEGER PRIMARY KEY,
+        person_id INTEGER NOT NULL,
         school_id INTEGER,
         grade INTEGER,
         age INTEGER DEFAULT 15,
-        position TEXT,
-        fame INTEGER,
+        position TEXT NOT NULL,
+        fame INTEGER DEFAULT 0,
         is_publicly_known INTEGER DEFAULT 0,
         is_scout_favorite INTEGER DEFAULT 0,
         is_graduated INTEGER DEFAULT 0,
         graduated_at TEXT,
         is_retired INTEGER DEFAULT 0,
         retired_at TEXT,
-        growth_rate REAL,
-        talent INTEGER,
-        growth_type TEXT,
-        mental_grit REAL,
-        peak_ability INTEGER,
+        status TEXT DEFAULT 'active', -- active, graduated, retired, professional
+        growth_rate REAL DEFAULT 1.0,
+        talent INTEGER DEFAULT 3,
+        growth_type TEXT DEFAULT 'normal',
+        mental_grit REAL DEFAULT 0.0,
+        peak_ability INTEGER DEFAULT 100,
         -- Technical（技術面）能力値
-        contact INTEGER,
-        power INTEGER,
-        plate_discipline INTEGER,
-        bunt INTEGER,
-        opposite_field_hitting INTEGER,
-        pull_hitting INTEGER,
-        bat_control INTEGER,
-        swing_speed INTEGER,
-        fielding INTEGER,
-        throwing INTEGER,
-        catcher_ability INTEGER,
-        control INTEGER,
-        fastball INTEGER,
-        breaking_ball INTEGER,
-        pitch_movement INTEGER,
+        contact INTEGER DEFAULT 50,
+        power INTEGER DEFAULT 50,
+        plate_discipline INTEGER DEFAULT 50,
+        bunt INTEGER DEFAULT 50,
+        opposite_field_hitting INTEGER DEFAULT 50,
+        pull_hitting INTEGER DEFAULT 50,
+        bat_control INTEGER DEFAULT 50,
+        swing_speed INTEGER DEFAULT 50,
+        fielding INTEGER DEFAULT 50,
+        throwing INTEGER DEFAULT 50,
+        catcher_ability INTEGER DEFAULT 50,
+        control INTEGER DEFAULT 50,
+        fastball INTEGER DEFAULT 50,
+        breaking_ball INTEGER DEFAULT 50,
+        pitch_movement INTEGER DEFAULT 50,
         -- Mental（メンタル面）能力値
-        concentration INTEGER,
-        anticipation INTEGER,
-        vision INTEGER,
-        composure INTEGER,
-        aggression INTEGER,
-        bravery INTEGER,
-        leadership INTEGER,
-        work_rate INTEGER,
-        self_discipline INTEGER,
-        ambition INTEGER,
-        teamwork INTEGER,
-        positioning INTEGER,
-        pressure_handling INTEGER,
-        clutch_ability INTEGER,
+        concentration INTEGER DEFAULT 50,
+        anticipation INTEGER DEFAULT 50,
+        vision INTEGER DEFAULT 50,
+        composure INTEGER DEFAULT 50,
+        aggression INTEGER DEFAULT 50,
+        bravery INTEGER DEFAULT 50,
+        leadership INTEGER DEFAULT 50,
+        work_rate INTEGER DEFAULT 50,
+        self_discipline INTEGER DEFAULT 50,
+        ambition INTEGER DEFAULT 50,
+        teamwork INTEGER DEFAULT 50,
+        positioning INTEGER DEFAULT 50,
+        pressure_handling INTEGER DEFAULT 50,
+        clutch_ability INTEGER DEFAULT 50,
         -- Physical（フィジカル面）能力値
-        acceleration INTEGER,
-        agility INTEGER,
-        balance INTEGER,
-        jumping_reach INTEGER,
-        natural_fitness INTEGER,
-        injury_proneness INTEGER,
-        stamina INTEGER,
-        strength INTEGER,
-        pace INTEGER,
-        flexibility INTEGER
+        acceleration INTEGER DEFAULT 50,
+        agility INTEGER DEFAULT 50,
+        balance INTEGER DEFAULT 50,
+        jumping_reach INTEGER DEFAULT 50,
+        natural_fitness INTEGER DEFAULT 50,
+        injury_proneness INTEGER DEFAULT 50,
+        stamina INTEGER DEFAULT 50,
+        strength INTEGER DEFAULT 50,
+        pace INTEGER DEFAULT 50,
+        flexibility INTEGER DEFAULT 50,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (person_id) REFERENCES Person (id),
+        FOREIGN KEY (school_id) REFERENCES School (id)
       )
     ''');
-    
+
+    // PlayerPotentialsテーブル（ポテンシャル）
     await db.execute('''
       CREATE TABLE PlayerPotentials (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        player_id INTEGER,
+        player_id INTEGER NOT NULL,
         -- Technical（技術面）ポテンシャル
-        contact_potential INTEGER,
-        power_potential INTEGER,
-        plate_discipline_potential INTEGER,
-        bunt_potential INTEGER,
-        opposite_field_hitting_potential INTEGER,
-        pull_hitting_potential INTEGER,
-        bat_control_potential INTEGER,
-        swing_speed_potential INTEGER,
-        fielding_potential INTEGER,
-        throwing_potential INTEGER,
-        catcher_ability_potential INTEGER,
-        control_potential INTEGER,
-        fastball_potential INTEGER,
-        breaking_ball_potential INTEGER,
-        pitch_movement_potential INTEGER,
+        contact_potential INTEGER DEFAULT 50,
+        power_potential INTEGER DEFAULT 50,
+        plate_discipline_potential INTEGER DEFAULT 50,
+        bunt_potential INTEGER DEFAULT 50,
+        opposite_field_hitting_potential INTEGER DEFAULT 50,
+        pull_hitting_potential INTEGER DEFAULT 50,
+        bat_control_potential INTEGER DEFAULT 50,
+        swing_speed_potential INTEGER DEFAULT 50,
+        fielding_potential INTEGER DEFAULT 50,
+        throwing_potential INTEGER DEFAULT 50,
+        catcher_ability_potential INTEGER DEFAULT 50,
+        control_potential INTEGER DEFAULT 50,
+        fastball_potential INTEGER DEFAULT 50,
+        breaking_ball_potential INTEGER DEFAULT 50,
+        pitch_movement_potential INTEGER DEFAULT 50,
         -- Mental（メンタル面）ポテンシャル
-        concentration_potential INTEGER,
-        anticipation_potential INTEGER,
-        vision_potential INTEGER,
-        composure_potential INTEGER,
-        aggression_potential INTEGER,
-        bravery_potential INTEGER,
-        leadership_potential INTEGER,
-        work_rate_potential INTEGER,
-        self_discipline_potential INTEGER,
-        ambition_potential INTEGER,
-        teamwork_potential INTEGER,
-        positioning_potential INTEGER,
-        pressure_handling_potential INTEGER,
-        clutch_ability_potential INTEGER,
+        concentration_potential INTEGER DEFAULT 50,
+        anticipation_potential INTEGER DEFAULT 50,
+        vision_potential INTEGER DEFAULT 50,
+        composure_potential INTEGER DEFAULT 50,
+        aggression_potential INTEGER DEFAULT 50,
+        bravery_potential INTEGER DEFAULT 50,
+        leadership_potential INTEGER DEFAULT 50,
+        work_rate_potential INTEGER DEFAULT 50,
+        self_discipline_potential INTEGER DEFAULT 50,
+        ambition_potential INTEGER DEFAULT 50,
+        teamwork_potential INTEGER DEFAULT 50,
+        positioning_potential INTEGER DEFAULT 50,
+        pressure_handling_potential INTEGER DEFAULT 50,
+        clutch_ability_potential INTEGER DEFAULT 50,
         -- Physical（フィジカル面）ポテンシャル
-        acceleration_potential INTEGER,
-        agility_potential INTEGER,
-        balance_potential INTEGER,
-        jumping_reach_potential INTEGER,
-        natural_fitness_potential INTEGER,
-        injury_proneness_potential INTEGER,
-        stamina_potential INTEGER,
-        strength_potential INTEGER,
-        pace_potential INTEGER,
-        flexibility_potential INTEGER,
+        acceleration_potential INTEGER DEFAULT 50,
+        agility_potential INTEGER DEFAULT 50,
+        balance_potential INTEGER DEFAULT 50,
+        jumping_reach_potential INTEGER DEFAULT 50,
+        natural_fitness_potential INTEGER DEFAULT 50,
+        injury_proneness_potential INTEGER DEFAULT 50,
+        stamina_potential INTEGER DEFAULT 50,
+        strength_potential INTEGER DEFAULT 50,
+        pace_potential INTEGER DEFAULT 50,
+        flexibility_potential INTEGER DEFAULT 50,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (player_id) REFERENCES Player (id)
       )
     ''');
+
+    // ProfessionalPlayerテーブル（プロ選手情報）
     await db.execute('''
-      CREATE TABLE Coach (
-        id INTEGER PRIMARY KEY,
-        team_id INTEGER,
-        trust INTEGER,
-        leadership INTEGER,
-        strategy INTEGER,
-        training_skill INTEGER
-      )
-    ''');
-    await db.execute('''
-      CREATE TABLE Scout (
-        id INTEGER PRIMARY KEY,
-        organization_id INTEGER,
-        scout_skill INTEGER,
-        negotiation INTEGER,
-        network INTEGER
-      )
-    ''');
-    await db.execute('''
-      CREATE TABLE Career (
+      CREATE TABLE ProfessionalPlayer (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        person_id INTEGER,
-        role TEXT,
-        organization_id INTEGER,
-        start_year INTEGER,
-        end_year INTEGER
+        player_id INTEGER NOT NULL,
+        team_id TEXT NOT NULL,
+        contract_year INTEGER NOT NULL,
+        salary INTEGER NOT NULL, -- 年俸（万円）
+        contract_type TEXT DEFAULT 'regular', -- regular, minor, free_agent
+        draft_year INTEGER NOT NULL,
+        draft_round INTEGER NOT NULL,
+        draft_position INTEGER NOT NULL,
+        is_active INTEGER DEFAULT 1,
+        joined_at TEXT NOT NULL,
+        left_at TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (player_id) REFERENCES Player (id),
+        FOREIGN KEY (team_id) REFERENCES ProfessionalTeam (id)
       )
     ''');
+
+    // ProfessionalTeamテーブル（プロ球団）
     await db.execute('''
-      CREATE TABLE Organization (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        type TEXT,
-        location TEXT,
-        school_strength INTEGER,
-        last_year_strength INTEGER,
-        scouting_popularity INTEGER
+      CREATE TABLE ProfessionalTeam (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        short_name TEXT NOT NULL,
+        league TEXT NOT NULL, -- 'central' or 'pacific'
+        division TEXT NOT NULL, -- 'east', 'west', 'central'
+        home_stadium TEXT NOT NULL,
+        city TEXT NOT NULL,
+        budget INTEGER NOT NULL, -- 球団予算（万円）
+        strategy TEXT NOT NULL,
+        strengths TEXT, -- JSON形式で保存
+        weaknesses TEXT, -- JSON形式で保存
+        popularity INTEGER DEFAULT 50,
+        success INTEGER DEFAULT 50,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     ''');
-    
-    // スカウト分析の仮の値を保存するテーブル
+
+    // PlayerStatsテーブル（選手成績）
     await db.execute('''
-      CREATE TABLE ScoutAnalysis (
+      CREATE TABLE PlayerStats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        player_id INTEGER,
-        scout_id TEXT,
-        analysis_date TEXT,
-        accuracy REAL,
-        -- Technical（技術面）仮の能力値
-        contact_scouted INTEGER,
-        power_scouted INTEGER,
-        plate_discipline_scouted INTEGER,
-        bunt_scouted INTEGER,
-        opposite_field_hitting_scouted INTEGER,
-        pull_hitting_scouted INTEGER,
-        bat_control_scouted INTEGER,
-        swing_speed_scouted INTEGER,
-        fielding_scouted INTEGER,
-        throwing_scouted INTEGER,
-        catcher_ability_scouted INTEGER,
-        control_scouted INTEGER,
-        fastball_scouted INTEGER,
-        breaking_ball_scouted INTEGER,
-        pitch_movement_scouted INTEGER,
-        -- Mental（メンタル面）仮の能力値
-        concentration_scouted INTEGER,
-        anticipation_scouted INTEGER,
-        vision_scouted INTEGER,
-        composure_scouted INTEGER,
-        aggression_scouted INTEGER,
-        bravery_scouted INTEGER,
-        leadership_scouted INTEGER,
-        work_rate_scouted INTEGER,
-        self_discipline_scouted INTEGER,
-        ambition_scouted INTEGER,
-        teamwork_scouted INTEGER,
-        positioning_scouted INTEGER,
-        pressure_handling_scouted INTEGER,
-        clutch_ability_scouted INTEGER,
-        -- Physical（フィジカル面）仮の能力値
-        acceleration_scouted INTEGER,
-        agility_scouted INTEGER,
-        balance_scouted INTEGER,
-        jumping_reach_scouted INTEGER,
-        natural_fitness_scouted INTEGER,
-        injury_proneness_scouted INTEGER,
-        stamina_scouted INTEGER,
-        strength_scouted INTEGER,
-        pace_scouted INTEGER,
-        flexibility_scouted INTEGER,
-        FOREIGN KEY (player_id) REFERENCES Player (id)
+        player_id INTEGER NOT NULL,
+        team_id TEXT,
+        year INTEGER NOT NULL,
+        league TEXT NOT NULL, -- 'central', 'pacific', 'minor'
+        games INTEGER DEFAULT 0,
+        at_bats INTEGER DEFAULT 0,
+        hits INTEGER DEFAULT 0,
+        doubles INTEGER DEFAULT 0,
+        triples INTEGER DEFAULT 0,
+        home_runs INTEGER DEFAULT 0,
+        runs_batted_in INTEGER DEFAULT 0,
+        runs INTEGER DEFAULT 0,
+        stolen_bases INTEGER DEFAULT 0,
+        caught_stealing INTEGER DEFAULT 0,
+        walks INTEGER DEFAULT 0,
+        strikeouts INTEGER DEFAULT 0,
+        batting_average REAL DEFAULT 0.0,
+        on_base_percentage REAL DEFAULT 0.0,
+        slugging_percentage REAL DEFAULT 0.0,
+        -- 投手成績
+        wins INTEGER DEFAULT 0,
+        losses INTEGER DEFAULT 0,
+        saves INTEGER DEFAULT 0,
+        holds INTEGER DEFAULT 0,
+        innings_pitched REAL DEFAULT 0.0,
+        earned_runs INTEGER DEFAULT 0,
+        earned_run_average REAL DEFAULT 0.0,
+        hits_allowed INTEGER DEFAULT 0,
+        walks_allowed INTEGER DEFAULT 0,
+        strikeouts_pitched INTEGER DEFAULT 0,
+        wild_pitches INTEGER DEFAULT 0,
+        hit_batters INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (player_id) REFERENCES Player (id),
+        FOREIGN KEY (team_id) REFERENCES ProfessionalTeam (id),
+        UNIQUE(player_id, year, league)
       )
     ''');
-    
-    // 基本情報のスカウト分析結果を保存するテーブル
+
+    // TeamHistoryテーブル（球団履歴）
     await db.execute('''
-      CREATE TABLE ScoutBasicInfoAnalysis (
+      CREATE TABLE TeamHistory (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        player_id INTEGER,
-        scout_id TEXT,
-        analysis_date TEXT,
-        accuracy REAL,
-        -- 基本情報の分析結果
-        personality_analyzed TEXT,
-        talent_analyzed TEXT,
-        growth_analyzed TEXT,
-        mental_grit_analyzed TEXT,
-        potential_analyzed TEXT,
-        -- 分析精度（各要素別）
-        personality_accuracy REAL,
-        talent_accuracy REAL,
-        growth_accuracy REAL,
-        mental_grit_accuracy REAL,
-        potential_accuracy REAL,
-        FOREIGN KEY (player_id) REFERENCES Player (id)
+        team_id TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        league TEXT NOT NULL,
+        division TEXT NOT NULL,
+        games INTEGER NOT NULL,
+        wins INTEGER NOT NULL,
+        losses INTEGER NOT NULL,
+        ties INTEGER DEFAULT 0,
+        winning_percentage REAL DEFAULT 0.0,
+        games_behind REAL DEFAULT 0.0,
+        rank INTEGER NOT NULL,
+        runs_scored INTEGER DEFAULT 0,
+        runs_allowed INTEGER DEFAULT 0,
+        run_differential INTEGER DEFAULT 0,
+        home_wins INTEGER DEFAULT 0,
+        home_losses INTEGER DEFAULT 0,
+        away_wins INTEGER DEFAULT 0,
+        away_losses INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (team_id) REFERENCES ProfessionalTeam (id),
+        UNIQUE(team_id, year)
       )
     ''');
+
+    // インデックスの作成
+    await db.execute('CREATE INDEX idx_player_person_id ON Player(person_id)');
+    await db.execute('CREATE INDEX idx_player_school_id ON Player(school_id)');
+    await db.execute('CREATE INDEX idx_player_status ON Player(status)');
+    await db.execute('CREATE INDEX idx_professional_player_player_id ON ProfessionalPlayer(player_id)');
+    await db.execute('CREATE INDEX idx_professional_player_team_id ON ProfessionalPlayer(team_id)');
+    await db.execute('CREATE INDEX idx_player_stats_player_id ON PlayerStats(player_id)');
+    await db.execute('CREATE INDEX idx_player_stats_team_year ON PlayerStats(team_id, year)');
+    await db.execute('CREATE INDEX idx_professional_team_league ON ProfessionalTeam(league)');
+    await db.execute('CREATE INDEX idx_professional_team_division ON ProfessionalTeam(division)');
+    await db.execute('CREATE INDEX idx_team_history_team_year ON TeamHistory(team_id, year)');
+  }
+
+  // プロ野球団の初期データを挿入
+  Future<void> _insertProfessionalTeams(Database db) async {
+    final teams = [
+      // セ・リーグ
+      {
+        'id': 'giants',
+        'name': '読売ジャイアンツ',
+        'short_name': '巨人',
+        'league': 'central',
+        'division': 'east',
+        'home_stadium': '東京ドーム',
+        'city': '東京都',
+        'budget': 80000,
+        'strategy': '打撃重視',
+        'strengths': '["打撃力", "知名度", "資金力"]',
+        'weaknesses': '["投手力", "若手育成"]',
+        'popularity': 90,
+        'success': 85,
+      },
+      {
+        'id': 'tigers',
+        'name': '阪神タイガース',
+        'short_name': '阪神',
+        'league': 'central',
+        'division': 'west',
+        'home_stadium': '阪神甲子園球場',
+        'city': '兵庫県',
+        'budget': 70000,
+        'strategy': 'バランス型',
+        'strengths': '["投手力", "守備力"]',
+        'weaknesses': '["打撃力", "長打力"]',
+        'popularity': 85,
+        'success': 80,
+      },
+      {
+        'id': 'carp',
+        'name': '広島東洋カープ',
+        'short_name': '広島',
+        'league': 'central',
+        'division': 'central',
+        'home_stadium': 'MAZDA Zoom-Zoom スタジアム広島',
+        'city': '広島県',
+        'budget': 60000,
+        'strategy': '若手育成重視',
+        'strengths': '["若手育成", "打撃力"]',
+        'weaknesses': '["投手力", "資金力"]',
+        'popularity': 75,
+        'success': 70,
+      },
+      {
+        'id': 'dragons',
+        'name': '中日ドラゴンズ',
+        'short_name': '中日',
+        'league': 'central',
+        'division': 'central',
+        'home_stadium': 'バンテリンドーム ナゴヤ',
+        'city': '愛知県',
+        'budget': 75000,
+        'strategy': '投手重視',
+        'strengths': '["投手力", "守備力", "伝統"]',
+        'weaknesses': '["打撃力", "長打力"]',
+        'popularity': 75,
+        'success': 75,
+      },
+      {
+        'id': 'baystars',
+        'name': '横浜DeNAベイスターズ',
+        'short_name': 'DeNA',
+        'league': 'central',
+        'division': 'east',
+        'home_stadium': '横浜スタジアム',
+        'city': '神奈川県',
+        'budget': 60000,
+        'strategy': '打撃重視',
+        'strengths': '["打撃力", "長打力", "若手育成"]',
+        'weaknesses': '["投手力", "守備力"]',
+        'popularity': 65,
+        'success': 60,
+      },
+      {
+        'id': 'swallows',
+        'name': '東京ヤクルトスワローズ',
+        'short_name': 'ヤクルト',
+        'league': 'central',
+        'division': 'east',
+        'home_stadium': '明治神宮野球場',
+        'city': '東京都',
+        'budget': 55000,
+        'strategy': '若手育成重視',
+        'strengths': '["若手育成", "打撃力", "スピード"]',
+        'weaknesses': '["投手力", "資金力"]',
+        'popularity': 60,
+        'success': 55,
+      },
+      // パ・リーグ
+      {
+        'id': 'hawks',
+        'name': '福岡ソフトバンクホークス',
+        'short_name': 'ソフトバンク',
+        'league': 'pacific',
+        'division': 'west',
+        'home_stadium': '福岡PayPayドーム',
+        'city': '福岡県',
+        'budget': 90000,
+        'strategy': '投手重視',
+        'strengths': '["投手力", "資金力", "戦略性"]',
+        'weaknesses': '["内野守備"]',
+        'popularity': 80,
+        'success': 90,
+      },
+      {
+        'id': 'marines',
+        'name': '千葉ロッテマリーンズ',
+        'short_name': 'ロッテ',
+        'league': 'pacific',
+        'division': 'east',
+        'home_stadium': 'ZOZOマリンスタジアム',
+        'city': '千葉県',
+        'budget': 50000,
+        'strategy': '若手育成重視',
+        'strengths': '["若手育成", "守備力"]',
+        'weaknesses': '["投手力", "打撃力", "資金力"]',
+        'popularity': 60,
+        'success': 55,
+      },
+      {
+        'id': 'eagles',
+        'name': '東北楽天ゴールデンイーグルス',
+        'short_name': '楽天',
+        'league': 'pacific',
+        'division': 'east',
+        'home_stadium': '楽天生命パーク宮城',
+        'city': '宮城県',
+        'budget': 65000,
+        'strategy': 'バランス型',
+        'strengths': '["打撃力", "若手育成"]',
+        'weaknesses': '["投手力", "守備力"]',
+        'popularity': 70,
+        'success': 65,
+      },
+      {
+        'id': 'lions',
+        'name': '埼玉西武ライオンズ',
+        'short_name': '西武',
+        'league': 'pacific',
+        'division': 'east',
+        'home_stadium': 'ベルーナドーム',
+        'city': '埼玉県',
+        'budget': 70000,
+        'strategy': 'バランス型',
+        'strengths': '["投手力", "内野守備", "若手育成"]',
+        'weaknesses': '["外野守備", "長打力"]',
+        'popularity': 70,
+        'success': 75,
+      },
+      {
+        'id': 'fighters',
+        'name': '北海道日本ハムファイターズ',
+        'short_name': '日本ハム',
+        'league': 'pacific',
+        'division': 'east',
+        'home_stadium': 'エスコンフィールドHOKKAIDO',
+        'city': '北海道',
+        'budget': 65000,
+        'strategy': '投手重視',
+        'strengths': '["投手力", "外野守備", "若手育成"]',
+        'weaknesses': '["内野守備", "打撃力"]',
+        'popularity': 65,
+        'success': 60,
+      },
+      {
+        'id': 'buffaloes',
+        'name': 'オリックス・バファローズ',
+        'short_name': 'オリックス',
+        'league': 'pacific',
+        'division': 'west',
+        'home_stadium': '京セラドーム大阪',
+        'city': '大阪府',
+        'budget': 80000,
+        'strategy': '投手重視',
+        'strengths': '["投手力", "守備力", "資金力"]',
+        'weaknesses': '["打撃力", "長打力"]',
+        'popularity': 75,
+        'success': 80,
+      },
+    ];
+
+    for (final team in teams) {
+      await db.insert('ProfessionalTeam', team);
+    }
   }
 
   /// 既存選手の注目選手フラグを再計算して設定（マイグレーション用）

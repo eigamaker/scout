@@ -77,6 +77,7 @@ class PlayerDataGenerator {
     // Playerテーブルに挿入
     final playerId = await db.insert('Player', {
       'id': personId,
+      'person_id': personId,
       'school_id': school.id,
       'grade': grade,
       'age': age, // 年齢を追加

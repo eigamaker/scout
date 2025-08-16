@@ -83,7 +83,7 @@ class GameManager {
       final db = await dataService.database;
       print('startNewGameWithDb: DB接続完了');
     // 学校リスト取得
-    final schoolMaps = await db.query('Organization', where: 'type = ?', whereArgs: ['高校']);
+    final schoolMaps = await db.query('School', where: 'type = ?', whereArgs: ['高校']);
     final schools = schoolMaps.map((m) => School(
       id: m['id'] as int,
       name: m['name'] as String,
@@ -1785,7 +1785,7 @@ class GameManager {
         // 学校の強さを更新
         try {
           await db.update(
-            'Organization',
+            'School',
             {'school_strength': schoolStrength},
             where: 'id = ?',
             whereArgs: [school.id]

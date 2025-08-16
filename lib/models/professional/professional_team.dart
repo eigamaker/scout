@@ -1,6 +1,7 @@
 import 'dart:math';
 import '../player/player.dart';
 import '../../services/player_generator.dart';
+import 'professional_player.dart';
 
 // プロ野球団のリーグ
 enum League {
@@ -44,7 +45,8 @@ class ProfessionalTeam {
   final int success; // 成功度（0-100）
   
   // 選手リスト
-  final List<Player> players; // 所属選手
+  final List<Player> players; // 所属選手（高校選手）
+  final List<ProfessionalPlayer>? professionalPlayers; // プロ野球選手
 
   ProfessionalTeam({
     required this.id,
@@ -65,6 +67,7 @@ class ProfessionalTeam {
     required this.popularity,
     required this.success,
     List<Player>? players,
+    this.professionalPlayers,
   }) : players = players ?? [];
 
   // 球団の総合戦力を計算
@@ -191,6 +194,7 @@ class ProfessionalTeam {
     int? popularity,
     int? success,
     List<Player>? players,
+    List<ProfessionalPlayer>? professionalPlayers,
   }) {
     return ProfessionalTeam(
       id: id ?? this.id,
@@ -211,6 +215,7 @@ class ProfessionalTeam {
       popularity: popularity ?? this.popularity,
       success: success ?? this.success,
       players: players ?? this.players,
+      professionalPlayers: professionalPlayers ?? this.professionalPlayers,
     );
   }
 
@@ -342,6 +347,20 @@ class ProfessionalTeamManager {
     final team = getTeam(teamId);
     if (team == null) return 0;
     return team.players.where((p) => p.position == position).length;
+  }
+
+  // プロ野球選手を設定
+  void setProfessionalPlayers(String teamId, List<ProfessionalPlayer> professionalPlayers) {
+    final index = teams.indexWhere((t) => t.id == teamId);
+    if (index != -1) {
+      teams[index] = teams[index].copyWith(professionalPlayers: professionalPlayers);
+    }
+  }
+
+  // プロ野球選手を取得
+  List<ProfessionalPlayer> getProfessionalPlayers(String teamId) {
+    final team = getTeam(teamId);
+    return team?.professionalPlayers ?? [];
   }
 
   // チームを削除
@@ -515,6 +534,170 @@ class ProfessionalTeamManager {
         weaknesses: ['投手力', '守備力'],
         popularity: 70,
         success: 65,
+      ),
+      // セ・リーグ追加球団
+      ProfessionalTeam(
+        id: 'dragons',
+        name: '中日ドラゴンズ',
+        shortName: '中日',
+        league: League.central,
+        division: Division.central,
+        homeStadium: 'バンテリンドーム ナゴヤ',
+        city: '愛知県',
+        budget: 75000,
+        needs: ['投手', '外野手'],
+        scoutRelations: {},
+        draftOrder: 7,
+        teamStrength: {
+          '投手': 80,
+          '捕手': 75,
+          '一塁手': 70,
+          '二塁手': 75,
+          '三塁手': 70,
+          '遊撃手': 75,
+          '外野手': 65,
+        },
+        strategy: '投手重視',
+        strengths: ['投手力', '守備力', '伝統'],
+        weaknesses: ['打撃力', '長打力'],
+        popularity: 75,
+        success: 75,
+      ),
+      ProfessionalTeam(
+        id: 'baystars',
+        name: '横浜DeNAベイスターズ',
+        shortName: 'DeNA',
+        league: League.central,
+        division: Division.east,
+        homeStadium: '横浜スタジアム',
+        city: '神奈川県',
+        budget: 60000,
+        needs: ['投手', '内野手'],
+        scoutRelations: {},
+        draftOrder: 8,
+        teamStrength: {
+          '投手': 65,
+          '捕手': 70,
+          '一塁手': 75,
+          '二塁手': 70,
+          '三塁手': 65,
+          '遊撃手': 70,
+          '外野手': 80,
+        },
+        strategy: '打撃重視',
+        strengths: ['打撃力', '長打力', '若手育成'],
+        weaknesses: ['投手力', '守備力'],
+        popularity: 65,
+        success: 60,
+      ),
+      ProfessionalTeam(
+        id: 'swallows',
+        name: '東京ヤクルトスワローズ',
+        shortName: 'ヤクルト',
+        league: League.central,
+        division: Division.east,
+        homeStadium: '明治神宮野球場',
+        city: '東京都',
+        budget: 55000,
+        needs: ['投手', '捕手'],
+        scoutRelations: {},
+        draftOrder: 9,
+        teamStrength: {
+          '投手': 60,
+          '捕手': 65,
+          '一塁手': 70,
+          '二塁手': 75,
+          '三塁手': 70,
+          '遊撃手': 75,
+          '外野手': 70,
+        },
+        strategy: '若手育成重視',
+        strengths: ['若手育成', '打撃力', 'スピード'],
+        weaknesses: ['投手力', '資金力'],
+        popularity: 60,
+        success: 55,
+      ),
+      // パ・リーグ追加球団
+      ProfessionalTeam(
+        id: 'lions',
+        name: '埼玉西武ライオンズ',
+        shortName: '西武',
+        league: League.pacific,
+        division: Division.east,
+        homeStadium: 'ベルーナドーム',
+        city: '埼玉県',
+        budget: 70000,
+        needs: ['投手', '外野手'],
+        scoutRelations: {},
+        draftOrder: 10,
+        teamStrength: {
+          '投手': 75,
+          '捕手': 80,
+          '一塁手': 75,
+          '二塁手': 80,
+          '三塁手': 75,
+          '遊撃手': 80,
+          '外野手': 70,
+        },
+        strategy: 'バランス型',
+        strengths: ['投手力', '内野守備', '若手育成'],
+        weaknesses: ['外野守備', '長打力'],
+        popularity: 70,
+        success: 75,
+      ),
+      ProfessionalTeam(
+        id: 'fighters',
+        name: '北海道日本ハムファイターズ',
+        shortName: '日本ハム',
+        league: League.pacific,
+        division: Division.east,
+        homeStadium: 'エスコンフィールドHOKKAIDO',
+        city: '北海道',
+        budget: 65000,
+        needs: ['投手', '内野手'],
+        scoutRelations: {},
+        draftOrder: 11,
+        teamStrength: {
+          '投手': 70,
+          '捕手': 75,
+          '一塁手': 70,
+          '二塁手': 65,
+          '三塁手': 70,
+          '遊撃手': 65,
+          '外野手': 75,
+        },
+        strategy: '投手重視',
+        strengths: ['投手力', '外野守備', '若手育成'],
+        weaknesses: ['内野守備', '打撃力'],
+        popularity: 65,
+        success: 60,
+      ),
+      ProfessionalTeam(
+        id: 'buffaloes',
+        name: 'オリックス・バファローズ',
+        shortName: 'オリックス',
+        league: League.pacific,
+        division: Division.west,
+        homeStadium: '京セラドーム大阪',
+        city: '大阪府',
+        budget: 80000,
+        needs: ['投手', '捕手'],
+        scoutRelations: {},
+        draftOrder: 12,
+        teamStrength: {
+          '投手': 85,
+          '捕手': 80,
+          '一塁手': 80,
+          '二塁手': 75,
+          '三塁手': 80,
+          '遊撃手': 75,
+          '外野手': 80,
+        },
+        strategy: '投手重視',
+        strengths: ['投手力', '守備力', '資金力'],
+        weaknesses: ['打撃力', '長打力'],
+        popularity: 75,
+        success: 80,
       ),
     ];
   }

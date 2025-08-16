@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/game/game.dart';
 import '../models/professional/professional_team.dart';
 import '../services/game_manager.dart';
+import '../widgets/professional_player_card.dart';
 
 class ProfessionalTeamsScreen extends StatefulWidget {
   const ProfessionalTeamsScreen({Key? key}) : super(key: key);
@@ -451,8 +452,58 @@ class _ProfessionalTeamsScreenState extends State<ProfessionalTeamsScreen>
   }
   
   Widget _buildPlayersList(ProfessionalTeam team) {
-    final displayPlayers = team.players.take(5).toList(); // 最初の5名のみ表示
+    // プロ野球選手の詳細表示
+    if (team.professionalPlayers?.isNotEmpty == true) {
+      return Column(
+        children: [
+          // 選手数と表示切り替えボタン
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '全${team.professionalPlayers!.length}名の選手',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.green,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  // TODO: 選手詳細画面への遷移
+                },
+                child: const Text('詳細表示'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 選手カードの表示（最初の10名まで）
+          ...team.professionalPlayers!.take(10).map((professionalPlayer) => 
+            ProfessionalPlayerCard(
+              professionalPlayer: professionalPlayer,
+              onTap: () {
+                // TODO: 選手詳細画面への遷移
+              },
+            ),
+          ),
+          if (team.professionalPlayers!.length > 10)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                '他${team.professionalPlayers!.length - 10}名の選手がいます',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+        ],
+      );
+    }
     
+    // 従来の表示（高校選手の場合）
+    final displayPlayers = team.players.take(5).toList();
     return Column(
       children: displayPlayers.map((player) => ListTile(
         leading: CircleAvatar(
