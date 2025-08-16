@@ -15,6 +15,8 @@ class PennantRaceService {
 
   /// ペナントレースのスケジュールを生成
   static PennantRaceSchedule generateSchedule(int year, List<ProfessionalTeam> teams) {
+    print('PennantRaceService.generateSchedule: 開始 - 年度: $year, 総チーム数: ${teams.length}');
+    
     final games = <GameSchedule>[];
     final random = Random(year); // 年度をシードとして使用
     
@@ -22,9 +24,16 @@ class PennantRaceService {
     final centralTeams = teams.where((t) => t.league == League.central).toList();
     final pacificTeams = teams.where((t) => t.league == League.pacific).toList();
     
+    print('PennantRaceService.generateSchedule: セ・リーグ: ${centralTeams.length}チーム, パ・リーグ: ${pacificTeams.length}チーム');
+    
     // 各リーグ内でスケジュールを生成
-    games.addAll(_generateLeagueSchedule(centralTeams, League.central, year, random));
-    games.addAll(_generateLeagueSchedule(pacificTeams, League.pacific, year, random));
+    final centralGames = _generateLeagueSchedule(centralTeams, League.central, year, random);
+    final pacificGames = _generateLeagueSchedule(pacificTeams, League.pacific, year, random);
+    
+    games.addAll(centralGames);
+    games.addAll(pacificGames);
+    
+    print('PennantRaceService.generateSchedule: セ・リーグ試合数: ${centralGames.length}, パ・リーグ試合数: ${pacificGames.length}');
     
     // スケジュールを週ごとに並び替え
     games.sort((a, b) {
@@ -33,12 +42,27 @@ class PennantRaceService {
       return a.dayOfWeek.compareTo(b.dayOfWeek);
     });
     
-    return PennantRaceSchedule(
+    final schedule = PennantRaceSchedule(
       year: year,
       games: games,
       seasonStart: DateTime(year, _seasonStartMonth, 1),
       seasonEnd: DateTime(year, _seasonEndMonth, 15),
     );
+    
+    print('PennantRaceService.generateSchedule: 完了 - 総試合数: ${games.length}試合');
+    
+    // 週別の試合数を確認
+    for (int month = _seasonStartMonth; month <= _seasonEndMonth; month++) {
+      for (int week = 1; week <= 4; week++) {
+        if (month == _seasonStartMonth && week < _seasonStartWeek) continue;
+        if (month == _seasonEndMonth && week > _seasonEndWeek) continue;
+        
+        final weekGames = schedule.getGamesForWeek(month, week);
+        print('PennantRaceService.generateSchedule: ${month}月${week}週: ${weekGames.length}試合');
+      }
+    }
+    
+    return schedule;
   }
 
   /// リーグ内のスケジュールを生成
@@ -48,10 +72,15 @@ class PennantRaceService {
     int year, 
     Random random
   ) {
+    print('PennantRaceService._generateLeagueSchedule: 開始 - リーグ: ${league.name}, チーム数: ${teams.length}');
+    
     final games = <GameSchedule>[];
     final teamCount = teams.length;
     
-    if (teamCount < 2) return games;
+    if (teamCount < 2) {
+      print('PennantRaceService._generateLeagueSchedule: チーム数が不足しています (${teamCount}チーム)');
+      return games;
+    }
     
     // 各チームが週5試合になるようにスケジュールを生成
     for (int month = _seasonStartMonth; month <= _seasonEndMonth; month++) {
@@ -59,12 +88,17 @@ class PennantRaceService {
         if (month == _seasonStartMonth && week < _seasonStartWeek) continue;
         if (month == _seasonEndMonth && week > _seasonEndWeek) continue;
         
+        print('PennantRaceService._generateLeagueSchedule: ${month}月${week}週の試合生成開始');
+        
         // その週の試合を生成
         final weekGames = _generateWeekGames(teams, month, week, league, year, random);
         games.addAll(weekGames);
+        
+        print('PennantRaceService._generateLeagueSchedule: ${month}月${week}週の試合生成完了 - ${weekGames.length}試合');
       }
     }
     
+    print('PennantRaceService._generateLeagueSchedule: 完了 - 総試合数: ${games.length}試合');
     return games;
   }
 
@@ -77,9 +111,13 @@ class PennantRaceService {
     int year,
     Random random
   ) {
+    print('PennantRaceService._generateWeekGames: 開始 - ${month}月${week}週, リーグ: ${league.name}, チーム数: ${teams.length}');
+    
     final games = <GameSchedule>[];
     final teamCount = teams.length;
     final availableTeams = List<ProfessionalTeam>.from(teams);
+    
+    print('PennantRaceService._generateWeekGames: 利用可能チーム数: ${availableTeams.length}');
     
     // 各チームが週5試合になるように調整
     while (availableTeams.length >= 2) {
@@ -110,8 +148,10 @@ class PennantRaceService {
       );
       
       games.add(game);
+      print('PennantRaceService._generateWeekGames: 試合生成 - ${homeTeam.shortName} vs ${awayTeam.shortName}');
     }
     
+    print('PennantRaceService._generateWeekGames: 生成完了 - ${games.length}試合');
     return games;
   }
 
@@ -135,6 +175,8 @@ class PennantRaceService {
 
   /// ペナントレースの初期状態を作成
   static PennantRace createInitialPennantRace(int year, List<ProfessionalTeam> teams) {
+    print('PennantRaceService.createInitialPennantRace: 開始 - 年度: $year, チーム数: ${teams.length}');
+    
     final schedule = generateSchedule(year, teams);
     final standings = _createInitialStandings(teams);
     
@@ -143,12 +185,18 @@ class PennantRaceService {
     final playerStats = <String, PlayerSeasonStats>{};
     
     for (final team in teams) {
+      print('PennantRaceService.createInitialPennantRace: ${team.shortName}のdepth chart初期化開始');
+      print('PennantRaceService.createInitialPennantRace: ${team.shortName}のprofessionalPlayers数: ${team.professionalPlayers?.length ?? 0}');
+      
       if (team.professionalPlayers != null && team.professionalPlayers!.isNotEmpty) {
         // depth chartを作成
-        teamDepthCharts[team.id] = DepthChartService.initializeTeamDepthChart(
+        final depthChart = DepthChartService.initializeTeamDepthChart(
           team.id,
           team.professionalPlayers!,
         );
+        teamDepthCharts[team.id] = depthChart;
+        
+        print('PennantRaceService.createInitialPennantRace: ${team.shortName}のdepth chart作成完了 - ポジション数: ${depthChart.positionCharts.length}');
         
         // 各選手のシーズン成績を初期化
         for (final player in team.professionalPlayers!) {
@@ -162,10 +210,16 @@ class PennantRaceService {
             lastUpdated: DateTime.now(),
           );
         }
+        
+        print('PennantRaceService.createInitialPennantRace: ${team.shortName}の選手成績初期化完了 - ${team.professionalPlayers!.length}名');
+      } else {
+        print('PennantRaceService.createInitialPennantRace: ${team.shortName}のprofessionalPlayersが空のため、depth chartを作成できません');
       }
     }
     
-    return PennantRace(
+    print('PennantRaceService.createInitialPennantRace: depth chart初期化完了 - 作成されたチーム数: ${teamDepthCharts.length}');
+    
+    final pennantRace = PennantRace(
       year: year,
       schedule: schedule,
       completedGames: [],
@@ -175,6 +229,9 @@ class PennantRaceService {
       teamDepthCharts: teamDepthCharts,
       playerStats: playerStats,
     );
+    
+    print('PennantRaceService.createInitialPennantRace: 完了');
+    return pennantRace;
   }
 
   /// 初期順位表を作成
@@ -201,7 +258,31 @@ class PennantRaceService {
     int week,
     List<ProfessionalTeam> teams
   ) {
-    return pennantRace.executeWeekGames(month, week, teams);
+    print('PennantRaceService.executeWeekGames: 開始 - ${month}月${week}週');
+    
+    // 今週の試合スケジュールを取得
+    final weekGames = pennantRace.schedule.getGamesForWeek(month, week);
+    print('PennantRaceService.executeWeekGames: 今週の試合数: ${weekGames.length}試合');
+    
+    // 未完了の試合を確認
+    final uncompletedGames = weekGames.where((game) => !game.isCompleted).toList();
+    print('PennantRaceService.executeWeekGames: 未完了試合数: ${uncompletedGames.length}試合');
+    
+    if (uncompletedGames.isEmpty) {
+      print('PennantRaceService.executeWeekGames: 今週の試合は全て完了済みです');
+      return pennantRace;
+    }
+    
+    // ペナントレースのexecuteWeekGamesを呼び出し
+    final result = pennantRace.executeWeekGames(month, week, teams);
+    
+    // 実行後の完了試合数を確認
+    final completedGamesAfter = result.schedule.getGamesForWeek(month, week)
+        .where((game) => game.isCompleted).toList();
+    print('PennantRaceService.executeWeekGames: 実行後の完了試合数: ${completedGamesAfter.length}試合');
+    
+    print('PennantRaceService.executeWeekGames: 完了');
+    return result;
   }
 
   /// ペナントレースの進行状況を取得

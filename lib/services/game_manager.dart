@@ -86,6 +86,16 @@ class GameManager {
     
     // ペナントレースシーズン中の場合のみ進行
     if (month >= 4 && month <= 10 && (month != 4 || week >= 1) && (month != 10 || week <= 2)) {
+      print('GameManager._advancePennantRace: ペナントレース進行開始 - ${month}月${week}週');
+      
+      // 今週の試合スケジュールを確認
+      final weekGames = currentPennantRace.schedule.getGamesForWeek(month, week);
+      print('GameManager._advancePennantRace: 今週の試合数: ${weekGames.length}試合');
+      
+      // 未完了の試合数を確認
+      final uncompletedGames = weekGames.where((game) => !game.isCompleted).toList();
+      print('GameManager._advantPennantRace: 未完了試合数: ${uncompletedGames.length}試合');
+      
       // 今週の試合を実行
       final updatedPennantRace = PennantRaceService.executeWeekGames(
         currentPennantRace,
@@ -94,12 +104,19 @@ class GameManager {
         _currentGame!.professionalTeams.teams,
       );
       
+      // 実行後の完了試合数を確認
+      final completedGamesAfter = updatedPennantRace.schedule.getGamesForWeek(month, week)
+          .where((game) => game.isCompleted).toList();
+      print('GameManager._advancePennantRace: 実行後の完了試合数: ${completedGamesAfter.length}試合');
+      
       _currentGame = _currentGame!.copyWith(pennantRace: updatedPennantRace);
       
       // 試合結果のニュースを生成
       _generateGameResultsNews(updatedPennantRace, month, week);
       
       print('GameManager: ペナントレースを進行しました - ${month}月${week}週');
+    } else {
+      print('GameManager._advancePennantRace: ペナントレースシーズン外 - ${month}月${week}週');
     }
   }
 

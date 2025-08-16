@@ -4,6 +4,7 @@ import '../models/game/game.dart';
 import '../models/professional/professional_team.dart';
 import '../models/professional/depth_chart.dart';
 import '../models/professional/player_stats.dart';
+import '../models/professional/professional_player.dart';
 import '../services/game_manager.dart';
 import '../widgets/professional_player_card.dart';
 
@@ -157,17 +158,35 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
     return Consumer<GameManager>(
       builder: (context, gameManager, child) {
         final game = gameManager.currentGame;
+        print('TeamDetailScreen._buildDepthChartTab: game = ${game != null ? "loaded" : "null"}');
+        print('TeamDetailScreen._buildDepthChartTab: pennantRace = ${game?.pennantRace != null ? "loaded" : "null"}');
+        print('TeamDetailScreen._buildDepthChartTab: teamDepthCharts = ${game?.pennantRace?.teamDepthCharts != null ? "loaded" : "null"}');
+        
         if (game?.pennantRace?.teamDepthCharts == null) {
+          print('TeamDetailScreen._buildDepthChartTab: ペナントレースが開始されていません');
           return const Center(
             child: Text('ペナントレースが開始されていません'),
           );
         }
 
         final depthChart = game!.pennantRace!.teamDepthCharts[widget.team.id];
+        print('TeamDetailScreen._buildDepthChartTab: ${widget.team.shortName}のdepthChart = ${depthChart != null ? "loaded" : "null"}');
+        
         if (depthChart == null) {
+          print('TeamDetailScreen._buildDepthChartTab: ${widget.team.shortName}のデプスチャートが見つかりません');
+          print('TeamDetailScreen._buildDepthChartTab: 利用可能なチームID: ${game.pennantRace!.teamDepthCharts.keys.toList()}');
           return const Center(
             child: Text('デプスチャートが見つかりません'),
           );
+        }
+
+        print('TeamDetailScreen._buildDepthChartTab: ${widget.team.shortName}のdepthChart詳細 - ポジション数: ${depthChart.positionCharts.length}');
+        print('TeamDetailScreen._buildDepthChartTab: ポジション一覧: ${depthChart.positionCharts.keys.toList()}');
+        
+        for (final entry in depthChart.positionCharts.entries) {
+          final position = entry.key;
+          final chart = entry.value;
+          print('TeamDetailScreen._buildDepthChartTab: $position - 選手数: ${chart.playerIds.length}');
         }
 
         return SingleChildScrollView(
@@ -439,187 +458,312 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
     );
   }
 
-  Widget _buildPitcherRotationSection(PitcherRotation rotation) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '投手ローテーション',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // 先発投手
-            if (rotation.startingPitcherIds.isNotEmpty) ...[
-              Text(
-                '先発投手 (${rotation.startingPitcherIds.length}名)',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: rotation.startingPitcherIds.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final playerId = entry.value;
-                  final isCurrent = index == rotation.currentRotationIndex;
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isCurrent ? Colors.red : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${index + 1}番手${isCurrent ? '(次)' : ''}',
-                      style: TextStyle(
-                        color: isCurrent ? Colors.white : Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-            ],
-            
-            // リリーフ投手
-            if (rotation.reliefPitcherIds.isNotEmpty) ...[
-              Text(
-                'リリーフ投手 (${rotation.reliefPitcherIds.length}名)',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: rotation.reliefPitcherIds.map((playerId) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[300],
-                    borderRadius: BorderRadius.circular(12),
+  Widget _buildPitcherRotationSection(PitcherRotation pitcherRotation) {
+    return Consumer<GameManager>(
+      builder: (context, gameManager, child) {
+        final game = gameManager.currentGame;
+        if (game?.pennantRace?.teamDepthCharts == null) {
+          return const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('データが読み込めません')));
+        }
+        
+        final depthChart = game!.pennantRace!.teamDepthCharts[widget.team.id];
+        if (depthChart == null) {
+          return const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('デプスチャートが見つかりません')));
+        }
+        
+        // チームのプロ野球選手リストを取得
+        final professionalPlayers = widget.team.professionalPlayers ?? [];
+        
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '投手ローテーション',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
                   ),
-                  child: const Text(
-                    'リリーフ',
+                ),
+                const SizedBox(height: 8),
+                
+                // 先発投手
+                if (pitcherRotation.startingPitcherIds.isNotEmpty) ...[
+                  const Text(
+                    '先発投手',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                )).toList(),
-              ),
-              const SizedBox(height: 16),
-            ],
-            
-            // クローザー
-            if (rotation.closerPitcherIds.isNotEmpty) ...[
-              Text(
-                'クローザー (${rotation.closerPitcherIds.length}名)',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: rotation.closerPitcherIds.map((playerId) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.orange,
-                    borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 4),
+                  ...pitcherRotation.startingPitcherIds.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final pitcherId = entry.value;
+                    final isCurrent = index == pitcherRotation.currentRotationIndex;
+                    
+                    // 投手の名前を取得
+                    final pitcher = professionalPlayers.firstWhere(
+                      (p) => p.id.toString() == pitcherId,
+                      orElse: () => null,
+                    );
+                    final pitcherName = pitcher?.player?.name ?? '不明な投手';
+                    final pitcherAbility = pitcher?.player?.trueTotalAbility ?? 0;
+                    
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: isCurrent ? Colors.red : Colors.blue,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  pitcherName,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                                Text(
+                                  '能力値: $pitcherAbility',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isCurrent)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                '次回先発',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  const SizedBox(height: 8),
+                ],
+                
+                // リリーフ投手
+                if (pitcherRotation.reliefPitcherIds.isNotEmpty) ...[
+                  const Text(
+                    'リリーフ投手',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  child: const Text(
-                    'クローザー',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                )).toList(),
-              ),
-            ],
-          ],
-        ),
-      ),
+                  const SizedBox(height: 4),
+                  ...pitcherRotation.reliefPitcherIds.take(5).map((pitcherId) {
+                    final pitcher = professionalPlayers.firstWhere(
+                      (p) => p.id.toString() == pitcherId,
+                      orElse: () => null,
+                    );
+                    final pitcherName = pitcher?.player?.name ?? '不明な投手';
+                    final pitcherAbility = pitcher?.player?.trueTotalAbility ?? 0;
+                    final usage = pitcherRotation.pitcherUsage[pitcherId] ?? 0;
+                    
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.sports_baseball,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              pitcherName,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                          Text(
+                            '能力値: $pitcherAbility',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '使用: $usage回',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildPositionDepthChartSection(String position, PositionDepthChart chart) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              position,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
-              ),
-            ),
-            const SizedBox(height: 8),
-            
-            if (chart.playerIds.isEmpty)
-              const Text('選手が登録されていません')
-            else
-              ...chart.playerIds.asMap().entries.map((entry) {
-                final index = entry.key;
-                final playerId = entry.value;
-                final percentage = chart.playingTimePercentages[playerId] ?? 0.0;
+    print('TeamDetailScreen._buildPositionDepthChartSection: $position - 選手数: ${chart.playerIds.length}');
+    print('TeamDetailScreen._buildPositionDepthChartSection: $position - 選手ID一覧: ${chart.playerIds}');
+    print('TeamDetailScreen._buildPositionDepthChartSection: $position - 出場時間割合: ${chart.playingTimePercentages}');
+    
+    return Consumer<GameManager>(
+      builder: (context, gameManager, child) {
+        final game = gameManager.currentGame;
+        if (game?.pennantRace?.teamDepthCharts == null) {
+          return const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('データが読み込めません')));
+        }
+        
+        final depthChart = game!.pennantRace!.teamDepthCharts[widget.team.id];
+        if (depthChart == null) {
+          return const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('デプスチャートが見つかりません')));
+        }
+        
+        // チームのプロ野球選手リストを取得
+        final professionalPlayers = widget.team.professionalPlayers ?? [];
+        print('TeamDetailScreen._buildPositionDepthChartSection: ${widget.team.shortName}のプロ野球選手数: ${professionalPlayers.length}');
+        
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  position,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: index == 0 ? Colors.amber : Colors.grey[400],
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${index + 1}',
-                            style: TextStyle(
-                              color: index == 0 ? Colors.black : Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                if (chart.playerIds.isEmpty)
+                  const Text('選手が登録されていません')
+                else
+                  ...chart.playerIds.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final playerId = entry.value;
+                    final percentage = chart.playingTimePercentages[playerId] ?? 0.0;
+                    
+                    // ProfessionalPlayerから選手情報を取得
+                    final professionalPlayer = professionalPlayers.firstWhere(
+                      (p) => p.id.toString() == playerId,
+                      orElse: () => null,
+                    );
+                    
+                    final playerName = professionalPlayer?.player?.name ?? '不明な選手';
+                    final playerAbility = professionalPlayer?.player?.trueTotalAbility ?? 0;
+                    
+                    print('TeamDetailScreen._buildPositionDepthChartSection: $position - 選手$index: ID=$playerId, 名前=$playerName, 能力値=$playerAbility, 出場時間=${percentage.toStringAsFixed(1)}%');
+                    
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: index == 0 ? Colors.red : Colors.blue,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          '選手ID: $playerId',
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getPlayingTimeColor(percentage),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${percentage.toStringAsFixed(1)}%',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  playerName,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  '能力値: $playerAbility',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                          Text(
+                            '${percentage.toStringAsFixed(1)}%',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                );
-              }),
-          ],
-        ),
-      ),
+                    );
+                  }).toList(),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -319,11 +319,48 @@ class ProfessionalTeamManager {
   
   // 全チームに選手を生成
   void generatePlayersForAllTeams() {
+    print('ProfessionalTeamManager.generatePlayersForAllTeams: 開始');
+    
     for (int i = 0; i < teams.length; i++) {
       final team = teams[i];
+      print('ProfessionalTeamManager.generatePlayersForAllTeams: ${team.shortName}の選手生成開始');
+      
       final players = PlayerGenerator.generateProfessionalPlayers(team);
-      teams[i] = team.copyWith(players: players);
+      print('ProfessionalTeamManager.generatePlayersForAllTeams: ${team.shortName}のPlayer生成完了 - ${players.length}名');
+      
+      // PlayerオブジェクトをProfessionalPlayerオブジェクトに変換
+      final professionalPlayers = players.map((player) {
+        return ProfessionalPlayer(
+          playerId: player.id ?? 0,
+          teamId: team.id,
+          contractYear: 1,
+          salary: 1000, // 基本年俸1000万円
+          contractType: ContractType.regular,
+          draftYear: DateTime.now().year - 1,
+          draftRound: 1,
+          draftPosition: 1,
+          isActive: true,
+          joinedAt: DateTime.now().subtract(Duration(days: 365)),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          player: player,
+          teamName: team.name,
+          teamShortName: team.shortName,
+        );
+      }).toList();
+      
+      print('ProfessionalTeamManager.generatePlayersForAllTeams: ${team.shortName}のProfessionalPlayer変換完了 - ${professionalPlayers.length}名');
+      
+      // チームを更新（playersとprofessionalPlayersの両方を設定）
+      teams[i] = team.copyWith(
+        players: players,
+        professionalPlayers: professionalPlayers,
+      );
+      
+      print('ProfessionalTeamManager.generatePlayersForAllTeams: ${team.shortName}の更新完了');
     }
+    
+    print('ProfessionalTeamManager.generatePlayersForAllTeams: 全チームの選手生成完了');
   }
   
   // 特定のチームに選手を生成

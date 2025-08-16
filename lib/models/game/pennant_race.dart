@@ -161,6 +161,21 @@ class PennantRaceSchedule {
       seasonEnd: DateTime.parse(json['seasonEnd'] as String),
     );
   }
+
+  /// スケジュールを更新
+  PennantRaceSchedule copyWith({
+    int? year,
+    List<GameSchedule>? games,
+    DateTime? seasonStart,
+    DateTime? seasonEnd,
+  }) {
+    return PennantRaceSchedule(
+      year: year ?? this.year,
+      games: games ?? this.games,
+      seasonStart: seasonStart ?? this.seasonStart,
+      seasonEnd: seasonEnd ?? this.seasonEnd,
+    );
+  }
 }
 
 // 個別の試合スケジュール
@@ -272,29 +287,53 @@ class PennantRace {
 
   // 指定週の試合を実行
   PennantRace executeWeekGames(int month, int week, List<ProfessionalTeam> teams) {
+    print('PennantRace.executeWeekGames: 開始 - ${month}月${week}週');
+    
     final weekGames = schedule.getGamesForWeek(month, week);
+    print('PennantRace.executeWeekGames: 今週の試合数: ${weekGames.length}試合');
+    
     final newCompletedGames = <GameResult>[];
     final newStandings = Map<String, TeamStanding>.from(standings);
+    
+    // スケジュールを更新するための新しいゲームリスト
+    final updatedGames = <GameSchedule>[];
 
     for (final game in weekGames) {
       if (!game.isCompleted) {
+        print('PennantRace.executeWeekGames: 試合実行中 - ${game.homeTeamId} vs ${game.awayTeamId}');
         final result = _simulateGame(game, teams);
         newCompletedGames.add(result);
         
+        // 試合完了後のスケジュールを作成
+        final completedGame = game.completeGame(result);
+        updatedGames.add(completedGame);
+        
         // 順位表を更新
         _updateStandings(newStandings, result);
+        print('PennantRace.executeWeekGames: 試合完了 - ${game.homeTeamId} ${result.homeScore}-${result.awayScore} ${game.awayTeamId}');
+      } else {
+        print('PennantRace.executeWeekGames: 試合は既に完了済み - ${game.homeTeamId} vs ${game.awayTeamId}');
+        updatedGames.add(game);
       }
     }
 
-    return PennantRace(
+    print('PennantRace.executeWeekGames: 今週完了試合数: ${newCompletedGames.length}試合');
+    
+    // スケジュールを更新（完了した試合のフラグを更新）
+    final updatedSchedule = schedule.copyWith(games: updatedGames);
+    
+    final result = PennantRace(
       year: year,
-      schedule: schedule,
+      schedule: updatedSchedule,
       completedGames: [...completedGames, ...newCompletedGames],
       standings: newStandings,
       currentMonth: month,
       currentWeek: week,
       isSeasonComplete: month == 10 && week == 2,
     );
+    
+    print('PennantRace.executeWeekGames: 完了');
+    return result;
   }
 
   // 試合をシミュレート
@@ -616,6 +655,31 @@ class PennantRace {
     'teamDepthCharts': teamDepthCharts.map((k, v) => MapEntry(k, v.toJson())),
     'playerStats': playerStats.map((k, v) => MapEntry(k, v.toJson())),
   };
+
+  /// ペナントレースを更新
+  PennantRace copyWith({
+    int? year,
+    PennantRaceSchedule? schedule,
+    List<GameResult>? completedGames,
+    Map<String, TeamStanding>? standings,
+    int? currentMonth,
+    int? currentWeek,
+    bool? isSeasonComplete,
+    Map<String, TeamDepthChart>? teamDepthCharts,
+    Map<String, PlayerSeasonStats>? playerStats,
+  }) {
+    return PennantRace(
+      year: year ?? this.year,
+      schedule: schedule ?? this.schedule,
+      completedGames: completedGames ?? this.completedGames,
+      standings: standings ?? this.standings,
+      currentMonth: currentMonth ?? this.currentMonth,
+      currentWeek: currentWeek ?? this.currentWeek,
+      isSeasonComplete: isSeasonComplete ?? this.isSeasonComplete,
+      teamDepthCharts: teamDepthCharts ?? this.teamDepthCharts,
+      playerStats: playerStats ?? this.playerStats,
+    );
+  }
 
   /// JSONから復元
   factory PennantRace.fromJson(Map<String, dynamic> json) {
