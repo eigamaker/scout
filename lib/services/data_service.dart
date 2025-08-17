@@ -29,180 +29,13 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
       path,
-              version: 20, // バージョンを20に更新
+              version: 28, // バージョンを28に更新
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          // 新しい能力値システムのカラムを追加
-          await _addNewAbilityColumns(db);
-          await _addNewPotentialColumns(db);
-        }
-        if (oldVersion < 3) {
-          // バージョン3では新しいスキーマを使用するため、データベースファイルを削除して再作成
-          // 既存のデータは失われますが、新しいスキーマで正しく動作します
-          print('データベーススキーマを更新中...');
-        }
-        if (oldVersion < 4) {
-          // バージョン4ではスキーマを更新
-          print('データベーススキーマを更新中（バージョン4）...');
-        }
-        if (oldVersion < 9) {
-          // バージョン9: is_publicly_knownフィールドを追加
-          print('データベーススキーマを更新中（バージョン9）: is_publicly_knownフィールドを追加...');
-          try {
-            await db.execute('ALTER TABLE Player ADD COLUMN is_publicly_known INTEGER DEFAULT 0');
-            print('is_publicly_knownフィールドの追加完了');
-            
-            // 既存選手の注目選手フラグを再計算して設定
-            await _updateExistingPlayersPubliclyKnown(db);
-          } catch (e) {
-            print('is_publicly_knownフィールド追加エラー: $e');
-          }
-        }
-        if (oldVersion < 10) {
-          // バージョン10: is_scout_favoriteフィールドを追加
-          print('データベーススキーマを更新中（バージョン10）: is_scout_favoriteフィールドを追加...');
-          try {
-            await db.execute('ALTER TABLE Player ADD COLUMN is_scout_favorite INTEGER DEFAULT 0');
-            print('is_scout_favoriteフィールドの追加完了');
-          } catch (e) {
-            print('is_scout_favoriteフィールド追加エラー: $e');
-          }
-        }
-        if (oldVersion < 11) {
-          // バージョン11: 卒業フラグ関連フィールドを追加
-          print('データベーススキーマを更新中（バージョン11）: 卒業フラグ関連フィールドを追加...');
-          try {
-            await db.execute('ALTER TABLE Player ADD COLUMN is_graduated INTEGER DEFAULT 0');
-            await db.execute('ALTER TABLE Player ADD COLUMN graduated_at TEXT');
-            print('卒業フラグ関連フィールドの追加完了');
-          } catch (e) {
-            print('卒業フラグ関連フィールド追加エラー: $e');
-          }
-        }
-        if (oldVersion < 12) {
-          // バージョン12: 卒業フラグ関連フィールドの再確認
-          print('データベーススキーマを更新中（バージョン12）: 卒業フラグ関連フィールドの再確認...');
-          try {
-            // 既存のカラムが存在するかチェック
-            final tableInfo = await db.rawQuery('PRAGMA table_info(Player)');
-            final columnNames = tableInfo.map((col) => col['name'] as String).toList();
-            
-            if (!columnNames.contains('is_graduated')) {
-              await db.execute('ALTER TABLE Player ADD COLUMN is_graduated INTEGER DEFAULT 0');
-              print('is_graduatedカラムを追加しました');
-            }
-            
-            if (!columnNames.contains('graduated_at')) {
-              await db.execute('ALTER TABLE Player ADD COLUMN graduated_at TEXT');
-              print('graduated_atカラムを追加しました');
-            }
-            
-            print('卒業フラグ関連フィールドの確認完了');
-          } catch (e) {
-            print('卒業フラグ関連フィールド確認エラー: $e');
-          }
-        }
-        if (oldVersion < 13) {
-          // バージョン13: 関連テーブルに卒業フラグを追加
-          print('データベーススキーマを更新中（バージョン13）: 関連テーブルに卒業フラグを追加...');
-          try {
-            // PlayerPotentialsテーブルに卒業フラグを追加
-            try {
-              await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN is_graduated INTEGER DEFAULT 0');
-              print('PlayerPotentialsテーブルにis_graduatedカラムを追加しました');
-            } catch (e) {
-              print('PlayerPotentialsテーブルのis_graduatedカラム追加エラー: $e');
-            }
-            
-            // ScoutAnalysisテーブルに卒業フラグを追加
-            try {
-              await db.execute('ALTER TABLE ScoutAnalysis ADD COLUMN is_graduated INTEGER DEFAULT 0');
-              print('ScoutAnalysisテーブルにis_graduatedカラムを追加しました');
-            } catch (e) {
-              print('ScoutAnalysisテーブルのis_graduatedカラム追加エラー: $e');
-            }
-            
-            // ScoutBasicInfoAnalysisテーブルに卒業フラグを追加
-            try {
-              await db.execute('ALTER TABLE ScoutBasicInfoAnalysis ADD COLUMN is_graduated INTEGER DEFAULT 0');
-              print('ScoutBasicInfoAnalysisテーブルにis_graduatedカラムを追加しました');
-            } catch (e) {
-              print('ScoutBasicInfoAnalysisテーブルのis_graduatedカラム追加エラー: $e');
-            }
-            
-            print('関連テーブルへの卒業フラグ追加完了');
-          } catch (e) {
-            print('関連テーブルへの卒業フラグ追加エラー: $e');
-          }
-        }
-        if (oldVersion < 14) {
-          // バージョン14: 年齢カラムを追加
-          print('データベーススキーマを更新中（バージョン14）: 年齢カラムを追加...');
-          try {
-            await db.execute('ALTER TABLE Player ADD COLUMN age INTEGER DEFAULT 15');
-            print('年齢カラムの追加完了');
-            
-            // 既存選手の年齢を学年から計算して設定
-            await _updateExistingPlayersAge(db);
-          } catch (e) {
-            print('年齢カラム追加エラー: $e');
-          }
-        }
-        if (oldVersion < 15) {
-          // バージョン15: 引退フラグを追加
-          print('データベーススキーマを更新中（バージョン15）: 引退フラグを追加...');
-          try {
-            await db.execute('ALTER TABLE Player ADD COLUMN is_retired INTEGER DEFAULT 0');
-            await db.execute('ALTER TABLE Player ADD COLUMN retired_at TEXT');
-            print('引退フラグの追加完了');
-            
-            // 既存選手の引退判定を実行
-            await _updateExistingPlayersRetirementStatus(db);
-          } catch (e) {
-            print('引退フラグ追加エラー: $e');
-          }
-        }
-        if (oldVersion < 5) {
-          // バージョン5では強制的に新しいスキーマで再作成
-          print('データベーススキーマを強制更新中（バージョン5）...');
-          // 既存のテーブルを削除して再作成
-          await db.execute('DROP TABLE IF EXISTS Player');
-          await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
-          await db.execute('DROP TABLE IF EXISTS Person');
-          await _createAllTables(db);
-        }
-        if (oldVersion < 6) {
-          // バージョン6では新しい能力値（natural_fitness, injury_proneness）を含むスキーマで再作成
-          print('データベーススキーマを強制更新中（バージョン6）...');
-          // 既存のテーブルを削除して再作成
-          await db.execute('DROP TABLE IF EXISTS Player');
-          await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
-          await db.execute('DROP TABLE IF EXISTS Person');
-          await _createAllTables(db);
-        }
-        if (oldVersion < 7) {
-          // バージョン7では新しいポテンシャル生成を含むスキーマで再作成
-          print('データベーススキーマを強制更新中（バージョン7）...');
-          // 既存のテーブルを削除して再作成
-          await db.execute('DROP TABLE IF EXISTS Player');
-          await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
-          await db.execute('DROP TABLE IF EXISTS Person');
-          await _createAllTables(db);
-        }
-        if (oldVersion < 8) {
-          // バージョン8ではfameカラムとスカウト分析データを含むスキーマで再作成
-          print('データベーススキーマを強制更新中（バージョン8）...');
-          // 既存のテーブルを削除して再作成
-          await db.execute('DROP TABLE IF EXISTS Player');
-          await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
-          await db.execute('DROP TABLE IF EXISTS Person');
-          await db.execute('DROP TABLE IF EXISTS ScoutAnalysis');
-          await _createAllTables(db);
-        }
+        await _upgradeDatabase(db, oldVersion, newVersion);
       },
     );
   }
@@ -364,6 +197,9 @@ class DataService {
       final id = await db.insert('School', school);
       schoolIds.add(id);
     }
+    
+    // プロ野球団とプロ選手の初期データを挿入
+    await _insertProfessionalTeams(db);
   }
 
   // スロットごとにDBファイル名を切り替える
@@ -371,9 +207,9 @@ class DataService {
     final dbPath = await getDatabasesPath();
     final dbName = slot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(slot)}.db';
     final path = join(dbPath, dbName);
-    return await openDatabase(
-      path,
-              version: 20, // バージョンを20に更新
+          return await openDatabase(
+        path,
+              version: 28, // バージョンを28に更新
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
@@ -478,6 +314,177 @@ class DataService {
   Future<void> _upgradeDatabase(Database db, int oldVersion, int newVersion) async {
     print('データベーススキーマをアップグレード中（$oldVersion → $newVersion）...');
     
+    if (oldVersion < 2) {
+      // 新しい能力値システムのカラムを追加
+      await _addNewAbilityColumns(db);
+      await _addNewPotentialColumns(db);
+    }
+    
+    if (oldVersion < 5) {
+      // バージョン5では強制的に新しいスキーマで再作成
+      print('データベーススキーマを強制更新中（バージョン5）...');
+      // 既存のテーブルを削除して再作成
+      await db.execute('DROP TABLE IF EXISTS Player');
+      await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+      await db.execute('DROP TABLE IF EXISTS Person');
+      await _createAllTables(db);
+    }
+    
+    if (oldVersion < 6) {
+      // バージョン6では新しい能力値（natural_fitness, injury_proneness）を含むスキーマで再作成
+      print('データベーススキーマを強制更新中（バージョン6）...');
+      // 既存のテーブルを削除して再作成
+      await db.execute('DROP TABLE IF EXISTS Player');
+      await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+      await db.execute('DROP TABLE IF EXISTS Person');
+      await _createAllTables(db);
+    }
+    
+    if (oldVersion < 7) {
+      // バージョン7では新しいポテンシャル生成を含むスキーマで再作成
+      print('データベーススキーマを強制更新中（バージョン7）...');
+      // 既存のテーブルを削除して再作成
+      await db.execute('DROP TABLE IF EXISTS Player');
+      await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+      await db.execute('DROP TABLE IF EXISTS Person');
+      await _createAllTables(db);
+    }
+    
+    if (oldVersion < 8) {
+      // バージョン8ではfameカラムとスカウト分析データを含むスキーマで再作成
+      print('データベーススキーマを強制更新中（バージョン8）...');
+      // 既存のテーブルを削除して再作成
+      await db.execute('DROP TABLE IF EXISTS Player');
+      await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+      await db.execute('DROP TABLE IF EXISTS Person');
+      await db.execute('DROP TABLE IF EXISTS ScoutAnalysis');
+      await _createAllTables(db);
+    }
+    
+    if (oldVersion < 9) {
+      // バージョン9: is_publicly_knownフィールドを追加
+      print('データベーススキーマを更新中（バージョン9）: is_publicly_knownフィールドを追加...');
+      try {
+        await db.execute('ALTER TABLE Player ADD COLUMN is_publicly_known INTEGER DEFAULT 0');
+        print('is_publicly_knownフィールドの追加完了');
+        
+        // 既存選手の注目選手フラグを再計算して設定
+        await _updateExistingPlayersPubliclyKnown(db);
+      } catch (e) {
+        print('is_publicly_knownフィールド追加エラー: $e');
+      }
+    }
+    
+    if (oldVersion < 10) {
+      // バージョン10: is_scout_favoriteフィールドを追加
+      print('データベーススキーマを更新中（バージョン10）: is_scout_favoriteフィールドを追加...');
+      try {
+        await db.execute('ALTER TABLE Player ADD COLUMN is_scout_favorite INTEGER DEFAULT 0');
+        print('is_scout_favoriteフィールドの追加完了');
+      } catch (e) {
+        print('is_scout_favoriteフィールド追加エラー: $e');
+      }
+    }
+    
+    if (oldVersion < 11) {
+      // バージョン11: 卒業フラグ関連フィールドを追加
+      print('データベーススキーマを更新中（バージョン11）: 卒業フラグ関連フィールドを追加...');
+      try {
+        await db.execute('ALTER TABLE Player ADD COLUMN is_graduated INTEGER DEFAULT 0');
+        await db.execute('ALTER TABLE Player ADD COLUMN graduated_at TEXT');
+        print('卒業フラグ関連フィールドの追加完了');
+      } catch (e) {
+        print('卒業フラグ関連フィールド追加エラー: $e');
+      }
+    }
+    
+    if (oldVersion < 12) {
+      // バージョン12: 卒業フラグ関連フィールドの再確認
+      print('データベーススキーマを更新中（バージョン12）: 卒業フラグ関連フィールドの再確認...');
+      try {
+        // 既存のカラムが存在するかチェック
+        final tableInfo = await db.rawQuery('PRAGMA table_info(Player)');
+        final columnNames = tableInfo.map((col) => col['name'] as String).toList();
+        
+        if (!columnNames.contains('is_graduated')) {
+          await db.execute('ALTER TABLE Player ADD COLUMN is_graduated INTEGER DEFAULT 0');
+          print('is_graduatedカラムを追加しました');
+        }
+        
+        if (!columnNames.contains('graduated_at')) {
+          await db.execute('ALTER TABLE Player ADD COLUMN graduated_at TEXT');
+          print('graduated_atカラムを追加しました');
+        }
+        
+        print('卒業フラグ関連フィールドの確認完了');
+      } catch (e) {
+        print('卒業フラグ関連フィールド確認エラー: $e');
+      }
+    }
+    
+    if (oldVersion < 13) {
+      // バージョン13: 関連テーブルに卒業フラグを追加
+      print('データベーススキーマを更新中（バージョン13）: 関連テーブルに卒業フラグを追加...');
+      try {
+        // PlayerPotentialsテーブルに卒業フラグを追加
+        try {
+          await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN is_graduated INTEGER DEFAULT 0');
+          print('PlayerPotentialsテーブルにis_graduatedカラムを追加しました');
+        } catch (e) {
+          print('PlayerPotentialsテーブルのis_graduatedカラム追加エラー: $e');
+        }
+        
+        // ScoutAnalysisテーブルに卒業フラグを追加
+        try {
+          await db.execute('ALTER TABLE ScoutAnalysis ADD COLUMN is_graduated INTEGER DEFAULT 0');
+          print('ScoutAnalysisテーブルにis_graduatedカラムを追加しました');
+        } catch (e) {
+          print('ScoutAnalysisテーブルのis_graduatedカラム追加エラー: $e');
+        }
+        
+        // ScoutBasicInfoAnalysisテーブルに卒業フラグを追加
+        try {
+          await db.execute('ALTER TABLE ScoutBasicInfoAnalysis ADD COLUMN is_graduated INTEGER DEFAULT 0');
+          print('ScoutBasicInfoAnalysisテーブルにis_graduatedカラムを追加しました');
+        } catch (e) {
+          print('ScoutBasicInfoAnalysisテーブルのis_graduatedカラム追加エラー: $e');
+        }
+        
+        print('関連テーブルへの卒業フラグ追加完了');
+      } catch (e) {
+        print('関連テーブルへの卒業フラグ追加エラー: $e');
+      }
+    }
+    
+    if (oldVersion < 14) {
+      // バージョン14: 年齢カラムを追加
+      print('データベーススキーマを更新中（バージョン14）: 年齢カラムを追加...');
+      try {
+        await db.execute('ALTER TABLE Player ADD COLUMN age INTEGER DEFAULT 15');
+        print('年齢カラムの追加完了');
+        
+        // 既存選手の年齢を学年から計算して設定
+        await _updateExistingPlayersAge(db);
+      } catch (e) {
+        print('年齢カラム追加エラー: $e');
+      }
+    }
+    
+    if (oldVersion < 15) {
+      // バージョン15: 引退フラグを追加
+      print('データベーススキーマを更新中（バージョン15）: 引退フラグを追加...');
+      try {
+        await db.execute('ALTER TABLE Player ADD COLUMN is_retired INTEGER DEFAULT 0');
+        await db.execute('ALTER TABLE Player ADD COLUMN retired_at TEXT');
+        print('引退フラグの追加完了');
+        
+        // 既存選手の引退判定を実行
+        await _updateExistingPlayersRetirementStatus(db);
+      } catch (e) {
+        print('引退フラグ追加エラー: $e');
+      }
+    }
+    
     if (oldVersion < 20) {
       // バージョン20: 新しいテーブル構造に完全移行
       print('データベーススキーマを完全更新中（バージョン20）...');
@@ -498,6 +505,169 @@ class DataService {
       await _insertProfessionalTeams(db);
       
       print('データベーススキーマの完全更新完了');
+    }
+    
+    if (oldVersion < 21) {
+      // バージョン21: プロ選手の初期データを生成・挿入
+      print('データベーススキーマを更新中（バージョン21）: プロ選手の初期データを生成・挿入...');
+      
+      // プロ選手の初期データを生成・挿入
+      await _insertProfessionalPlayers(db);
+      
+      print('プロ選手の初期データ生成・挿入完了');
+    }
+    
+    if (oldVersion < 22) {
+      // バージョン22: 不足している能力値カラムを追加
+      print('データベーススキーマを更新中（バージョン22）: 不足している能力値カラムを追加...');
+      
+      try {
+        // Playerテーブルに不足しているカラムを追加
+        await db.execute('ALTER TABLE Player ADD COLUMN motivation INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE Player ADD COLUMN pressure INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE Player ADD COLUMN adaptability INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE Player ADD COLUMN consistency INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE Player ADD COLUMN clutch INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE Player ADD COLUMN work_ethic INTEGER DEFAULT 50');
+        
+        // PlayerPotentialsテーブルに不足しているカラムを追加
+        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN motivation_potential INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN pressure_potential INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN adaptability_potential INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN consistency_potential INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN clutch_potential INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN work_ethic_potential INTEGER DEFAULT 50');
+        
+        print('不足している能力値カラムの追加完了');
+      } catch (e) {
+        print('能力値カラム追加エラー: $e');
+      }
+    }
+    
+    if (oldVersion < 23) {
+      // バージョン23: 不足している身体的能力値カラムを追加
+      print('データベーススキーマを更新中（バージョン23）: 不足している身体的能力値カラムを追加...');
+      
+      try {
+        // Playerテーブルに不足しているカラムを追加
+        await db.execute('ALTER TABLE Player ADD COLUMN speed INTEGER DEFAULT 50');
+        
+        // PlayerPotentialsテーブルに不足しているカラムを追加
+        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN speed_potential INTEGER DEFAULT 50');
+        
+        print('不足している身体的能力値カラムの追加完了');
+      } catch (e) {
+        print('身体的能力値カラム追加エラー: $e');
+      }
+    }
+    
+    if (oldVersion < 24) {
+      // バージョン24: 総合能力値指標カラムを追加
+      print('データベーススキーマを更新中（バージョン24）: 総合能力値指標カラムを追加...');
+      
+      try {
+        // Playerテーブルに総合能力値指標カラムを追加
+        await db.execute('ALTER TABLE Player ADD COLUMN overall_ability INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE Player ADD COLUMN technical_ability INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE Player ADD COLUMN physical_ability INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE Player ADD COLUMN mental_ability INTEGER DEFAULT 50');
+        
+        // PlayerPotentialsテーブルに総合ポテンシャル指標カラムを追加
+        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN overall_potential INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN technical_potential INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN physical_potential INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN mental_potential INTEGER DEFAULT 50');
+        
+        // ScoutAnalysisテーブルに総合評価指標カラムを追加
+        await db.execute('ALTER TABLE ScoutAnalysis ADD COLUMN overall_evaluation INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE ScoutAnalysis ADD COLUMN technical_evaluation INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE ScoutAnalysis ADD COLUMN physical_evaluation INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE ScoutAnalysis ADD COLUMN mental_evaluation INTEGER DEFAULT 50');
+        
+        print('総合能力値指標カラムの追加完了');
+      } catch (e) {
+        print('総合能力値指標カラム追加エラー: $e');
+      }
+    }
+    
+    if (oldVersion < 25) {
+      // バージョン25: プロ選手生成ロジックの修正
+      print('データベーススキーマを更新中（バージョン25）: プロ選手生成ロジックを修正...');
+      
+      try {
+        // 既存のプロ選手データを削除（再生成のため）
+        await db.execute('DELETE FROM ProfessionalPlayer');
+        await db.execute('DELETE FROM PlayerPotentials WHERE player_id IN (SELECT id FROM Player WHERE status = "professional")');
+        await db.execute('DELETE FROM Player WHERE status = "professional"');
+        await db.execute('DELETE FROM Person WHERE id IN (SELECT person_id FROM Player WHERE status = "professional")');
+        
+        // プロ選手の初期データを再生成・挿入
+        await _insertProfessionalPlayers(db);
+        
+        print('プロ選手生成ロジックの修正完了');
+      } catch (e) {
+        print('プロ選手生成ロジックの修正でエラー: $e');
+      }
+    }
+    
+    if (oldVersion < 26) {
+      // バージョン26: プロ選手生成ロジックの最終修正
+      print('データベーススキーマを更新中（バージョン26）: プロ選手生成ロジックの最終修正...');
+      
+      try {
+        // 既存のプロ選手データを削除（再生成のため）
+        await db.execute('DELETE FROM ProfessionalPlayer');
+        await db.execute('DELETE FROM PlayerPotentials WHERE player_id IN (SELECT id FROM Player WHERE status = "professional")');
+        await db.execute('DELETE FROM Player WHERE status = "professional"');
+        await db.execute('DELETE FROM Person WHERE id IN (SELECT person_id FROM Player WHERE status = "professional")');
+        
+        // プロ選手の初期データを再生成・挿入
+        await _insertProfessionalPlayers(db);
+        
+        print('プロ選手生成ロジックの最終修正完了');
+      } catch (e) {
+        print('プロ選手生成ロジックの最終修正でエラー: $e');
+      }
+    }
+    
+    if (oldVersion < 27) {
+      // バージョン27: 不足している能力値カラムの追加とプロ選手生成ロジックの最終修正
+      print('データベーススキーマを更新中（バージョン27）: 不足している能力値カラムの追加とプロ選手生成ロジックの最終修正...');
+      
+      try {
+        // 既存のプロ選手データを削除（再生成のため）
+        await db.execute('DELETE FROM ProfessionalPlayer');
+        await db.execute('DELETE FROM PlayerPotentials WHERE player_id IN (SELECT id FROM Player WHERE status = "professional")');
+        await db.execute('DELETE FROM Player WHERE status = "professional"');
+        await db.execute('DELETE FROM Person WHERE id IN (SELECT person_id FROM Player WHERE status = "professional")');
+        
+        // プロ選手の初期データを再生成・挿入
+        await _insertProfessionalPlayers(db);
+        
+        print('不足している能力値カラムの追加とプロ選手生成ロジックの最終修正完了');
+      } catch (e) {
+        print('不足している能力値カラムの追加とプロ選手生成ロジックの最終修正でエラー: $e');
+      }
+    }
+    
+    if (oldVersion < 28) {
+      // バージョン28: データベースアップグレードロジックの修正
+      print('データベーススキーマを更新中（バージョン28）: データベースアップグレードロジックの修正...');
+      
+      try {
+        // 既存のプロ選手データを削除（再生成のため）
+        await db.execute('DELETE FROM ProfessionalPlayer');
+        await db.execute('DELETE FROM PlayerPotentials WHERE player_id IN (SELECT id FROM Player WHERE status = "professional")');
+        await db.execute('DELETE FROM Player WHERE status = "professional"');
+        await db.execute('DELETE FROM Person WHERE id IN (SELECT person_id FROM Player WHERE status = "professional")');
+        
+        // プロ選手の初期データを再生成・挿入
+        await _insertProfessionalPlayers(db);
+        
+        print('データベースアップグレードロジックの修正完了');
+      } catch (e) {
+        print('データベースアップグレードロジックの修正でエラー: $e');
+      }
     }
     
     print('データベーススキーマのアップグレード完了');
@@ -589,6 +759,12 @@ class DataService {
         positioning INTEGER DEFAULT 50,
         pressure_handling INTEGER DEFAULT 50,
         clutch_ability INTEGER DEFAULT 50,
+        motivation INTEGER DEFAULT 50,
+        pressure INTEGER DEFAULT 50,
+        adaptability INTEGER DEFAULT 50,
+        consistency INTEGER DEFAULT 50,
+        clutch INTEGER DEFAULT 50,
+        work_ethic INTEGER DEFAULT 50,
         -- Physical（フィジカル面）能力値
         acceleration INTEGER DEFAULT 50,
         agility INTEGER DEFAULT 50,
@@ -600,6 +776,7 @@ class DataService {
         strength INTEGER DEFAULT 50,
         pace INTEGER DEFAULT 50,
         flexibility INTEGER DEFAULT 50,
+        speed INTEGER DEFAULT 50,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (person_id) REFERENCES Person (id),
@@ -643,6 +820,12 @@ class DataService {
         positioning_potential INTEGER DEFAULT 50,
         pressure_handling_potential INTEGER DEFAULT 50,
         clutch_ability_potential INTEGER DEFAULT 50,
+        motivation_potential INTEGER DEFAULT 50,
+        pressure_potential INTEGER DEFAULT 50,
+        adaptability_potential INTEGER DEFAULT 50,
+        consistency_potential INTEGER DEFAULT 50,
+        clutch_potential INTEGER DEFAULT 50,
+        work_ethic_potential INTEGER DEFAULT 50,
         -- Physical（フィジカル面）ポテンシャル
         acceleration_potential INTEGER DEFAULT 50,
         agility_potential INTEGER DEFAULT 50,
@@ -654,6 +837,7 @@ class DataService {
         strength_potential INTEGER DEFAULT 50,
         pace_potential INTEGER DEFAULT 50,
         flexibility_potential INTEGER DEFAULT 50,
+        speed_potential INTEGER DEFAULT 50,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (player_id) REFERENCES Player (id)
@@ -979,6 +1163,347 @@ class DataService {
     for (final team in teams) {
       await db.insert('ProfessionalTeam', team);
     }
+    
+    // プロ選手の初期データを生成・挿入
+    await _insertProfessionalPlayers(db);
+  }
+
+  // プロ選手の初期データを生成・挿入
+  Future<void> _insertProfessionalPlayers(Database db) async {
+    print('プロ選手の初期データ生成・挿入開始');
+    
+    // プロ野球団のリストを取得
+    final teamMaps = await db.query('ProfessionalTeam');
+    if (teamMaps.isEmpty) {
+      print('プロ野球団が見つからないため、プロ選手の生成をスキップ');
+      return;
+    }
+    
+    // 各チームにプロ選手を生成・挿入
+    for (final teamMap in teamMaps) {
+      final teamId = teamMap['id'] as String;
+      final teamName = teamMap['name'] as String;
+      final teamShortName = teamMap['short_name'] as String;
+      
+      print('${teamShortName}のプロ選手生成開始');
+      
+      // チームのポジション別選手数を決定
+      final positionCounts = {
+        '投手': 12,      // 投手12名
+        '捕手': 3,       // 捕手3名
+        '一塁手': 2,     // 一塁手2名
+        '二塁手': 2,     // 二塁手2名
+        '三塁手': 2,     // 三塁手2名
+        '遊撃手': 2,     // 遊撃手2名
+        '左翼手': 2,     // 左翼手2名
+        '中堅手': 2,     // 中堅手2名
+        '右翼手': 2,     // 右翼手2名
+      };
+      
+      // 各ポジションの選手を生成・挿入
+      for (final entry in positionCounts.entries) {
+        final position = entry.key;
+        final count = entry.value;
+        
+        for (int i = 0; i < count; i++) {
+          // 選手の基本情報を生成
+          final playerName = _generateProfessionalPlayerName();
+          final age = 18 + (DateTime.now().millisecondsSinceEpoch % 18); // 18-35歳
+          final talent = _generateTalentForProfessional(); // 3-5のtalent
+          
+          // Personテーブルに挿入
+          final personId = await db.insert('Person', {
+            'name': playerName,
+            'birth_date': DateTime.now().subtract(Duration(days: age * 365)).toIso8601String(),
+            'gender': '男性',
+            'hometown': '日本',
+            'personality': _generateProfessionalPersonality(),
+            'is_drafted': 1,
+            'drafted_at': DateTime.now().subtract(Duration(days: 365)).toIso8601String(),
+          });
+          
+          // Playerテーブルに挿入
+          final playerId = await db.insert('Player', {
+            'person_id': personId,
+            'school_id': null, // プロ選手は学校なし
+            'grade': 0, // プロ選手は学年なし
+            'age': age,
+            'position': position,
+            'fame': 60 + (DateTime.now().millisecondsSinceEpoch % 41), // 60-100
+            'is_publicly_known': 1,
+            'is_scout_favorite': 0,
+            'is_graduated': 1, // プロ選手は高校卒業済み
+            'is_retired': 0, // プロ選手は引退していない
+            'status': 'professional', // プロ選手ステータス
+            'growth_rate': _calculateGrowthRateByAge(age),
+            'talent': talent,
+            'growth_type': _getGrowthTypeByAge(age),
+            'mental_grit': 0.6 + (DateTime.now().millisecondsSinceEpoch % 40) / 100.0, // 0.6-1.0
+            'peak_ability': _calculatePeakAbilityByAge(talent, age),
+            // 技術的能力値（ポテンシャルの80%程度から開始）
+            'contact': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'power': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'plate_discipline': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'bunt': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'opposite_field_hitting': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'pull_hitting': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'bat_control': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'swing_speed': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'fielding': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'throwing': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'catcher_ability': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'control': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'fastball': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'breaking_ball': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'pitch_movement': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            // 精神的能力値（ポテンシャルの80%程度から開始）
+            'concentration': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'anticipation': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'vision': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'composure': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'aggression': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'bravery': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'leadership': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'work_rate': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'self_discipline': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'ambition': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'teamwork': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'positioning': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'pressure_handling': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'clutch_ability': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'motivation': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'pressure': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'adaptability': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'consistency': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'clutch': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'work_ethic': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            // 身体的能力値（ポテンシャルの80%程度から開始）
+            'speed': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'agility': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'balance': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'jumping_reach': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'natural_fitness': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'injury_proneness': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'stamina': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'strength': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'pace': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'flexibility': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+          });
+          
+          // PlayerPotentialsテーブルに挿入
+          await db.insert('PlayerPotentials', {
+            'player_id': playerId,
+            // 技術的ポテンシャル（高校生と同じロジック）
+            'contact_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'power_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'plate_discipline_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'bunt_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'opposite_field_hitting_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'pull_hitting_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'bat_control_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'swing_speed_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'fielding_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'throwing_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'catcher_ability_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'control_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'fastball_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'breaking_ball_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'pitch_movement_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            // 精神的ポテンシャル（高校生と同じロジック）
+            'concentration_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'anticipation_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'vision_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'composure_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'aggression_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'bravery_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'leadership_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'work_rate_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'self_discipline_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'ambition_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'teamwork_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'positioning_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'pressure_handling_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'clutch_ability_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'motivation_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'pressure_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'adaptability_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'consistency_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'clutch_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'work_ethic_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            // 身体的ポテンシャル（高校生と同じロジック）
+            'speed_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'agility_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'balance_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'jumping_reach_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'natural_fitness_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'injury_proneness_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'stamina_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'strength_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'pace_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            'flexibility_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+          });
+          
+          // ProfessionalPlayerテーブルに挿入
+          await db.insert('ProfessionalPlayer', {
+            'player_id': playerId,
+            'team_id': teamId,
+            'contract_year': 1,
+            'salary': 1000 + (talent * 200) + (DateTime.now().millisecondsSinceEpoch % 500), // 1000-2500万円
+            'contract_type': 'regular',
+            'draft_year': DateTime.now().year - 1,
+            'draft_round': 1,
+            'draft_position': 1,
+            'is_active': 1,
+            'joined_at': DateTime.now().subtract(Duration(days: 365)).toIso8601String(),
+            'left_at': null,
+          });
+          
+          // 総合能力値指標を計算・更新
+          await _updatePlayerOverallAbilities(db, playerId);
+          
+          print('${teamShortName}の${position}選手${i + 1}名目を挿入完了: $playerName (ID: $playerId)');
+        }
+      }
+      
+      print('${teamShortName}のプロ選手生成・挿入完了');
+    }
+    
+    print('全プロ選手の初期データ生成・挿入完了');
+  }
+
+  // プロ選手用の名前生成
+  String _generateProfessionalPlayerName() {
+    final surnames = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
+    final givenNames = ['翔太', '健一', '大輔', '雄一', '和也', '智也', '達也', '誠', '勇', '剛'];
+    
+    final random = DateTime.now().millisecondsSinceEpoch;
+    final surname = surnames[random % surnames.length];
+    final givenName = givenNames[random % givenNames.length];
+    
+    return '$surname $givenName';
+  }
+
+  // プロ選手用の性格生成
+  String _generateProfessionalPersonality() {
+    final personalities = ['リーダー', '積極的', '冷静', '情熱的', '謙虚', '自信家', '努力家', '天才型'];
+    final random = DateTime.now().millisecondsSinceEpoch;
+    return personalities[random % personalities.length];
+  }
+
+  // プロ選手用のtalent生成（3-5）
+  int _generateTalentForProfessional() {
+    final random = DateTime.now().millisecondsSinceEpoch;
+    if (random % 3 == 0) return 5; // 33%で5
+    if (random % 2 == 0) return 4; // 33%で4
+    return 3; // 33%で3
+  }
+
+  // 年齢に基づく成長率計算
+  double _calculateGrowthRateByAge(int age) {
+    if (age <= 22) return 1.1;      // 若手
+    else if (age <= 28) return 1.0; // 全盛期
+    else if (age <= 32) return 0.9; // ベテラン
+    else return 0.8;                // シニア
+  }
+
+  // 年齢に基づく成長タイプ取得
+  String _getGrowthTypeByAge(int age) {
+    if (age <= 22) return '早期型';
+    else if (age <= 28) return '標準型';
+    else if (age <= 32) return '晩成型';
+    else return '維持型';
+  }
+
+  // 選手の総合能力値指標を計算・更新
+  Future<void> _updatePlayerOverallAbilities(Database db, int playerId) async {
+    try {
+      // 選手の能力値を取得
+      final player = await db.query('Player', where: 'id = ?', whereArgs: [playerId]);
+      if (player.isEmpty) return;
+      
+      final playerData = player.first;
+      
+      // 技術的能力値の平均
+      final technicalAbility = (
+        (playerData['contact'] as int? ?? 50) +
+        (playerData['power'] as int? ?? 50) +
+        (playerData['plate_discipline'] as int? ?? 50) +
+        (playerData['bunt'] as int? ?? 50) +
+        (playerData['opposite_field_hitting'] as int? ?? 50) +
+        (playerData['pull_hitting'] as int? ?? 50) +
+        (playerData['bat_control'] as int? ?? 50) +
+        (playerData['swing_speed'] as int? ?? 50) +
+        (playerData['fielding'] as int? ?? 50) +
+        (playerData['throwing'] as int? ?? 50) +
+        (playerData['catcher_ability'] as int? ?? 50) +
+        (playerData['control'] as int? ?? 50) +
+        (playerData['fastball'] as int? ?? 50) +
+        (playerData['breaking_ball'] as int? ?? 50) +
+        (playerData['pitch_movement'] as int? ?? 50)
+      ) ~/ 15;
+      
+      // 精神的能力値の平均
+      final mentalAbility = (
+        (playerData['leadership'] as int? ?? 50) +
+        (playerData['teamwork'] as int? ?? 50) +
+        (playerData['motivation'] as int? ?? 50) +
+        (playerData['pressure'] as int? ?? 50) +
+        (playerData['adaptability'] as int? ?? 50) +
+        (playerData['consistency'] as int? ?? 50) +
+        (playerData['clutch'] as int? ?? 50) +
+        (playerData['work_ethic'] as int? ?? 50)
+      ) ~/ 8;
+      
+      // 身体的能力値の平均
+      final physicalAbility = (
+        (playerData['speed'] as int? ?? 50) +
+        (playerData['agility'] as int? ?? 50) +
+        (playerData['balance'] as int? ?? 50) +
+        (playerData['jumping_reach'] as int? ?? 50) +
+        (playerData['natural_fitness'] as int? ?? 50) +
+        (playerData['injury_proneness'] as int? ?? 50) +
+        (playerData['stamina'] as int? ?? 50) +
+        (playerData['strength'] as int? ?? 50) +
+        (playerData['pace'] as int? ?? 50) +
+        (playerData['flexibility'] as int? ?? 50)
+      ) ~/ 10;
+      
+      // 総合能力値（全能力値の平均）
+      final overallAbility = (
+        technicalAbility * 15 + mentalAbility * 8 + physicalAbility * 10
+      ) ~/ 33;
+      
+      // データベースを更新
+      await db.update('Player', {
+        'overall_ability': overallAbility,
+        'technical_ability': technicalAbility,
+        'physical_ability': physicalAbility,
+        'mental_ability': mentalAbility,
+      }, where: 'id = ?', whereArgs: [playerId]);
+      
+    } catch (e) {
+      print('総合能力値指標の計算・更新でエラー: $e');
+    }
+  }
+
+  // 年齢に基づくピーク能力計算（高校生と同じロジック）
+  int _calculatePeakAbilityByAge(int talent, int age) {
+    final random = Random();
+    final basePeak = 100 + (talent - 3) * 10; // talent 3: 100, 4: 110, 5: 120
+    
+    if (age <= 22) {
+      // 若手：ピーク能力の70-85%（まだ成長の余地あり）
+      return (basePeak * (0.7 + random.nextDouble() * 0.15)).round();
+    } else if (age <= 28) {
+      // 全盛期：ピーク能力の90-105%（ピーク付近）
+      return (basePeak * (0.9 + random.nextDouble() * 0.15)).round();
+    } else if (age <= 32) {
+      // ベテラン：ピーク能力の85-95%（ピークを過ぎたが高いレベル維持）
+      return (basePeak * (0.85 + random.nextDouble() * 0.1)).round();
+    } else {
+      // シニア：ピーク能力の75-85%（能力低下）
+      return (basePeak * (0.75 + random.nextDouble() * 0.1)).round();
+    }
   }
 
   /// 既存選手の注目選手フラグを再計算して設定（マイグレーション用）
@@ -1056,6 +1581,27 @@ class DataService {
       print('年齢更新完了: ${updatedCount}人の年齢を更新しました');
     } catch (e) {
       print('年齢更新エラー: $e');
+    }
+  }
+
+  /// 全選手の総合能力値指標を再計算（成長期などで使用）
+  Future<void> recalculateAllPlayerAbilities() async {
+    try {
+      print('全選手の総合能力値指標を再計算中...');
+      
+      final db = await database;
+      final players = await db.query('Player');
+      int updatedCount = 0;
+      
+      for (final player in players) {
+        final playerId = player['id'] as int;
+        await _updatePlayerOverallAbilities(db, playerId);
+        updatedCount++;
+      }
+      
+      print('総合能力値指標再計算完了: ${updatedCount}人の選手を更新しました');
+    } catch (e) {
+      print('総合能力値指標再計算エラー: $e');
     }
   }
 
