@@ -76,6 +76,14 @@ class GameManager {
     return month >= 4 && month <= 10 && (month != 4 || week >= 1) && (month != 10 || week <= 2);
   }
 
+  /// ペナントレースを更新
+  void updatePennantRace(PennantRace pennantRace) {
+    if (_currentGame != null) {
+      _currentGame = _currentGame!.copyWith(pennantRace: pennantRace);
+      print('GameManager: ペナントレースを更新しました');
+    }
+  }
+
   /// ペナントレースを進行させる
   void _advancePennantRace() {
     if (_currentGame?.pennantRace == null) return;
@@ -91,6 +99,7 @@ class GameManager {
       // 今週の試合スケジュールを確認
       final weekGames = currentPennantRace.schedule.getGamesForWeek(month, week);
       print('GameManager._advancePennantRace: 今週の試合数: ${weekGames.length}試合');
+      print('GameManager._advancePennantRace: 総試合数: ${currentPennantRace.schedule.games.length}試合');
       
       // 未完了の試合数を確認
       final uncompletedGames = weekGames.where((game) => !game.isCompleted).toList();

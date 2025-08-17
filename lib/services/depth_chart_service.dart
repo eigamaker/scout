@@ -30,8 +30,8 @@ class DepthChartService {
         (b.player?.trueTotalAbility ?? 0).compareTo(a.player?.trueTotalAbility ?? 0)
       );
 
-      // 選手IDリストを作成
-      final playerIds = positionPlayers.map((p) => p.id.toString()).toList();
+      // 選手IDリストを作成（ProfessionalPlayerのIDを使用）
+      final playerIds = positionPlayers.map((p) => 'player_${p.playerId}').toList();
 
       // 出場時間割合を計算
       final playingTimePercentages = <String, double>{};
@@ -39,7 +39,8 @@ class DepthChartService {
         final player = positionPlayers[i];
         final basePercentage = _calculateBasePlayingTime(i, positionPlayers.length);
         final abilityBonus = (player.player?.trueTotalAbility ?? 0) / 100.0;
-        playingTimePercentages[player.id.toString()] = basePercentage + abilityBonus;
+        final playerId = 'player_${player.playerId}';
+        playingTimePercentages[playerId] = basePercentage + abilityBonus;
       }
 
       // 正規化（合計が100%になるように）
@@ -95,10 +96,10 @@ class DepthChartService {
     );
 
     // 先発投手（上位5名）
-    final startingPitchers = pitchers.take(5).map((p) => p.id.toString()).toList();
+    final startingPitchers = pitchers.take(5).map((p) => 'player_${p.playerId}').toList();
     
     // リリーフ投手（6-10番目）
-    final reliefPitchers = pitchers.skip(5).take(5).map((p) => p.id.toString()).toList();
+    final reliefPitchers = pitchers.skip(5).take(5).map((p) => 'player_${p.playerId}').toList();
     
     // クローザー（最上位1名）
     final closers = startingPitchers.isNotEmpty ? <String>[startingPitchers.first] : <String>[];
@@ -106,7 +107,8 @@ class DepthChartService {
     // 使用回数を初期化
     final pitcherUsage = <String, int>{};
     for (final pitcher in pitchers) {
-      pitcherUsage[pitcher.id.toString()] = 0;
+      final playerId = 'player_${pitcher.playerId}';
+      pitcherUsage[playerId] = 0;
     }
 
     return PitcherRotation(

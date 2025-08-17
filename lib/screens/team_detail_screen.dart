@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:collection/collection.dart';
 import '../models/game/game.dart';
 import '../models/professional/professional_team.dart';
 import '../models/professional/depth_chart.dart';
 import '../models/professional/player_stats.dart';
 import '../models/professional/professional_player.dart';
 import '../services/game_manager.dart';
+import '../services/pennant_race_service.dart';
+import '../services/depth_chart_service.dart';
 import '../widgets/professional_player_card.dart';
 
 class TeamDetailScreen extends StatefulWidget {
@@ -162,10 +165,40 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
         print('TeamDetailScreen._buildDepthChartTab: pennantRace = ${game?.pennantRace != null ? "loaded" : "null"}');
         print('TeamDetailScreen._buildDepthChartTab: teamDepthCharts = ${game?.pennantRace?.teamDepthCharts != null ? "loaded" : "null"}');
         
+        // ペナントレースが開始されていない場合の処理
         if (game?.pennantRace?.teamDepthCharts == null) {
           print('TeamDetailScreen._buildDepthChartTab: ペナントレースが開始されていません');
-          return const Center(
-            child: Text('ペナントレースが開始されていません'),
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'ペナントレースが開始されていません',
+                  style: TextStyle(fontSize: 18),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    // ペナントレースを開始する処理
+                    _startPennantRace(context, gameManager);
+                  },
+                  child: const Text('ペナントレースを開始'),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'または、現在のチーム構成でdepth chartを表示',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    // 現在のチーム構成でdepth chartを表示
+                    setState(() {});
+                  },
+                  child: const Text('現在の構成を表示'),
+                ),
+              ],
+            ),
           );
         }
 
@@ -175,8 +208,21 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
         if (depthChart == null) {
           print('TeamDetailScreen._buildDepthChartTab: ${widget.team.shortName}のデプスチャートが見つかりません');
           print('TeamDetailScreen._buildDepthChartTab: 利用可能なチームID: ${game.pennantRace!.teamDepthCharts.keys.toList()}');
-          return const Center(
-            child: Text('デプスチャートが見つかりません'),
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('デプスチャートが見つかりません'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    // depth chartを再初期化
+                    _reinitializeDepthChart(context, gameManager);
+                  },
+                  child: const Text('Depth Chartを再初期化'),
+                ),
+              ],
+            ),
           );
         }
 
@@ -194,9 +240,21 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '出場選手構成',
-                style: Theme.of(context).textTheme.headlineSmall,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '出場選手構成',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      // depth chartを更新
+                      _updateDepthChart(context, gameManager);
+                    },
+                    child: const Text('更新'),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               
@@ -504,10 +562,22 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
                     final isCurrent = index == pitcherRotation.currentRotationIndex;
                     
                     // 投手の名前を取得
-                    final pitcher = professionalPlayers.firstWhere(
-                      (p) => p.id.toString() == pitcherId,
-                      orElse: () => null,
-                    );
+                    ProfessionalPlayer? pitcher;
+                    if (pitcherId.startsWith('player_')) {
+                      // player_123形式のIDからplayerIdを抽出
+                      final playerIdNum = int.tryParse(pitcherId.substring(7));
+                      if (playerIdNum != null) {
+                        pitcher = professionalPlayers.where(
+                          (p) => p.playerId == playerIdNum,
+                        ).firstOrNull;
+                      }
+                    } else {
+                      // 通常のID検索
+                      final pitcherList = professionalPlayers.where(
+                        (p) => p.id.toString() == pitcherId,
+                      ).toList();
+                      pitcher = pitcherList.isNotEmpty ? pitcherList.first : null;
+                    }
                     final pitcherName = pitcher?.player?.name ?? '不明な投手';
                     final pitcherAbility = pitcher?.player?.trueTotalAbility ?? 0;
                     
@@ -547,7 +617,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
                                 ),
                                 Text(
                                   '能力値: $pitcherAbility',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey[600],
                                   ),
@@ -586,10 +656,10 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
                   ),
                   const SizedBox(height: 4),
                   ...pitcherRotation.reliefPitcherIds.take(5).map((pitcherId) {
-                    final pitcher = professionalPlayers.firstWhere(
+                    final pitcherList = professionalPlayers.where(
                       (p) => p.id.toString() == pitcherId,
-                      orElse: () => null,
-                    );
+                    ).toList();
+                    final pitcher = pitcherList.isNotEmpty ? pitcherList.first : null;
                     final pitcherName = pitcher?.player?.name ?? '不明な投手';
                     final pitcherAbility = pitcher?.player?.trueTotalAbility ?? 0;
                     final usage = pitcherRotation.pitcherUsage[pitcherId] ?? 0;
@@ -620,7 +690,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
                           ),
                           Text(
                             '能力値: $pitcherAbility',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
                             ),
@@ -693,10 +763,22 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
                     final percentage = chart.playingTimePercentages[playerId] ?? 0.0;
                     
                     // ProfessionalPlayerから選手情報を取得
-                    final professionalPlayer = professionalPlayers.firstWhere(
-                      (p) => p.id.toString() == playerId,
-                      orElse: () => null,
-                    );
+                    ProfessionalPlayer? professionalPlayer;
+                    if (playerId.startsWith('player_')) {
+                      // player_123形式のIDからplayerIdを抽出
+                      final playerIdNum = int.tryParse(playerId.substring(7));
+                      if (playerIdNum != null) {
+                        professionalPlayer = professionalPlayers.where(
+                          (p) => p.playerId == playerIdNum,
+                        ).firstOrNull;
+                      }
+                    } else {
+                      // 通常のID検索
+                      final professionalPlayerList = professionalPlayers.where(
+                        (p) => p.id.toString() == playerId,
+                      ).toList();
+                      professionalPlayer = professionalPlayerList.isNotEmpty ? professionalPlayerList.first : null;
+                    }
                     
                     final playerName = professionalPlayer?.player?.name ?? '不明な選手';
                     final playerAbility = professionalPlayer?.player?.trueTotalAbility ?? 0;
@@ -739,7 +821,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
                                 ),
                                 Text(
                                   '能力値: $playerAbility',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey[600],
                                   ),
@@ -959,5 +1041,88 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
     if (percentage >= 40) return Colors.yellow;
     if (percentage >= 20) return Colors.blue;
     return Colors.grey;
+  }
+
+  /// ペナントレースを開始
+  void _startPennantRace(BuildContext context, GameManager gameManager) {
+    // ペナントレースの初期化処理
+    final currentYear = gameManager.currentGame?.currentYear ?? DateTime.now().year;
+    final teams = gameManager.currentGame?.professionalTeams.teams ?? [];
+    
+    if (teams.isNotEmpty) {
+      // ペナントレースを開始
+      final pennantRace = PennantRaceService.createInitialPennantRace(currentYear, teams);
+      gameManager.updatePennantRace(pennantRace);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ペナントレースを開始しました')),
+      );
+      
+      setState(() {});
+    }
+  }
+
+  /// Depth Chartを再初期化
+  void _reinitializeDepthChart(BuildContext context, GameManager gameManager) {
+    final game = gameManager.currentGame;
+    if (game?.pennantRace != null && game?.professionalTeams.teams.isNotEmpty == true) {
+      final team = game!.professionalTeams.teams.firstWhere((t) => t.id == widget.team.id);
+      
+      if (team.professionalPlayers?.isNotEmpty == true) {
+        // depth chartを再作成
+        final depthChart = DepthChartService.initializeTeamDepthChart(
+          team.id,
+          team.professionalPlayers!,
+        );
+        
+        // ペナントレースのdepth chartを更新
+        final updatedDepthCharts = Map<String, TeamDepthChart>.from(game.pennantRace!.teamDepthCharts);
+        updatedDepthCharts[team.id] = depthChart;
+        
+        final updatedPennantRace = game.pennantRace!.copyWith(
+          teamDepthCharts: updatedDepthCharts,
+        );
+        
+        gameManager.updatePennantRace(updatedPennantRace);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Depth Chartを再初期化しました')),
+        );
+        
+        setState(() {});
+      }
+    }
+  }
+
+  /// Depth Chartを更新
+  void _updateDepthChart(BuildContext context, GameManager gameManager) {
+    final game = gameManager.currentGame;
+    if (game?.pennantRace != null && game?.professionalTeams.teams.isNotEmpty == true) {
+      final team = game!.professionalTeams.teams.firstWhere((t) => t.id == widget.team.id);
+      
+      if (team.professionalPlayers?.isNotEmpty == true) {
+        // 現在の選手構成でdepth chartを更新
+        final depthChart = DepthChartService.initializeTeamDepthChart(
+          team.id,
+          team.professionalPlayers!,
+        );
+        
+        // ペナントレースのdepth chartを更新
+        final updatedDepthCharts = Map<String, TeamDepthChart>.from(game.pennantRace!.teamDepthCharts);
+        updatedDepthCharts[team.id] = depthChart;
+        
+        final updatedPennantRace = game.pennantRace!.copyWith(
+          teamDepthCharts: updatedDepthCharts,
+        );
+        
+        gameManager.updatePennantRace(updatedPennantRace);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Depth Chartを更新しました')),
+        );
+        
+        setState(() {});
+      }
+    }
   }
 }

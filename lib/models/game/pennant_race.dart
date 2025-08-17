@@ -295,32 +295,37 @@ class PennantRace {
     final newCompletedGames = <GameResult>[];
     final newStandings = Map<String, TeamStanding>.from(standings);
     
-    // スケジュールを更新するための新しいゲームリスト
-    final updatedGames = <GameSchedule>[];
-
-    for (final game in weekGames) {
-      if (!game.isCompleted) {
-        print('PennantRace.executeWeekGames: 試合実行中 - ${game.homeTeamId} vs ${game.awayTeamId}');
-        final result = _simulateGame(game, teams);
-        newCompletedGames.add(result);
-        
-        // 試合完了後のスケジュールを作成
-        final completedGame = game.completeGame(result);
-        updatedGames.add(completedGame);
-        
-        // 順位表を更新
-        _updateStandings(newStandings, result);
-        print('PennantRace.executeWeekGames: 試合完了 - ${game.homeTeamId} ${result.homeScore}-${result.awayScore} ${game.awayTeamId}');
-      } else {
-        print('PennantRace.executeWeekGames: 試合は既に完了済み - ${game.homeTeamId} vs ${game.awayTeamId}');
-        updatedGames.add(game);
+    // 全試合スケジュールをコピー（他の週の試合を保持）
+    final allGames = List<GameSchedule>.from(schedule.games);
+    
+    // 今週の試合のインデックスを見つけて更新
+    for (int i = 0; i < allGames.length; i++) {
+      final game = allGames[i];
+      if (game.month == month && game.week == week) {
+        if (!game.isCompleted) {
+          print('PennantRace.executeWeekGames: 試合実行中 - ${game.homeTeamId} vs ${game.awayTeamId}');
+          final result = _simulateGame(game, teams);
+          newCompletedGames.add(result);
+          
+          // 試合完了後のスケジュールを作成
+          final completedGame = game.completeGame(result);
+          allGames[i] = completedGame; // 既存のリストを更新
+          
+          // 順位表を更新
+          _updateStandings(newStandings, result);
+          print('PennantRace.executeWeekGames: 試合完了 - ${game.homeTeamId} ${result.homeScore}-${result.awayScore} ${game.awayTeamId}');
+        } else {
+          print('PennantRace.executeWeekGames: 試合は既に完了済み - ${game.homeTeamId} vs ${game.awayTeamId}');
+        }
       }
     }
 
     print('PennantRace.executeWeekGames: 今週完了試合数: ${newCompletedGames.length}試合');
+    print('PennantRace.executeWeekGames: 更新前の総試合数: ${schedule.games.length}試合');
+    print('PennantRace.executeWeekGames: 更新後の総試合数: ${allGames.length}試合');
     
-    // スケジュールを更新（完了した試合のフラグを更新）
-    final updatedSchedule = schedule.copyWith(games: updatedGames);
+    // スケジュールを更新（全試合を保持）
+    final updatedSchedule = schedule.copyWith(games: allGames);
     
     final result = PennantRace(
       year: year,

@@ -321,6 +321,9 @@ class ProfessionalTeamManager {
   void generatePlayersForAllTeams() {
     print('ProfessionalTeamManager.generatePlayersForAllTeams: 開始');
     
+    // 全チームの選手に一意のIDを割り当てるためのカウンター
+    int globalPlayerId = 1;
+    
     for (int i = 0; i < teams.length; i++) {
       final team = teams[i];
       print('ProfessionalTeamManager.generatePlayersForAllTeams: ${team.shortName}の選手生成開始');
@@ -330,8 +333,11 @@ class ProfessionalTeamManager {
       
       // PlayerオブジェクトをProfessionalPlayerオブジェクトに変換
       final professionalPlayers = players.map((player) {
+        // 一意のplayerIdを割り当て
+        final uniquePlayerId = globalPlayerId++;
+        
         return ProfessionalPlayer(
-          playerId: player.id ?? 0,
+          playerId: uniquePlayerId,
           teamId: team.id,
           contractYear: 1,
           salary: 1000, // 基本年俸1000万円

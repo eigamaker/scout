@@ -26,7 +26,7 @@ class PennantRaceService {
     
     print('PennantRaceService.generateSchedule: セ・リーグ: ${centralTeams.length}チーム, パ・リーグ: ${pacificTeams.length}チーム');
     
-    // 各リーグ内でスケジュールを生成
+    // 各リーグ内でスケジュールを生成（週3試合）
     final centralGames = _generateLeagueSchedule(centralTeams, League.central, year, random);
     final pacificGames = _generateLeagueSchedule(pacificTeams, League.pacific, year, random);
     
@@ -34,6 +34,12 @@ class PennantRaceService {
     games.addAll(pacificGames);
     
     print('PennantRaceService.generateSchedule: セ・リーグ試合数: ${centralGames.length}, パ・リーグ試合数: ${pacificGames.length}');
+    
+    // リーグ間交流戦を追加（週2試合）
+    final interleagueGames = _generateInterleagueGames(centralTeams, pacificTeams, year, random);
+    games.addAll(interleagueGames);
+    
+    print('PennantRaceService.generateSchedule: リーグ間交流戦数: ${interleagueGames.length}');
     
     // スケジュールを週ごとに並び替え
     games.sort((a, b) {
@@ -90,7 +96,7 @@ class PennantRaceService {
         
         print('PennantRaceService._generateLeagueSchedule: ${month}月${week}週の試合生成開始');
         
-        // その週の試合を生成
+        // その週の試合を生成（リーグ内3試合）
         final weekGames = _generateWeekGames(teams, month, week, league, year, random);
         games.addAll(weekGames);
         
@@ -115,22 +121,49 @@ class PennantRaceService {
     
     final games = <GameSchedule>[];
     final teamCount = teams.length;
-    final availableTeams = List<ProfessionalTeam>.from(teams);
-    
-    print('PennantRaceService._generateWeekGames: 利用可能チーム数: ${availableTeams.length}');
     
     // 各チームが週5試合になるように調整
-    while (availableTeams.length >= 2) {
-      // ランダムに2チームを選択
-      final homeTeamIndex = random.nextInt(availableTeams.length);
-      final homeTeam = availableTeams[homeTeamIndex];
-      availableTeams.removeAt(homeTeamIndex);
+    // リーグ内で3試合 + リーグ間交流戦で2試合
+    
+    // リーグ内試合（3試合）
+    final leagueGames = _generateLeagueGames(teams, month, week, league, year, random, 3);
+    games.addAll(leagueGames);
+    
+    // リーグ間交流戦（2試合）は別途処理
+    
+    print('PennantRaceService._generateWeekGames: 生成完了 - ${games.length}試合');
+    return games;
+  }
+  
+  /// リーグ内試合を生成
+  static List<GameSchedule> _generateLeagueGames(
+    List<ProfessionalTeam> teams,
+    int month,
+    int week,
+    League league,
+    int year,
+    Random random,
+    int gameCount
+  ) {
+    final games = <GameSchedule>[];
+    final availableTeams = List<ProfessionalTeam>.from(teams);
+    
+    // 各チームが指定された試合数を消化するように調整
+    final teamGameCount = <String, int>{};
+    for (final team in teams) {
+      teamGameCount[team.id] = 0;
+    }
+    
+    while (games.length < gameCount * teams.length / 2) {
+      // 最も試合数が少ないチームを優先
+      final availableTeams = teams.where((t) => teamGameCount[t.id]! < gameCount).toList();
+      if (availableTeams.length < 2) break;
       
-      if (availableTeams.isEmpty) break;
+      // 試合数が少ないチームから順に選択
+      availableTeams.sort((a, b) => teamGameCount[a.id]!.compareTo(teamGameCount[b.id]!));
       
-      final awayTeamIndex = random.nextInt(availableTeams.length);
-      final awayTeam = availableTeams[awayTeamIndex];
-      availableTeams.removeAt(awayTeamIndex);
+      final homeTeam = availableTeams.first;
+      final awayTeam = availableTeams.where((t) => t.id != homeTeam.id).first;
       
       // 試合スケジュールを作成
       final gameId = '${league.name}_${month}_${week}_${games.length + 1}';
@@ -148,10 +181,112 @@ class PennantRaceService {
       );
       
       games.add(game);
-      print('PennantRaceService._generateWeekGames: 試合生成 - ${homeTeam.shortName} vs ${awayTeam.shortName}');
+      teamGameCount[homeTeam.id] = teamGameCount[homeTeam.id]! + 1;
+      teamGameCount[awayTeam.id] = teamGameCount[awayTeam.id]! + 1;
+      
+      print('PennantRaceService._generateLeagueGames: 試合生成 - ${homeTeam.shortName} vs ${awayTeam.shortName}');
     }
     
-    print('PennantRaceService._generateWeekGames: 生成完了 - ${games.length}試合');
+    return games;
+  }
+  
+  /// リーグ間交流戦を生成
+  static List<GameSchedule> _generateInterleagueGames(
+    List<ProfessionalTeam> centralTeams,
+    List<ProfessionalTeam> pacificTeams,
+    int year,
+    Random random
+  ) {
+    print('PennantRaceService._generateInterleagueGames: 開始');
+    
+    final games = <GameSchedule>[];
+    
+    // 各チームが週2試合のリーグ間交流戦を消化するように調整
+    for (int month = _seasonStartMonth; month <= _seasonEndMonth; month++) {
+      for (int week = 1; week <= 4; week++) {
+        if (month == _seasonStartMonth && week < _seasonStartWeek) continue;
+        if (month == _seasonEndMonth && week > _seasonEndWeek) continue;
+        
+        // その週のリーグ間交流戦を生成
+        final weekGames = _generateWeekInterleagueGames(
+          centralTeams, pacificTeams, month, week, year, random, 2
+        );
+        games.addAll(weekGames);
+        
+        print('PennantRaceService._generateInterleagueGames: ${month}月${week}週 - ${weekGames.length}試合');
+      }
+    }
+    
+    print('PennantRaceService._generateInterleagueGames: 完了 - 総試合数: ${games.length}試合');
+    return games;
+  }
+  
+  /// 1週間分のリーグ間交流戦を生成
+  static List<GameSchedule> _generateWeekInterleagueGames(
+    List<ProfessionalTeam> centralTeams,
+    List<ProfessionalTeam> pacificTeams,
+    int month,
+    int week,
+    int year,
+    Random random,
+    int gameCount
+  ) {
+    final games = <GameSchedule>[];
+    
+    // 各チームが指定された試合数を消化するように調整
+    final centralTeamGameCount = <String, int>{};
+    final pacificTeamGameCount = <String, int>{};
+    
+    for (final team in centralTeams) {
+      centralTeamGameCount[team.id] = 0;
+    }
+    for (final team in pacificTeams) {
+      pacificTeamGameCount[team.id] = 0;
+    }
+    
+    // セ・リーグとパ・リーグのチームをマッチング
+    while (games.length < gameCount * centralTeams.length) {
+      // 最も試合数が少ないセ・リーグチームを選択
+      final availableCentralTeams = centralTeams.where((t) => centralTeamGameCount[t.id]! < gameCount).toList();
+      if (availableCentralTeams.isEmpty) break;
+      
+      availableCentralTeams.sort((a, b) => centralTeamGameCount[a.id]!.compareTo(centralTeamGameCount[b.id]!));
+      final centralTeam = availableCentralTeams.first;
+      
+      // 最も試合数が少ないパ・リーグチームを選択
+      final availablePacificTeams = pacificTeams.where((t) => pacificTeamGameCount[t.id]! < gameCount).toList();
+      if (availablePacificTeams.isEmpty) break;
+      
+      availablePacificTeams.sort((a, b) => pacificTeamGameCount[a.id]!.compareTo(pacificTeamGameCount[b.id]!));
+      final pacificTeam = availablePacificTeams.first;
+      
+      // 試合スケジュールを作成
+      final gameId = 'interleague_${month}_${week}_${games.length + 1}';
+      final dayOfWeek = _getRandomDayOfWeek(random);
+      
+      // ホームチームをランダムに決定
+      final isCentralHome = random.nextBool();
+      final homeTeam = isCentralHome ? centralTeam : pacificTeam;
+      final awayTeam = isCentralHome ? pacificTeam : centralTeam;
+      
+      final game = GameSchedule(
+        id: gameId,
+        homeTeamId: homeTeam.id,
+        awayTeamId: awayTeam.id,
+        month: month,
+        week: week,
+        dayOfWeek: dayOfWeek,
+        homeTeamGameType: GameType.home,
+        awayTeamGameType: GameType.away,
+      );
+      
+      games.add(game);
+      centralTeamGameCount[centralTeam.id] = centralTeamGameCount[centralTeam.id]! + 1;
+      pacificTeamGameCount[pacificTeam.id] = pacificTeamGameCount[pacificTeam.id]! + 1;
+      
+      print('PennantRaceService._generateWeekInterleagueGames: 試合生成 - ${homeTeam.shortName} vs ${awayTeam.shortName}');
+    }
+    
     return games;
   }
 
@@ -200,7 +335,7 @@ class PennantRaceService {
         
         // 各選手のシーズン成績を初期化
         for (final player in team.professionalPlayers!) {
-          final playerId = player.id.toString();
+          final playerId = player.id?.toString() ?? 'player_${player.playerId}';
           final statsKey = '${playerId}_${year}';
           
           playerStats[statsKey] = PlayerSeasonStats(
@@ -245,6 +380,20 @@ class PennantRaceService {
         teamShortName: team.shortName,
         league: team.league,
         division: team.division,
+        games: 0,
+        wins: 0,
+        losses: 0,
+        ties: 0,
+        winningPercentage: 0.0,
+        gamesBehind: 0.0,
+        rank: 0,
+        runsScored: 0,
+        runsAllowed: 0,
+        runDifferential: 0,
+        homeWins: 0,
+        homeLosses: 0,
+        awayWins: 0,
+        awayLosses: 0,
       );
     }
     
@@ -263,6 +412,7 @@ class PennantRaceService {
     // 今週の試合スケジュールを取得
     final weekGames = pennantRace.schedule.getGamesForWeek(month, week);
     print('PennantRaceService.executeWeekGames: 今週の試合数: ${weekGames.length}試合');
+    print('PennantRaceService.executeWeekGames: 総試合数: ${pennantRace.schedule.games.length}試合');
     
     // 未完了の試合を確認
     final uncompletedGames = weekGames.where((game) => !game.isCompleted).toList();
@@ -273,8 +423,8 @@ class PennantRaceService {
       return pennantRace;
     }
     
-    // ペナントレースのexecuteWeekGamesを呼び出し
-    final result = pennantRace.executeWeekGames(month, week, teams);
+    // 直接試合を実行（循環呼び出しを避ける）
+    final result = _executeWeekGamesDirectly(pennantRace, month, week, teams);
     
     // 実行後の完了試合数を確認
     final completedGamesAfter = result.schedule.getGamesForWeek(month, week)
@@ -283,6 +433,206 @@ class PennantRaceService {
     
     print('PennantRaceService.executeWeekGames: 完了');
     return result;
+  }
+
+  /// 直接試合を実行（循環呼び出しを避ける）
+  static PennantRace _executeWeekGamesDirectly(
+    PennantRace pennantRace,
+    int month,
+    int week,
+    List<ProfessionalTeam> teams
+  ) {
+    print('PennantRaceService._executeWeekGamesDirectly: 開始 - ${month}月${week}週');
+    
+    final weekGames = pennantRace.schedule.getGamesForWeek(month, week);
+    final newCompletedGames = <GameResult>[];
+    final newStandings = Map<String, TeamStanding>.from(pennantRace.standings);
+    
+    // 全試合スケジュールをコピー（他の週の試合を保持）
+    final allGames = List<GameSchedule>.from(pennantRace.schedule.games);
+    
+    // 今週の試合のインデックスを見つけて更新
+    for (int i = 0; i < allGames.length; i++) {
+      final game = allGames[i];
+      if (game.month == month && game.week == week) {
+        if (!game.isCompleted) {
+          print('PennantRaceService._executeWeekGamesDirectly: 試合実行中 - ${game.homeTeamId} vs ${game.awayTeamId}');
+          final result = _simulateGame(game, teams);
+          newCompletedGames.add(result);
+          
+          // 試合完了後のスケジュールを作成
+          final completedGame = game.completeGame(result);
+          allGames[i] = completedGame; // 既存のリストを更新
+          
+          // 順位表を更新
+          _updateStandings(newStandings, result, teams);
+          print('PennantRaceService._executeWeekGamesDirectly: 試合完了 - ${game.homeTeamId} ${result.homeScore}-${result.awayScore} ${game.awayTeamId}');
+        } else {
+          print('PennantRaceService._executeWeekGamesDirectly: 試合は既に完了済み - ${game.homeTeamId} vs ${game.awayTeamId}');
+        }
+      }
+    }
+
+    print('PennantRaceService._executeWeekGamesDirectly: 今週完了試合数: ${newCompletedGames.length}試合');
+    print('PennantRaceService._executeWeekGamesDirectly: 更新前の総試合数: ${pennantRace.schedule.games.length}試合');
+    print('PennantRaceService._executeWeekGamesDirectly: 更新後の総試合数: ${allGames.length}試合');
+    
+    // スケジュールを更新（全試合を保持）
+    final updatedSchedule = pennantRace.schedule.copyWith(games: allGames);
+    
+    final result = PennantRace(
+      year: pennantRace.year,
+      schedule: updatedSchedule,
+      completedGames: [...pennantRace.completedGames, ...newCompletedGames],
+      standings: newStandings,
+      currentMonth: month,
+      currentWeek: week,
+      isSeasonComplete: month == 10 && week == 2,
+      teamDepthCharts: pennantRace.teamDepthCharts,
+      playerStats: pennantRace.playerStats,
+    );
+    
+    print('PennantRaceService._executeWeekGamesDirectly: 完了');
+    return result;
+  }
+
+  /// 試合をシミュレート
+  static GameResult _simulateGame(GameSchedule game, List<ProfessionalTeam> teams) {
+    final homeTeam = teams.firstWhere((t) => t.id == game.homeTeamId);
+    final awayTeam = teams.firstWhere((t) => t.id == game.awayTeamId);
+    
+    // 簡単なシミュレーション（チームの総合力ベース）
+    final random = Random();
+    final homeBaseScore = (homeTeam.totalStrength / 20).round();
+    final awayBaseScore = (awayTeam.totalStrength / 20).round();
+    
+    // ランダム要素を追加
+    final homeScore = (homeBaseScore + random.nextInt(5)).clamp(0, 15);
+    final awayScore = (awayBaseScore + random.nextInt(5)).clamp(0, 15);
+    
+    return GameResult(
+      homeTeamId: game.homeTeamId,
+      awayTeamId: game.awayTeamId,
+      homeScore: homeScore,
+      awayScore: awayScore,
+      inning: 9,
+      isExtraInnings: false,
+      gameDate: DateTime.now(),
+    );
+  }
+
+  /// 順位表を更新
+  static void _updateStandings(Map<String, TeamStanding> standings, GameResult result, List<ProfessionalTeam> teams) {
+    // チーム情報を取得
+    final homeTeam = teams.firstWhere((t) => t.id == result.homeTeamId);
+    final awayTeam = teams.firstWhere((t) => t.id == result.awayTeamId);
+    
+    // ホームチームの順位を更新
+    final homeStanding = standings.putIfAbsent(result.homeTeamId, () => TeamStanding(
+      teamId: result.homeTeamId,
+      teamName: homeTeam.name,
+      teamShortName: homeTeam.shortName,
+      league: homeTeam.league,
+      division: homeTeam.division,
+      games: 0,
+      wins: 0,
+      losses: 0,
+      ties: 0,
+      winningPercentage: 0.0,
+      gamesBehind: 0.0,
+      rank: 0,
+      runsScored: 0,
+      runsAllowed: 0,
+      runDifferential: 0,
+      homeWins: 0,
+      homeLosses: 0,
+      awayWins: 0,
+      awayLosses: 0,
+    ));
+    
+    // アウェイチームの順位を更新
+    final awayStanding = standings.putIfAbsent(result.awayTeamId, () => TeamStanding(
+      teamId: result.awayTeamId,
+      teamName: awayTeam.name,
+      teamShortName: awayTeam.shortName,
+      league: awayTeam.league,
+      division: awayTeam.division,
+      games: 0,
+      wins: 0,
+      losses: 0,
+      ties: 0,
+      winningPercentage: 0.0,
+      gamesBehind: 0.0,
+      rank: 0,
+      runsScored: 0,
+      runsAllowed: 0,
+      runDifferential: 0,
+      homeWins: 0,
+      homeLosses: 0,
+      awayWins: 0,
+      awayLosses: 0,
+    ));
+    
+    // 試合数を更新
+    final updatedHomeStanding = homeStanding.copyWith(
+      games: homeStanding.games + 1,
+      runsScored: homeStanding.runsScored + result.homeScore,
+      runsAllowed: homeStanding.runsAllowed + result.awayScore,
+    );
+    
+    final updatedAwayStanding = awayStanding.copyWith(
+      games: awayStanding.games + 1,
+      runsScored: awayStanding.runsScored + result.awayScore,
+      runsAllowed: awayStanding.runsAllowed + result.homeScore,
+    );
+    
+    // 勝敗を判定して更新
+    if (result.homeScore > result.awayScore) {
+      // ホームチーム勝利
+      standings[result.homeTeamId] = updatedHomeStanding.copyWith(
+        wins: updatedHomeStanding.wins + 1,
+        homeWins: updatedHomeStanding.homeWins + 1,
+      );
+      standings[result.awayTeamId] = updatedAwayStanding.copyWith(
+        losses: updatedAwayStanding.losses + 1,
+        awayLosses: updatedAwayStanding.awayLosses + 1,
+      );
+    } else if (result.awayScore > result.homeScore) {
+      // アウェイチーム勝利
+      standings[result.awayTeamId] = updatedAwayStanding.copyWith(
+        wins: updatedAwayStanding.wins + 1,
+        awayWins: updatedAwayStanding.awayWins + 1,
+      );
+      standings[result.homeTeamId] = updatedHomeStanding.copyWith(
+        losses: updatedHomeStanding.losses + 1,
+        homeLosses: updatedHomeStanding.homeLosses + 1,
+      );
+    } else {
+      // 引き分け
+      standings[result.homeTeamId] = updatedHomeStanding.copyWith(
+        ties: updatedHomeStanding.ties + 1,
+      );
+      standings[result.awayTeamId] = updatedAwayStanding.copyWith(
+        ties: updatedAwayStanding.ties + 1,
+      );
+    }
+    
+    // 勝率を更新
+    _updateWinningPercentage(standings[result.homeTeamId]!, standings);
+    _updateWinningPercentage(standings[result.awayTeamId]!, standings);
+  }
+  
+  /// 勝率を更新
+  static void _updateWinningPercentage(TeamStanding standing, Map<String, TeamStanding> standings) {
+    final totalGames = standing.wins + standing.losses + standing.ties;
+    if (totalGames > 0) {
+      final winningPercentage = standing.wins / totalGames;
+      final runDifferential = standing.runsScored - standing.runsAllowed;
+      standings[standing.teamId] = standing.copyWith(
+        winningPercentage: winningPercentage,
+        runDifferential: runDifferential,
+      );
+    }
   }
 
   /// ペナントレースの進行状況を取得
