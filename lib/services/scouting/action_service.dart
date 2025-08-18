@@ -264,8 +264,10 @@ class ActionService {
     // 練習視察の具体的な処理
     if (targetPlayer != null) {
       // 特定選手の練習視察
-      // 練習視察では詳細な能力値判定は行わない
-      // スカウト分析システムを通じて段階的に情報を取得する
+      // フィジカル面の能力値を分析
+      
+      // スカウト分析データを生成（フィジカル面の能力値のみ）
+      await generateScoutAnalysisForPhysicalAbilities(targetPlayer, 1); // デフォルトスカウトID 1
       
       return ScoutActionResult(
         success: true,

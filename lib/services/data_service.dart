@@ -267,7 +267,6 @@ class DataService {
   // 指定されたパスのデータベースファイルを削除
   Future<void> deleteDatabaseAtPath(String path) async {
     await databaseFactory.deleteDatabase(path);
-    print('データベースファイルを削除しました: $path');
   }
 
   // スロット間でDBファイルをコピー

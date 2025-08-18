@@ -180,12 +180,11 @@ class GameManager {
 
   Future<void> startNewGameWithDb(String scoutName, DataService dataService) async {
     try {
-      print('startNewGameWithDb: 開始');
       // 初期データ投入（初回のみ）
       await dataService.insertInitialData();
-      print('startNewGameWithDb: 初期データ投入完了');
+      
       final db = await dataService.database;
-      print('startNewGameWithDb: DB接続完了');
+      
     // 学校リスト取得
     final schoolMaps = await db.query('School', where: 'type = ?', whereArgs: ['高校']);
     final schools = schoolMaps.map((m) => School(
@@ -250,13 +249,9 @@ class GameManager {
       allPlayers.addAll(school.players);
     }
     _currentGame = _currentGame!.copyWith(discoveredPlayers: allPlayers);
-    print('startNewGameWithDb: 完了 - 学校数: ${updatedSchools.length}, 選手数: ${allPlayers.length}');
-    for (final s in _currentGame!.schools) {
-      print('final schools: name=${s.name}, players=${s.players.length}');
-    }
+    
   } catch (e, stackTrace) {
-    print('startNewGameWithDb: エラー発生 - $e');
-    print('startNewGameWithDb: スタックトレース - $stackTrace');
+    
     rethrow;
   }
   }
