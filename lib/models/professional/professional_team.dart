@@ -326,10 +326,7 @@ class ProfessionalTeamManager {
     
     for (int i = 0; i < teams.length; i++) {
       final team = teams[i];
-      print('ProfessionalTeamManager.generatePlayersForAllTeams: ${team.shortName}の選手生成開始');
-      
       final players = PlayerGenerator.generateProfessionalPlayers(team);
-      print('ProfessionalTeamManager.generatePlayersForAllTeams: ${team.shortName}のPlayer生成完了 - ${players.length}名');
       
       // PlayerオブジェクトをProfessionalPlayerオブジェクトに変換
       final professionalPlayers = players.map((player) {
@@ -365,8 +362,6 @@ class ProfessionalTeamManager {
       
       print('ProfessionalTeamManager.generatePlayersForAllTeams: ${team.shortName}の更新完了');
     }
-    
-    print('ProfessionalTeamManager.generatePlayersForAllTeams: 全チームの選手生成完了');
   }
   
   // 特定のチームに選手を生成

@@ -135,11 +135,45 @@
 ```
 
 ### 4.2 情報取得の制限
-- **練習視察**: 基本情報 + フィジカル面能力値のみ
-- **試合観戦**: 技術面・フィジカル面能力値のみ
-- **練習試合観戦**: 技術面能力値のみ
-- **インタビュー**: メンタル面能力値のみ
-- **ビデオ分析**: 成長・ポテンシャル情報のみ
+
+#### 練習視察（PRACTICE_WATCH）
+**分析対象カラム:**
+- **基本情報**: `personality_scouted`, `talent_scouted`, `growth_scouted`, `mental_scouted`, `potential_scouted`
+- **フィジカル面能力値**: `acceleration_scouted`, `agility_scouted`, `balance_scouted`, `stamina_scouted`, `strength_scouted`, `pace_scouted`, `flexibility_scouted`
+- **技術面能力値（一部）**: `fielding_scouted`, `throwing_scouted`, `bat_control_scouted`
+
+**取得不可**: 技術面の詳細能力値、メンタル面能力値
+
+#### 試合観戦（GAME_WATCH）
+**分析対象カラム:**
+- **技術面能力値**: `contact_scouted`, `power_scouted`, `plate_discipline_scouted`, `bunt_scouted`, `opposite_field_hitting_scouted`, `pull_hitting_scouted`, `bat_control_scouted`, `swing_speed_scouted`, `fielding_scouted`, `throwing_scouted`, `fastball_scouted`, `breaking_ball_scouted`, `pitch_movement_scouted`, `control_scouted`
+- **フィジカル面能力値**: `pace_scouted`, `acceleration_scouted`, `agility_scouted`, `balance_scouted`, `jumping_reach_scouted`, `stamina_scouted`, `strength_scouted`, `flexibility_scouted`
+
+**取得不可**: 基本情報、メンタル面能力値
+
+#### 練習試合観戦（PRACTICE_GAME_WATCH）
+**分析対象カラム:**
+- **技術面能力値**: `contact_scouted`, `power_scouted`, `plate_discipline_scouted`, `bunt_scouted`, `opposite_field_hitting_scouted`, `pull_hitting_scouted`, `bat_control_scouted`, `swing_speed_scouted`, `fielding_scouted`, `throwing_scouted`, `fastball_scouted`, `breaking_ball_scouted`, `pitch_movement_scouted`, `control_scouted`
+
+**取得不可**: 基本情報、フィジカル面能力値、メンタル面能力値
+
+#### インタビュー（INTERVIEW）
+**分析対象カラム:**
+- **基本情報（一部）**: `personality_scouted`, `mental_scouted`
+
+**取得不可**: `talent_scouted`, `growth_scouted`, `potential_scouted`, 技術面・フィジカル面能力値
+
+#### ビデオ分析（VIDEO_ANALYZE）
+**分析対象カラム:**
+- **基本情報**: `personality_scouted`, `talent_scouted`, `growth_scouted`, `mental_scouted`, `potential_scouted`
+
+**取得不可**: 技術面・フィジカル面能力値
+
+#### レポート作成（REPORT_WRITE）
+**分析対象カラム:**
+- **総合評価指標**: `overall_evaluation`, `technical_evaluation`, `physical_evaluation`, `mental_evaluation`
+
+**取得不可**: 個別能力値（既に分析済みの情報を統合・評価）
 
 ### 4.3 スカウト完了度システム
 - **計算式**: 取得済み情報カテゴリ数 / 全情報カテゴリ数

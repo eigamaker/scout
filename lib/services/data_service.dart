@@ -28,15 +28,15 @@ class DataService {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
-      path,
-      version: 30, // バージョンを30に更新
-      onCreate: (db, version) async {
-        // 既存のテーブル作成処理を流用
-        await _createAllTables(db);
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        await _upgradeDatabase(db, oldVersion, newVersion);
-      },
+              path,
+        version: 32, // バージョンを32に更新
+        onCreate: (db, version) async {
+          // 既存のテーブル作成処理を流用
+          await _createAllTables(db);
+        },
+        onUpgrade: (db, oldVersion, newVersion) async {
+          await _upgradeDatabase(db, oldVersion, newVersion);
+        },
     );
   }
 
@@ -208,13 +208,13 @@ class DataService {
     final dbName = slot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(slot)}.db';
     final path = join(dbPath, dbName);
     return await openDatabase(
-      path,
-      version: 30, // バージョンを30に更新
-      onCreate: (db, version) async {
-        // 既存のテーブル作成処理を流用
-        await _createAllTables(db);
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
+              path,
+        version: 32, // バージョンを32に更新
+        onCreate: (db, version) async {
+          // 既存のテーブル作成処理を流用
+          await _createAllTables(db);
+        },
+        onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           // ポテンシャルカラムを追加
           await _addNewPotentialColumns(db);
@@ -757,84 +757,6 @@ class DataService {
           print('mental_potentialカラム追加エラー: $e');
         }
         
-        // ScoutAnalysisテーブルが存在しない場合は作成
-        try {
-          final tableInfo = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='ScoutAnalysis'");
-          if (tableInfo.isEmpty) {
-            await db.execute('''
-              CREATE TABLE ScoutAnalysis (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_id INTEGER NOT NULL,
-                scout_id TEXT NOT NULL,
-                analysis_date TEXT NOT NULL,
-                accuracy INTEGER DEFAULT 50,
-                -- 技術的能力値評価
-                contact_evaluation INTEGER DEFAULT 50,
-                power_evaluation INTEGER DEFAULT 50,
-                plate_discipline_evaluation INTEGER DEFAULT 50,
-                bunt_evaluation INTEGER DEFAULT 50,
-                opposite_field_hitting_evaluation INTEGER DEFAULT 50,
-                pull_hitting_evaluation INTEGER DEFAULT 50,
-                bat_control_evaluation INTEGER DEFAULT 50,
-                swing_speed_evaluation INTEGER DEFAULT 50,
-                fielding_evaluation INTEGER DEFAULT 50,
-                throwing_evaluation INTEGER DEFAULT 50,
-                catcher_ability_evaluation INTEGER DEFAULT 50,
-                control_evaluation INTEGER DEFAULT 50,
-                fastball_evaluation INTEGER DEFAULT 50,
-                breaking_ball_evaluation INTEGER DEFAULT 50,
-                pitch_movement_evaluation INTEGER DEFAULT 50,
-                -- 精神的能力値評価
-                concentration_evaluation INTEGER DEFAULT 50,
-                anticipation_evaluation INTEGER DEFAULT 50,
-                vision_evaluation INTEGER DEFAULT 50,
-                composure_evaluation INTEGER DEFAULT 50,
-                aggression_evaluation INTEGER DEFAULT 50,
-                bravery_evaluation INTEGER DEFAULT 50,
-                leadership_evaluation INTEGER DEFAULT 50,
-                work_rate_evaluation INTEGER DEFAULT 50,
-                self_discipline_evaluation INTEGER DEFAULT 50,
-                ambition_evaluation INTEGER DEFAULT 50,
-                teamwork_evaluation INTEGER DEFAULT 50,
-                positioning_evaluation INTEGER DEFAULT 50,
-                pressure_handling_evaluation INTEGER DEFAULT 50,
-                clutch_ability_evaluation INTEGER DEFAULT 50,
-                motivation_evaluation INTEGER DEFAULT 50,
-                pressure_evaluation INTEGER DEFAULT 50,
-                adaptability_evaluation INTEGER DEFAULT 50,
-                consistency_evaluation INTEGER DEFAULT 50,
-                clutch_evaluation INTEGER DEFAULT 50,
-                work_ethic_evaluation INTEGER DEFAULT 50,
-                -- 身体的能力値評価
-                acceleration_evaluation INTEGER DEFAULT 50,
-                agility_evaluation INTEGER DEFAULT 50,
-                balance_evaluation INTEGER DEFAULT 50,
-                jumping_reach_evaluation INTEGER DEFAULT 50,
-                natural_fitness_evaluation INTEGER DEFAULT 50,
-                injury_proneness_evaluation INTEGER DEFAULT 50,
-                stamina_evaluation INTEGER DEFAULT 50,
-                strength_evaluation INTEGER DEFAULT 50,
-                pace_evaluation INTEGER DEFAULT 50,
-                flexibility_evaluation INTEGER DEFAULT 50,
-                speed_evaluation INTEGER DEFAULT 50,
-                -- 総合評価指標
-                overall_evaluation INTEGER DEFAULT 50,
-                technical_evaluation INTEGER DEFAULT 50,
-                physical_evaluation INTEGER DEFAULT 50,
-                mental_evaluation INTEGER DEFAULT 50,
-                -- その他
-                is_graduated INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (player_id) REFERENCES Player (id)
-              )
-            ''');
-            print('ScoutAnalysisテーブルを作成しました');
-          }
-        } catch (e) {
-          print('ScoutAnalysisテーブル作成エラー: $e');
-        }
-        
         // ScoutBasicInfoAnalysisテーブルが存在しない場合は作成
         try {
           final tableInfo = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='ScoutBasicInfoAnalysis'");
@@ -851,6 +773,14 @@ class DataService {
                 growth_evaluation INTEGER DEFAULT 50,
                 mental_evaluation INTEGER DEFAULT 50,
                 potential_evaluation INTEGER DEFAULT 50,
+                -- スカウト済み基本情報（実際に分析された値）
+                personality_scouted INTEGER,
+                talent_scouted INTEGER,
+                growth_scouted INTEGER,
+                mental_scouted INTEGER,
+                potential_scouted INTEGER,
+                -- 分析精度
+                accuracy INTEGER DEFAULT 50,
                 -- その他
                 is_graduated INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -891,7 +821,120 @@ class DataService {
       }
     }
     
-    print('データベーススキーマのアップグレード完了');
+    if (oldVersion < 31) {
+      // バージョン31: ScoutBasicInfoAnalysisテーブルのカラム名を_scoutedに統一
+      print('データベーススキーマを更新中（バージョン31）: ScoutBasicInfoAnalysisテーブルのカラム名を統一...');
+      
+      try {
+        // 既存のScoutBasicInfoAnalysisテーブルを削除して再作成
+        await db.execute('DROP TABLE IF EXISTS ScoutBasicInfoAnalysis');
+        await db.execute('''
+          CREATE TABLE ScoutBasicInfoAnalysis (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id INTEGER NOT NULL,
+            scout_id TEXT NOT NULL,
+            analysis_date TEXT NOT NULL,
+            -- スカウト済み基本情報（実際に分析された値）
+            personality_scouted INTEGER DEFAULT 50,
+            talent_scouted INTEGER DEFAULT 50,
+            growth_scouted INTEGER DEFAULT 50,
+            mental_scouted INTEGER DEFAULT 50,
+            potential_scouted INTEGER DEFAULT 50,
+            -- 分析精度
+            accuracy INTEGER DEFAULT 50,
+            -- その他
+            is_graduated INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (player_id) REFERENCES Player (id)
+          )
+        ''');
+              print('ScoutBasicInfoAnalysisテーブルを再作成しました');
+    } catch (e) {
+      print('バージョン31のアップグレードでエラー: $e');
+    }
+  }
+  
+  if (oldVersion < 32) {
+    // バージョン32: ScoutAnalysisテーブルのデフォルト値を削除
+    print('データベーススキーマを更新中（バージョン32）: ScoutAnalysisテーブルのデフォルト値を削除...');
+    
+    try {
+      // 既存のScoutAnalysisテーブルを削除して再作成
+      await db.execute('DROP TABLE IF EXISTS ScoutAnalysis');
+      await db.execute('''
+        CREATE TABLE ScoutAnalysis (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          player_id INTEGER NOT NULL,
+          scout_id TEXT NOT NULL,
+          analysis_date TEXT NOT NULL,
+          accuracy INTEGER DEFAULT 50,
+          -- スカウト済み能力値（実際に分析された値）
+          contact_scouted INTEGER,
+          power_scouted INTEGER,
+          plate_discipline_scouted INTEGER,
+          bunt_scouted INTEGER,
+          opposite_field_hitting_scouted INTEGER,
+          pull_hitting_scouted INTEGER,
+          bat_control_scouted INTEGER,
+          swing_speed_scouted INTEGER,
+          fielding_scouted INTEGER,
+          throwing_scouted INTEGER,
+          catcher_ability_scouted INTEGER,
+          control_scouted INTEGER,
+          fastball_scouted INTEGER,
+          breaking_ball_scouted INTEGER,
+          pitch_movement_scouted INTEGER,
+          concentration_scouted INTEGER,
+          anticipation_scouted INTEGER,
+          vision_scouted INTEGER,
+          composure_scouted INTEGER,
+          aggression_scouted INTEGER,
+          bravery_scouted INTEGER,
+          leadership_scouted INTEGER,
+          work_rate_scouted INTEGER,
+          self_discipline_scouted INTEGER,
+          ambition_scouted INTEGER,
+          teamwork_scouted INTEGER,
+          positioning_scouted INTEGER,
+          pressure_handling_scouted INTEGER,
+          clutch_ability_scouted INTEGER,
+          motivation_scouted INTEGER,
+          pressure_scouted INTEGER,
+          adaptability_scouted INTEGER,
+          consistency_scouted INTEGER,
+          clutch_scouted INTEGER,
+          work_ethic_scouted INTEGER,
+          acceleration_scouted INTEGER,
+          agility_scouted INTEGER,
+          balance_scouted INTEGER,
+          jumping_reach_scouted INTEGER,
+          natural_fitness_scouted INTEGER,
+          injury_proneness_scouted INTEGER,
+          stamina_scouted INTEGER,
+          strength_scouted INTEGER,
+          pace_scouted INTEGER,
+          flexibility_scouted INTEGER,
+          speed_scouted INTEGER,
+          -- 総合評価指標
+          overall_evaluation INTEGER DEFAULT 50,
+          technical_evaluation INTEGER DEFAULT 50,
+          physical_evaluation INTEGER DEFAULT 50,
+          mental_evaluation INTEGER DEFAULT 50,
+          -- その他
+          is_graduated INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (player_id) REFERENCES Player (id)
+        )
+      ''');
+      print('ScoutAnalysisテーブルを再作成しました');
+    } catch (e) {
+      print('バージョン32のアップグレードでエラー: $e');
+    }
+  }
+  
+  print('データベーススキーマのアップグレード完了');
   }
 
   // テーブル作成処理を共通化
@@ -1199,55 +1242,53 @@ class DataService {
         scout_id TEXT NOT NULL,
         analysis_date TEXT NOT NULL,
         accuracy INTEGER DEFAULT 50,
-        -- 技術的能力値評価
-        contact_evaluation INTEGER DEFAULT 50,
-        power_evaluation INTEGER DEFAULT 50,
-        plate_discipline_evaluation INTEGER DEFAULT 50,
-        bunt_evaluation INTEGER DEFAULT 50,
-        opposite_field_hitting_evaluation INTEGER DEFAULT 50,
-        pull_hitting_evaluation INTEGER DEFAULT 50,
-        bat_control_evaluation INTEGER DEFAULT 50,
-        swing_speed_evaluation INTEGER DEFAULT 50,
-        fielding_evaluation INTEGER DEFAULT 50,
-        throwing_evaluation INTEGER DEFAULT 50,
-        catcher_ability_evaluation INTEGER DEFAULT 50,
-        control_evaluation INTEGER DEFAULT 50,
-        fastball_evaluation INTEGER DEFAULT 50,
-        breaking_ball_evaluation INTEGER DEFAULT 50,
-        pitch_movement_evaluation INTEGER DEFAULT 50,
-        -- 精神的能力値評価
-        concentration_evaluation INTEGER DEFAULT 50,
-        anticipation_evaluation INTEGER DEFAULT 50,
-        vision_evaluation INTEGER DEFAULT 50,
-        composure_evaluation INTEGER DEFAULT 50,
-        aggression_evaluation INTEGER DEFAULT 50,
-        bravery_evaluation INTEGER DEFAULT 50,
-        leadership_evaluation INTEGER DEFAULT 50,
-        work_rate_evaluation INTEGER DEFAULT 50,
-        self_discipline_evaluation INTEGER DEFAULT 50,
-        ambition_evaluation INTEGER DEFAULT 50,
-        teamwork_evaluation INTEGER DEFAULT 50,
-        positioning_evaluation INTEGER DEFAULT 50,
-        pressure_handling_evaluation INTEGER DEFAULT 50,
-        clutch_ability_evaluation INTEGER DEFAULT 50,
-        motivation_evaluation INTEGER DEFAULT 50,
-        pressure_evaluation INTEGER DEFAULT 50,
-        adaptability_evaluation INTEGER DEFAULT 50,
-        consistency_evaluation INTEGER DEFAULT 50,
-        clutch_evaluation INTEGER DEFAULT 50,
-        work_ethic_evaluation INTEGER DEFAULT 50,
-        -- 身体的能力値評価
-        acceleration_evaluation INTEGER DEFAULT 50,
-        agility_evaluation INTEGER DEFAULT 50,
-        balance_evaluation INTEGER DEFAULT 50,
-        jumping_reach_evaluation INTEGER DEFAULT 50,
-        natural_fitness_evaluation INTEGER DEFAULT 50,
-        injury_proneness_evaluation INTEGER DEFAULT 50,
-        stamina_evaluation INTEGER DEFAULT 50,
-        strength_evaluation INTEGER DEFAULT 50,
-        pace_evaluation INTEGER DEFAULT 50,
-        flexibility_evaluation INTEGER DEFAULT 50,
-        speed_evaluation INTEGER DEFAULT 50,
+        -- スカウト済み能力値（実際に分析された値）
+        contact_scouted INTEGER,
+        power_scouted INTEGER,
+        plate_discipline_scouted INTEGER,
+        bunt_scouted INTEGER,
+        opposite_field_hitting_scouted INTEGER,
+        pull_hitting_scouted INTEGER,
+        bat_control_scouted INTEGER,
+        swing_speed_scouted INTEGER,
+        fielding_scouted INTEGER,
+        throwing_scouted INTEGER,
+        catcher_ability_scouted INTEGER,
+        control_scouted INTEGER,
+        fastball_scouted INTEGER,
+        breaking_ball_scouted INTEGER,
+        pitch_movement_scouted INTEGER,
+        concentration_scouted INTEGER,
+        anticipation_scouted INTEGER,
+        vision_scouted INTEGER,
+        composure_scouted INTEGER,
+        aggression_scouted INTEGER,
+        bravery_scouted INTEGER,
+        leadership_scouted INTEGER,
+        work_rate_scouted INTEGER,
+        self_discipline_scouted INTEGER,
+        ambition_scouted INTEGER,
+        teamwork_scouted INTEGER,
+        positioning_scouted INTEGER,
+        pressure_handling_scouted INTEGER,
+        clutch_ability_scouted INTEGER,
+        motivation_scouted INTEGER,
+        pressure_scouted INTEGER,
+        adaptability_scouted INTEGER,
+        consistency_scouted INTEGER,
+        clutch_scouted INTEGER,
+        work_ethic_scouted INTEGER,
+        acceleration_scouted INTEGER,
+        agility_scouted INTEGER,
+        balance_scouted INTEGER,
+        jumping_reach_scouted INTEGER,
+        natural_fitness_scouted INTEGER,
+        injury_proneness_scouted INTEGER,
+        stamina_scouted INTEGER,
+        strength_scouted INTEGER,
+        pace_scouted INTEGER,
+        flexibility_scouted INTEGER,
+        speed_scouted INTEGER,
         -- 総合評価指標
         overall_evaluation INTEGER DEFAULT 50,
         technical_evaluation INTEGER DEFAULT 50,
@@ -1268,12 +1309,14 @@ class DataService {
         player_id INTEGER NOT NULL,
         scout_id TEXT NOT NULL,
         analysis_date TEXT NOT NULL,
-        -- 基本情報評価
-        personality_evaluation INTEGER DEFAULT 50,
-        talent_evaluation INTEGER DEFAULT 50,
-        growth_evaluation INTEGER DEFAULT 50,
-        mental_evaluation INTEGER DEFAULT 50,
-        potential_evaluation INTEGER DEFAULT 50,
+        -- スカウト済み基本情報（実際に分析された値）
+        personality_scouted INTEGER,
+        talent_scouted INTEGER,
+        growth_scouted INTEGER,
+        mental_scouted INTEGER,
+        potential_scouted INTEGER,
+        -- 分析精度
+        accuracy INTEGER DEFAULT 50,
         -- その他
         is_graduated INTEGER DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -1492,12 +1535,9 @@ class DataService {
 
   // プロ選手の初期データを生成・挿入
   Future<void> _insertProfessionalPlayers(Database db) async {
-    print('プロ選手の初期データ生成・挿入開始');
-    
     // プロ野球団のリストを取得
     final teamMaps = await db.query('ProfessionalTeam');
     if (teamMaps.isEmpty) {
-      print('プロ野球団が見つからないため、プロ選手の生成をスキップ');
       return;
     }
     
@@ -1506,8 +1546,6 @@ class DataService {
       final teamId = teamMap['id'] as String;
       final teamName = teamMap['name'] as String;
       final teamShortName = teamMap['short_name'] as String;
-      
-      print('${teamShortName}のプロ選手生成開始');
       
       // チームのポジション別選手数を決定
       final positionCounts = {
@@ -1908,8 +1946,7 @@ class DataService {
         ).round();
       }
       
-      print('総合能力値計算: プレイヤーID $playerId, ポジション: $position');
-      print('技術: $technicalAbility, 精神: $mentalAbility, 身体: $physicalAbility, 総合: $overallAbility');
+      // ログ削除（リリース用に抑制）
       
       // データベースを更新
       await db.update('Player', {
@@ -1919,7 +1956,7 @@ class DataService {
         'mental_ability': mentalAbility,
       }, where: 'id = ?', whereArgs: [playerId]);
       
-      print('総合能力値指標の更新完了: プレイヤーID $playerId');
+      // ログ削除（リリース用に抑制）
       
     } catch (e) {
       print('総合能力値指標の計算・更新でエラー: $e');

@@ -23,38 +23,44 @@ class GrowthService {
     
     final ageStage = _getAgeStage(age);
     
+    // 高校時代（15-20歳）は成長タイプに関係なく一律の成長
+    if (ageStage == AgeStage.young) {
+      return 1.0; // 高校時代は標準成長
+    }
+    
+    // プロ時代（21歳以降）から成長タイプによる差が出る
     switch (growthType) {
       case 'early':
         switch (ageStage) {
-          case AgeStage.young: return 1.3;    // 15-20歳：成長率高め
           case AgeStage.prime: return 1.0;    // 21-27歳：標準成長
           case AgeStage.mature: return -0.2;  // 28-32歳：減退開始
           case AgeStage.decline: return -0.3; // 33-36歳：減退加速
           case AgeStage.retirement: return -0.4; // 37歳以上：大幅減退
+          default: return 1.0;
         }
       case 'normal':
         switch (ageStage) {
-          case AgeStage.young: return 1.0;    // 15-20歳：標準成長
           case AgeStage.prime: return 1.2;    // 21-27歳：成長率高め
           case AgeStage.mature: return 0.0;   // 28-32歳：成長停止
           case AgeStage.decline: return -0.2; // 33-36歳：能力値減退
           case AgeStage.retirement: return -0.4; // 37歳以上：大幅減退
+          default: return 1.0;
         }
       case 'late':
         switch (ageStage) {
-          case AgeStage.young: return 0.8;    // 15-20歳：成長遅い
           case AgeStage.prime: return 1.0;    // 21-27歳：標準成長
           case AgeStage.mature: return 0.8;   // 28-32歳：成長継続
           case AgeStage.decline: return -0.1; // 33-36歳：軽微な減退
           case AgeStage.retirement: return -0.4; // 37歳以上：大幅減退
+          default: return 1.0;
         }
       case 'spurt':
         switch (ageStage) {
-          case AgeStage.young: return 1.0;    // 15-20歳：標準成長
           case AgeStage.prime: return 1.1;    // 21-27歳：やや高め
           case AgeStage.mature: return 0.0;   // 28-32歳：成長停止
           case AgeStage.decline: return -0.2; // 33-36歳：能力値減退
           case AgeStage.retirement: return -0.4; // 37歳以上：大幅減退
+          default: return 1.0;
         }
       default:
         return 1.0;

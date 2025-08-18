@@ -24,13 +24,13 @@ void main() {
 }
 
 int _generateTalent(Random random) {
-  final r = random.nextInt(1000);
-  if (r < 400) return 1;      // 40%
-  if (r < 700) return 2;      // 30%
-  if (r < 900) return 3;      // 20%
-  if (r < 970) return 4;      // 7%
-  if (r < 995) return 5;      // 2.5%
-  return 6;                   // 0.5%
+  final r = random.nextInt(1000000);
+  if (r < 700000) return 1;      // 70%
+  if (r < 930000) return 2;      // 23%
+  if (r < 980000) return 3;      // 5%
+  if (r < 999800) return 4;      // 2%
+  if (r < 999990) return 5;      // 0.01%
+  return 6;                       // 0.0004%
 }
 
 String _determinePositionByPitchingAbility(int talent, Random random) {

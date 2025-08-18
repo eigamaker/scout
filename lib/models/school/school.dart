@@ -534,12 +534,12 @@ class School {
   
   int _randomTalent(Random random) {
     final r = random.nextInt(1000000); // より細かい確率制御のため1000000を使用
-    if (r < 600000) return 1;      // 60% (ランク1が主流)
-    if (r < 850000) return 2;      // 25% (ランク2)
-    if (r < 980000) return 3;      // 13% (ランク3)
-    if (r < 999500) return 4;      // 1.95% (ランク4)
-    if (r < 999990) return 5;      // 0.049% (ランク5)
-    return 6;                      // 0.001% (1000年に1人程度)
+    if (r < 700000) return 1;      // 70% (ランク1が主流)
+    if (r < 930000) return 2;      // 23% (ランク2)
+    if (r < 980000) return 3;      // 5% (ランク3)
+    if (r < 999800) return 4;      // 2% (ランク4)
+    if (r < 999990) return 5;      // 0.01% (ランク5)
+    return 6;                      // 0.0004% (1000年に1人程度)
   }
   
   String _randomGrowthType(Random random) {

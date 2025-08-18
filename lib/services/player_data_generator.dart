@@ -329,10 +329,6 @@ class PlayerDataGenerator {
           (physicalAbility * 0.35)
         ).round();
       }
-      
-      print('高校生選手総合能力値計算: プレイヤーID $playerId, ポジション: $position');
-      print('技術: $technicalAbility, 精神: $mentalAbility, 身体: $physicalAbility, 総合: $overallAbility');
-      
       // データベースを更新
       await db.update('Player', {
         'overall_ability': overallAbility,
@@ -340,8 +336,6 @@ class PlayerDataGenerator {
         'physical_ability': physicalAbility,
         'mental_ability': mentalAbility,
       }, where: 'id = ?', whereArgs: [playerId]);
-      
-      print('高校生選手総合能力値指標の更新完了: プレイヤーID $playerId');
       
     } catch (e) {
       print('高校生選手総合能力値指標の計算・更新でエラー: $e');
@@ -709,13 +703,13 @@ class PlayerDataGenerator {
 
   /// 才能ランクを生成（改善版）
   int _generateTalent() {
-    final r = _random.nextInt(1000); // より細かい確率制御のため1000を使用
-    if (r < 400) return 1;      // 40%
-    if (r < 700) return 2;      // 30%
-    if (r < 900) return 3;      // 20%
-    if (r < 970) return 4;      // 7%
-    if (r < 995) return 5;      // 2.5%
-    return 6;                   // 0.5% (各県に数人程度)
+    final r = _random.nextInt(1000000); // より細かい確率制御のため1000000を使用
+    if (r < 700000) return 1;      // 70%
+    if (r < 930000) return 2;      // 23%
+    if (r < 980000) return 3;      // 5%
+    if (r < 999800) return 4;      // 2%
+    if (r < 999990) return 5;      // 0.01%
+    return 6;                       // 0.0004% (各県に数人程度)
   }
 
   /// 成長タイプを生成

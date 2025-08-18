@@ -318,7 +318,7 @@ class GameManager {
       }
       
       _currentGame = _currentGame!.copyWith(schools: updatedSchools);
-      print('GameManager.generateNewStudentsForAllSchoolsDb: 全学校の新入生生成完了');
+  
       
     } catch (e) {
       print('GameManager.generateNewStudentsForAllSchoolsDb: エラーが発生しました: $e');
@@ -1193,7 +1193,7 @@ class GameManager {
           // 新入生生成処理
           print('GameManager.advanceWeekWithResults: 新入生生成処理開始');
           await generateNewStudentsForAllSchoolsDb(dataService);
-          print('GameManager.advanceWeekWithResults: 新入生生成処理完了');
+      
           
           _updateGrowthStatus(false, '新年度処理完了');
           print('GameManager.advanceWeekWithResults: 新年度処理完了');

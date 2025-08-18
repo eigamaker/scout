@@ -3,6 +3,14 @@ import '../../models/player/player.dart';
 import '../../models/player/player_abilities.dart';
 import '../data_service.dart';
 
+/// スカウト分析データの取得・保存を担当するサービス
+/// 
+/// 役割:
+/// - スカウト分析データの取得（表示用）
+/// - 基本情報分析データの保存（外部から呼び出し用）
+/// - データベースアクセスの抽象化
+/// 
+/// 注意: アクション実行ロジックは action_service.dart が担当
 class ScoutAnalysisService {
   final DataService _dataService;
   
@@ -42,30 +50,47 @@ class ScoutAnalysisService {
     }
   }
 
-  /// 基本情報のスカウト分析データを保存
-  Future<void> saveBasicInfoAnalysis(Player player, String scoutId, Map<String, double> accuracies) async {
+  /// 基本情報のスカウト分析データを保存（外部から呼び出し用）
+  Future<void> saveBasicInfoAnalysis(Map<String, dynamic> insertData) async {
     try {
       final db = await _dataService.database;
-      final insertData = {
-        'player_id': player.id ?? 0,
-        'scout_id': scoutId,
-        'analysis_date': DateTime.now().toIso8601String(), // TEXT形式で保存
-        'accuracy': accuracies.values.reduce((a, b) => a + b) / accuracies.length,
-        'personality_analyzed': _generatePersonalityAnalysis(player, accuracies['personality'] ?? 0.0),
-        'talent_analyzed': _generateTalentAnalysis(player, accuracies['talent'] ?? 0.0),
-        'growth_analyzed': _generateGrowthAnalysis(player, accuracies['growth'] ?? 0.0),
-        'mental_grit_analyzed': _generateMentalGritAnalysis(player, accuracies['mental'] ?? 0.0),
-        'potential_analyzed': _generatePotentialAnalysis(player, accuracies['potential'] ?? 0.0),
-        'personality_accuracy': accuracies['personality'] ?? 0.0,
-        'talent_accuracy': accuracies['talent'] ?? 0.0,
-        'growth_accuracy': accuracies['growth'] ?? 0.0,
-        'mental_grit_accuracy': accuracies['mental'] ?? 0.0,
-        'potential_accuracy': accuracies['potential'] ?? 0.0,
-      };
       
-      print('基本情報分析データ保存: プレイヤーID ${player.id}, データ: $insertData');
-      await db.insert('ScoutBasicInfoAnalysis', insertData);
-      print('基本情報分析データ保存完了');
+      // 既存の基本情報分析データを確認
+      final existingData = await db.query(
+        'ScoutBasicInfoAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [insertData['player_id'], insertData['scout_id']],
+      );
+      
+      if (existingData.isNotEmpty) {
+        // 既存データがある場合は更新（既存の分析データを保持）
+        final existing = existingData.first;
+        final updatedData = Map<String, dynamic>.from(existing);
+        
+        // 新しいデータで既存のnullフィールドのみを更新
+        insertData.forEach((key, value) {
+          if (value != null && (existing[key] == null || existing[key] == 0)) {
+            updatedData[key] = value;
+          }
+        });
+        
+        // 分析日時と精度は常に更新
+        updatedData['analysis_date'] = insertData['analysis_date'];
+        updatedData['accuracy'] = insertData['accuracy'];
+        
+        await db.update(
+          'ScoutBasicInfoAnalysis',
+          updatedData,
+          where: 'player_id = ? AND scout_id = ?',
+          whereArgs: [insertData['player_id'], insertData['scout_id']],
+        );
+        print('基本情報分析データ更新完了: プレイヤーID ${insertData['player_id']}');
+      } else {
+        // 新規データの場合は挿入
+        print('基本情報分析データ保存: プレイヤーID ${insertData['player_id']}, データ: $insertData');
+        await db.insert('ScoutBasicInfoAnalysis', insertData);
+        print('基本情報分析データ新規挿入完了');
+      }
       
     } catch (e) {
       print('基本情報分析データ保存エラー: $e');
@@ -98,14 +123,43 @@ class ScoutAnalysisService {
 
   /// スカウト精度に基づく誤差範囲を計算
   int _calculateErrorRange(double accuracy) {
-    // 精度は0.0〜1.0の範囲で渡される
-    if (accuracy < 0.1) return 50; // 判定失敗
-    if (accuracy < 0.3) return 20; // ±20の誤差
-    if (accuracy < 0.5) return 16; // ±16の誤差
-    if (accuracy < 0.7) return 12; // ±12の誤差
-    if (accuracy < 0.85) return 8;  // ±8の誤差
-    if (accuracy < 0.95) return 6;  // ±6の誤差
-    return 3; // ±3の誤差（最大精度）
+    // 精度が高いほど誤差範囲が小さくなる
+    if (accuracy >= 0.9) return 2;      // 90%以上: ±2
+    if (accuracy >= 0.8) return 3;      // 80%以上: ±3
+    if (accuracy >= 0.7) return 4;      // 70%以上: ±4
+    if (accuracy >= 0.6) return 5;      // 60%以上: ±5
+    return 6;                            // 60%未満: ±6
+  }
+
+  /// データベースのテーブル構造をデバッグ出力
+  Future<void> debugTableStructure() async {
+    try {
+      final db = await _dataService.database;
+      
+      // ScoutAnalysisテーブルの構造を確認
+      print('=== ScoutAnalysisテーブル構造 ===');
+      final scoutAnalysisColumns = await db.query('ScoutAnalysis', limit: 1);
+      if (scoutAnalysisColumns.isNotEmpty) {
+        print('カラム: ${scoutAnalysisColumns.first.keys.toList()}');
+      }
+      
+      // ScoutBasicInfoAnalysisテーブルの構造を確認
+      print('=== ScoutBasicInfoAnalysisテーブル構造 ===');
+      final basicInfoColumns = await db.query('ScoutBasicInfoAnalysis', limit: 1);
+      if (basicInfoColumns.isNotEmpty) {
+        print('カラム: ${basicInfoColumns.first.keys.toList()}');
+      }
+      
+      // テーブル内のレコード数を確認
+      final scoutAnalysisCount = await db.rawQuery('SELECT COUNT(*) as count FROM ScoutAnalysis');
+      final basicInfoCount = await db.rawQuery('SELECT COUNT(*) as count FROM ScoutBasicInfoAnalysis');
+      
+      print('ScoutAnalysisレコード数: ${scoutAnalysisCount.first['count']}');
+      print('ScoutBasicInfoAnalysisレコード数: ${basicInfoCount.first['count']}');
+      
+    } catch (e) {
+      print('テーブル構造確認エラー: $e');
+    }
   }
   
   /// 仮の能力値を生成
@@ -180,94 +234,5 @@ class ScoutAnalysisService {
     return abilityName;
   }
 
-  /// 性格の分析結果を生成
-  String _generatePersonalityAnalysis(Player player, double accuracy) {
-    if (accuracy < 0.3) {
-      return '性格不明';
-    } else if (accuracy < 0.5) {
-      final personalities = ['内向的', '外向的', 'リーダー型', 'フォロワー型'];
-      return personalities[player.talent % personalities.length];
-    } else if (accuracy < 0.7) {
-      final personalities = ['冷静沈着', '情に厚い', '負けず嫌い', '謙虚'];
-      return personalities[player.talent % personalities.length];
-    } else {
-      final personalities = ['勝負強さがある', 'チームプレー重視', '個人主義的'];
-      return personalities[player.talent % personalities.length];
-    }
-  }
-
-  /// 才能の分析結果を生成
-  String _generateTalentAnalysis(Player player, double accuracy) {
-    if (accuracy < 0.3) {
-      return '才能不明';
-    } else if (accuracy < 0.5) {
-      return player.talent >= 7 ? '才能あり' : '才能なし';
-    } else if (accuracy < 0.7) {
-      if (player.talent >= 8) return '隠れた才能';
-      else if (player.talent >= 6) return '期待の星';
-      else return '平均的';
-    } else {
-      if (player.talent >= 9) return '超高校級';
-      else if (player.talent >= 7) return '一流';
-      else if (player.talent >= 5) return '有望';
-      else return '平均';
-    }
-  }
-
-  /// 成長の分析結果を生成
-  String _generateGrowthAnalysis(Player player, double accuracy) {
-    if (accuracy < 0.3) {
-      return '成長不明';
-    } else if (accuracy < 0.5) {
-      return player.growthRate > 0.5 ? '成長中' : '停滞中';
-    } else if (accuracy < 0.7) {
-      if (player.growthRate > 0.7) return '急成長';
-      else if (player.growthRate > 0.4) return '安定成長';
-      else return '緩やか成長';
-    } else {
-      if (player.growthRate > 0.8) return '爆発的成長';
-      else if (player.growthRate > 0.6) return '順調成長';
-      else if (player.growthRate > 0.3) return '緩やか成長';
-      else return '停滞';
-    }
-  }
-
-  /// 精神力の分析結果を生成
-  String _generateMentalGritAnalysis(Player player, double accuracy) {
-    if (accuracy < 0.3) {
-      return '精神力不明';
-    } else if (accuracy < 0.5) {
-      if (player.mentalGrit > 0.7) return '強い';
-      else if (player.mentalGrit > 0.4) return '普通';
-      else return '弱い';
-    } else if (accuracy < 0.7) {
-      if (player.mentalGrit > 0.8) return '鋼の精神';
-      else if (player.mentalGrit > 0.5) return '安定した精神';
-      else return '不安定';
-    } else {
-      if (player.mentalGrit > 0.8) return '逆境に強い';
-      else if (player.mentalGrit < 0.3) return 'プレッシャーに弱い';
-      else return '勝負強さあり';
-    }
-  }
-
-  /// ポテンシャルの分析結果を生成
-  String _generatePotentialAnalysis(Player player, double accuracy) {
-    if (accuracy < 0.3) {
-      return '将来性不明';
-    } else if (accuracy < 0.5) {
-      if (player.peakAbility >= 80) return '有望';
-      else if (player.peakAbility >= 60) return '普通';
-      else return '期待薄';
-    } else if (accuracy < 0.7) {
-      if (player.peakAbility >= 85) return '大物候補';
-      else if (player.peakAbility >= 70) return '期待の星';
-      else return '平均的将来性';
-    } else {
-      if (player.peakAbility >= 90) return 'プロ級';
-      else if (player.peakAbility >= 80) return '大学トップ級';
-      else if (player.peakAbility >= 65) return '実業団級';
-      else return 'アマチュア級';
-    }
-  }
+  // 注: 分析結果生成ロジックは action_service.dart に移動済み
 } 

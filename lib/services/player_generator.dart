@@ -305,7 +305,7 @@ class PlayerGenerator {
       
       for (int i = 0; i < count; i++) {
         // talentランク3, 4, 5のみ（NPB選手レベル）
-        final talent = random.nextBool() ? 4 : (random.nextBool() ? 3 : 5);
+        final talent = _generateTalent();
         
         // 年齢は18-35歳（プロ野球選手の一般的な年齢）
         final age = 18 + random.nextInt(18);
@@ -326,33 +326,24 @@ class PlayerGenerator {
         final peakAbility = _calculatePeakAbilityByAge(talent, age);
         
         final player = Player(
-          name: _generateProfessionalPlayerName(),
+          name: 'プロ選手${i + 1}',
           school: 'プロ野球団',
-          grade: 0, // プロ野球選手は学年なし
-          age: age, // 年齢を明示的に設定
+          grade: 0, // プロ選手は学年なし
           position: position,
-          personality: _generateProfessionalPersonality(),
-          trustLevel: 80 + random.nextInt(21), // 80-100（プロ選手なので高い信頼度）
-          fame: 60 + random.nextInt(41), // 60-100（プロ選手なので高い知名度）
-          isWatched: true,
-          isDiscovered: true,
-          isPubliclyKnown: true,
-          type: PlayerType.social, // 社会人選手として扱う
-          yearsAfterGraduation: age - 18, // 高校卒業後の年数
-          isGraduated: true, // プロ選手は卒業済み
-          isDrafted: true, // プロ選手フラグ
-          professionalTeamId: team.id, // 所属チームID
+          personality: 'プロフェッショナル',
+          type: PlayerType.social, // 既存のPlayerTypeを使用
+          age: age,
+          yearsAfterGraduation: age - 18,
           technicalAbilities: technicalAbilities,
           mentalAbilities: mentalAbilities,
           physicalAbilities: physicalAbilities,
-          mentalGrit: 0.6 + random.nextDouble() * 0.4, // 0.6-1.0（プロ選手なので高い精神力）
-          growthRate: _calculateGrowthRateByAge(age), // 年齢に基づく成長率
+          mentalGrit: 0.7 + (random.nextDouble() - 0.5) * 0.2, // 0.6-0.8
+          growthRate: 0.9 + (random.nextDouble() - 0.5) * 0.2, // 0.8-1.0
           peakAbility: peakAbility,
-          positionFit: _generateProfessionalPositionFit(position),
+          positionFit: _generatePositionFit(position, random),
           talent: talent,
-          growthType: _getGrowthTypeByAge(age), // 年齢に基づく成長タイプ
+          growthType: _generateGrowthType(random),
           individualPotentials: individualPotentials,
-          achievements: _generateProfessionalAchievements(talent, age),
         );
         
         players.add(player);
@@ -360,6 +351,18 @@ class PlayerGenerator {
     }
     
     return players;
+  }
+  
+  /// 才能ランクを生成（改善版）
+  static int _generateTalent() {
+    final random = Random();
+    final r = random.nextInt(1000000); // より細かい確率制御のため1000000を使用
+    if (r < 700000) return 1;      // 70%
+    if (r < 930000) return 2;      // 23%
+    if (r < 980000) return 3;      // 5%
+    if (r < 999800) return 4;      // 2%
+    if (r < 999990) return 5;      // 0.01%
+    return 6;                       // 0.0004% (各県に数人程度)
   }
   
   // 年齢グループを取得（能力値生成の基準）
@@ -565,21 +568,30 @@ class PlayerGenerator {
   }
   
   // プロ野球選手用のポジション適性生成
-  static Map<String, int> _generateProfessionalPositionFit(String position) {
+  static Map<String, int> _generatePositionFit(String position, Random random) {
     final fit = <String, int>{};
     
     // メインポジションは90-100
-    fit[position] = 90 + Random().nextInt(11);
+    fit[position] = 90 + random.nextInt(11);
     
     // 他のポジションは適度に低く
     final otherPositions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '左翼手', '中堅手', '右翼手'];
     for (final otherPosition in otherPositions) {
       if (otherPosition != position) {
-        fit[otherPosition] = 20 + Random().nextInt(41); // 20-60
+        fit[otherPosition] = 20 + random.nextInt(41); // 20-60
       }
     }
     
     return fit;
+  }
+  
+  // プロ野球選手用の成長タイプを決定
+  static String _generateGrowthType(Random random) {
+    final r = random.nextInt(100);
+    if (r < 30) return '若手成長型';
+    else if (r < 60) return '全盛期型';
+    else if (r < 90) return 'ベテラン型';
+    else return 'シニア型';
   }
   
   // プロ野球選手用の実績生成
