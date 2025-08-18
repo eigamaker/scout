@@ -29,7 +29,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
       path,
-              version: 28, // バージョンを28に更新
+      version: 30, // バージョンを30に更新
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
@@ -207,9 +207,9 @@ class DataService {
     final dbPath = await getDatabasesPath();
     final dbName = slot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(slot)}.db';
     final path = join(dbPath, dbName);
-          return await openDatabase(
-        path,
-              version: 28, // バージョンを28に更新
+    return await openDatabase(
+      path,
+      version: 30, // バージョンを30に更新
       onCreate: (db, version) async {
         // 既存のテーブル作成処理を流用
         await _createAllTables(db);
@@ -670,6 +670,227 @@ class DataService {
       }
     }
     
+    if (oldVersion < 29) {
+      // バージョン29: 総合能力値指標カラムの追加とScoutAnalysisテーブルの作成
+      print('データベーススキーマを更新中（バージョン29）: 総合能力値指標カラムの追加とScoutAnalysisテーブルの作成...');
+      
+      // 古いスキーマの問題を解決するため、強制的にテーブルを再作成
+      print('古いスキーマの問題を解決するため、テーブルを強制再作成します...');
+      try {
+        await db.execute('DROP TABLE IF EXISTS ScoutAnalysis');
+        await db.execute('DROP TABLE IF EXISTS ScoutBasicInfoAnalysis');
+        await db.execute('DROP TABLE IF EXISTS Player');
+        await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+        await db.execute('DROP TABLE IF EXISTS Person');
+        await db.execute('DROP TABLE IF EXISTS ProfessionalPlayer');
+        await db.execute('DROP TABLE IF EXISTS ProfessionalTeam');
+        await db.execute('DROP TABLE IF EXISTS PlayerStats');
+        await db.execute('DROP TABLE IF EXISTS TeamHistory');
+        await db.execute('DROP TABLE IF EXISTS School');
+        
+        // 新しいスキーマでテーブルを作成
+        await _createAllTables(db);
+        await _insertProfessionalTeams(db);
+        
+        print('テーブルの強制再作成完了');
+        return; // 強制再作成後は他の処理をスキップ
+      } catch (e) {
+        print('テーブルの強制再作成でエラー: $e');
+      }
+      
+      try {
+        // Playerテーブルに総合能力値指標カラムを追加
+        try {
+          await db.execute('ALTER TABLE Player ADD COLUMN overall_ability INTEGER DEFAULT 50');
+          print('overall_abilityカラムを追加しました');
+        } catch (e) {
+          print('overall_abilityカラム追加エラー: $e');
+        }
+        
+        try {
+          await db.execute('ALTER TABLE Player ADD COLUMN technical_ability INTEGER DEFAULT 50');
+          print('technical_abilityカラムを追加しました');
+        } catch (e) {
+          print('technical_abilityカラム追加エラー: $e');
+        }
+        
+        try {
+          await db.execute('ALTER TABLE Player ADD COLUMN physical_ability INTEGER DEFAULT 50');
+          print('physical_abilityカラムを追加しました');
+        } catch (e) {
+          print('physical_abilityカラム追加エラー: $e');
+        }
+        
+        try {
+          await db.execute('ALTER TABLE Player ADD COLUMN mental_ability INTEGER DEFAULT 50');
+          print('mental_abilityカラムを追加しました');
+        } catch (e) {
+          print('mental_abilityカラム追加エラー: $e');
+        }
+        
+        // PlayerPotentialsテーブルに総合ポテンシャル指標カラムを追加
+        try {
+          await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN overall_potential INTEGER DEFAULT 50');
+          print('overall_potentialカラムを追加しました');
+        } catch (e) {
+          print('overall_potentialカラム追加エラー: $e');
+        }
+        
+        try {
+          await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN technical_potential INTEGER DEFAULT 50');
+          print('technical_potentialカラムを追加しました');
+        } catch (e) {
+          print('technical_potentialカラム追加エラー: $e');
+        }
+        
+        try {
+          await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN physical_potential INTEGER DEFAULT 50');
+          print('physical_potentialカラムを追加しました');
+        } catch (e) {
+          print('physical_potentialカラム追加エラー: $e');
+        }
+        
+        try {
+          await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN mental_potential INTEGER DEFAULT 50');
+          print('mental_potentialカラムを追加しました');
+        } catch (e) {
+          print('mental_potentialカラム追加エラー: $e');
+        }
+        
+        // ScoutAnalysisテーブルが存在しない場合は作成
+        try {
+          final tableInfo = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='ScoutAnalysis'");
+          if (tableInfo.isEmpty) {
+            await db.execute('''
+              CREATE TABLE ScoutAnalysis (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id INTEGER NOT NULL,
+                scout_id TEXT NOT NULL,
+                analysis_date TEXT NOT NULL,
+                accuracy INTEGER DEFAULT 50,
+                -- 技術的能力値評価
+                contact_evaluation INTEGER DEFAULT 50,
+                power_evaluation INTEGER DEFAULT 50,
+                plate_discipline_evaluation INTEGER DEFAULT 50,
+                bunt_evaluation INTEGER DEFAULT 50,
+                opposite_field_hitting_evaluation INTEGER DEFAULT 50,
+                pull_hitting_evaluation INTEGER DEFAULT 50,
+                bat_control_evaluation INTEGER DEFAULT 50,
+                swing_speed_evaluation INTEGER DEFAULT 50,
+                fielding_evaluation INTEGER DEFAULT 50,
+                throwing_evaluation INTEGER DEFAULT 50,
+                catcher_ability_evaluation INTEGER DEFAULT 50,
+                control_evaluation INTEGER DEFAULT 50,
+                fastball_evaluation INTEGER DEFAULT 50,
+                breaking_ball_evaluation INTEGER DEFAULT 50,
+                pitch_movement_evaluation INTEGER DEFAULT 50,
+                -- 精神的能力値評価
+                concentration_evaluation INTEGER DEFAULT 50,
+                anticipation_evaluation INTEGER DEFAULT 50,
+                vision_evaluation INTEGER DEFAULT 50,
+                composure_evaluation INTEGER DEFAULT 50,
+                aggression_evaluation INTEGER DEFAULT 50,
+                bravery_evaluation INTEGER DEFAULT 50,
+                leadership_evaluation INTEGER DEFAULT 50,
+                work_rate_evaluation INTEGER DEFAULT 50,
+                self_discipline_evaluation INTEGER DEFAULT 50,
+                ambition_evaluation INTEGER DEFAULT 50,
+                teamwork_evaluation INTEGER DEFAULT 50,
+                positioning_evaluation INTEGER DEFAULT 50,
+                pressure_handling_evaluation INTEGER DEFAULT 50,
+                clutch_ability_evaluation INTEGER DEFAULT 50,
+                motivation_evaluation INTEGER DEFAULT 50,
+                pressure_evaluation INTEGER DEFAULT 50,
+                adaptability_evaluation INTEGER DEFAULT 50,
+                consistency_evaluation INTEGER DEFAULT 50,
+                clutch_evaluation INTEGER DEFAULT 50,
+                work_ethic_evaluation INTEGER DEFAULT 50,
+                -- 身体的能力値評価
+                acceleration_evaluation INTEGER DEFAULT 50,
+                agility_evaluation INTEGER DEFAULT 50,
+                balance_evaluation INTEGER DEFAULT 50,
+                jumping_reach_evaluation INTEGER DEFAULT 50,
+                natural_fitness_evaluation INTEGER DEFAULT 50,
+                injury_proneness_evaluation INTEGER DEFAULT 50,
+                stamina_evaluation INTEGER DEFAULT 50,
+                strength_evaluation INTEGER DEFAULT 50,
+                pace_evaluation INTEGER DEFAULT 50,
+                flexibility_evaluation INTEGER DEFAULT 50,
+                speed_evaluation INTEGER DEFAULT 50,
+                -- 総合評価指標
+                overall_evaluation INTEGER DEFAULT 50,
+                technical_evaluation INTEGER DEFAULT 50,
+                physical_evaluation INTEGER DEFAULT 50,
+                mental_evaluation INTEGER DEFAULT 50,
+                -- その他
+                is_graduated INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (player_id) REFERENCES Player (id)
+              )
+            ''');
+            print('ScoutAnalysisテーブルを作成しました');
+          }
+        } catch (e) {
+          print('ScoutAnalysisテーブル作成エラー: $e');
+        }
+        
+        // ScoutBasicInfoAnalysisテーブルが存在しない場合は作成
+        try {
+          final tableInfo = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='ScoutBasicInfoAnalysis'");
+          if (tableInfo.isEmpty) {
+            await db.execute('''
+              CREATE TABLE ScoutBasicInfoAnalysis (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id INTEGER NOT NULL,
+                scout_id TEXT NOT NULL,
+                analysis_date TEXT NOT NULL,
+                -- 基本情報評価
+                personality_evaluation INTEGER DEFAULT 50,
+                talent_evaluation INTEGER DEFAULT 50,
+                growth_evaluation INTEGER DEFAULT 50,
+                mental_evaluation INTEGER DEFAULT 50,
+                potential_evaluation INTEGER DEFAULT 50,
+                -- その他
+                is_graduated INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (player_id) REFERENCES Player (id)
+              )
+            ''');
+            print('ScoutBasicInfoAnalysisテーブルを作成しました');
+          }
+        } catch (e) {
+          print('ScoutBasicInfoAnalysisテーブル作成エラー: $e');
+        }
+        
+        print('バージョン29のアップグレード完了');
+      } catch (e) {
+        print('総合能力値指標カラムの追加とScoutAnalysisテーブルの作成でエラー: $e');
+      }
+    }
+    
+    if (oldVersion < 30) {
+      // バージョン30: 既存選手の総合能力値指標を再計算
+      print('データベーススキーマを更新中（バージョン30）: 既存選手の総合能力値指標を再計算...');
+      
+      try {
+        // 全選手の総合能力値指標を再計算
+        final players = await db.query('Player');
+        int updatedCount = 0;
+        
+        for (final player in players) {
+          final playerId = player['id'] as int;
+          await _updatePlayerOverallAbilities(db, playerId);
+          updatedCount++;
+        }
+        
+        print('バージョン30のアップグレード完了: ${updatedCount}人の選手の総合能力値指標を更新しました');
+      } catch (e) {
+        print('バージョン30のアップグレードでエラー: $e');
+      }
+    }
+    
     print('データベーススキーマのアップグレード完了');
   }
 
@@ -777,6 +998,11 @@ class DataService {
         pace INTEGER DEFAULT 50,
         flexibility INTEGER DEFAULT 50,
         speed INTEGER DEFAULT 50,
+        -- 総合能力値指標
+        overall_ability INTEGER DEFAULT 50,
+        technical_ability INTEGER DEFAULT 50,
+        physical_ability INTEGER DEFAULT 50,
+        mental_ability INTEGER DEFAULT 50,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (person_id) REFERENCES Person (id),
@@ -838,6 +1064,11 @@ class DataService {
         pace_potential INTEGER DEFAULT 50,
         flexibility_potential INTEGER DEFAULT 50,
         speed_potential INTEGER DEFAULT 50,
+        -- 総合ポテンシャル指標
+        overall_potential INTEGER DEFAULT 50,
+        technical_potential INTEGER DEFAULT 50,
+        physical_potential INTEGER DEFAULT 50,
+        mental_potential INTEGER DEFAULT 50,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (player_id) REFERENCES Player (id)
@@ -957,6 +1188,97 @@ class DataService {
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (team_id) REFERENCES ProfessionalTeam (id),
         UNIQUE(team_id, year)
+      )
+    ''');
+
+    // ScoutAnalysisテーブル（スカウト分析データ）
+    await db.execute('''
+      CREATE TABLE ScoutAnalysis (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER NOT NULL,
+        scout_id TEXT NOT NULL,
+        analysis_date TEXT NOT NULL,
+        accuracy INTEGER DEFAULT 50,
+        -- 技術的能力値評価
+        contact_evaluation INTEGER DEFAULT 50,
+        power_evaluation INTEGER DEFAULT 50,
+        plate_discipline_evaluation INTEGER DEFAULT 50,
+        bunt_evaluation INTEGER DEFAULT 50,
+        opposite_field_hitting_evaluation INTEGER DEFAULT 50,
+        pull_hitting_evaluation INTEGER DEFAULT 50,
+        bat_control_evaluation INTEGER DEFAULT 50,
+        swing_speed_evaluation INTEGER DEFAULT 50,
+        fielding_evaluation INTEGER DEFAULT 50,
+        throwing_evaluation INTEGER DEFAULT 50,
+        catcher_ability_evaluation INTEGER DEFAULT 50,
+        control_evaluation INTEGER DEFAULT 50,
+        fastball_evaluation INTEGER DEFAULT 50,
+        breaking_ball_evaluation INTEGER DEFAULT 50,
+        pitch_movement_evaluation INTEGER DEFAULT 50,
+        -- 精神的能力値評価
+        concentration_evaluation INTEGER DEFAULT 50,
+        anticipation_evaluation INTEGER DEFAULT 50,
+        vision_evaluation INTEGER DEFAULT 50,
+        composure_evaluation INTEGER DEFAULT 50,
+        aggression_evaluation INTEGER DEFAULT 50,
+        bravery_evaluation INTEGER DEFAULT 50,
+        leadership_evaluation INTEGER DEFAULT 50,
+        work_rate_evaluation INTEGER DEFAULT 50,
+        self_discipline_evaluation INTEGER DEFAULT 50,
+        ambition_evaluation INTEGER DEFAULT 50,
+        teamwork_evaluation INTEGER DEFAULT 50,
+        positioning_evaluation INTEGER DEFAULT 50,
+        pressure_handling_evaluation INTEGER DEFAULT 50,
+        clutch_ability_evaluation INTEGER DEFAULT 50,
+        motivation_evaluation INTEGER DEFAULT 50,
+        pressure_evaluation INTEGER DEFAULT 50,
+        adaptability_evaluation INTEGER DEFAULT 50,
+        consistency_evaluation INTEGER DEFAULT 50,
+        clutch_evaluation INTEGER DEFAULT 50,
+        work_ethic_evaluation INTEGER DEFAULT 50,
+        -- 身体的能力値評価
+        acceleration_evaluation INTEGER DEFAULT 50,
+        agility_evaluation INTEGER DEFAULT 50,
+        balance_evaluation INTEGER DEFAULT 50,
+        jumping_reach_evaluation INTEGER DEFAULT 50,
+        natural_fitness_evaluation INTEGER DEFAULT 50,
+        injury_proneness_evaluation INTEGER DEFAULT 50,
+        stamina_evaluation INTEGER DEFAULT 50,
+        strength_evaluation INTEGER DEFAULT 50,
+        pace_evaluation INTEGER DEFAULT 50,
+        flexibility_evaluation INTEGER DEFAULT 50,
+        speed_evaluation INTEGER DEFAULT 50,
+        -- 総合評価指標
+        overall_evaluation INTEGER DEFAULT 50,
+        technical_evaluation INTEGER DEFAULT 50,
+        physical_evaluation INTEGER DEFAULT 50,
+        mental_evaluation INTEGER DEFAULT 50,
+        -- その他
+        is_graduated INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (player_id) REFERENCES Player (id)
+      )
+    ''');
+
+    // ScoutBasicInfoAnalysisテーブル（スカウト基本情報分析）
+    await db.execute('''
+      CREATE TABLE ScoutBasicInfoAnalysis (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER NOT NULL,
+        scout_id TEXT NOT NULL,
+        analysis_date TEXT NOT NULL,
+        -- 基本情報評価
+        personality_evaluation INTEGER DEFAULT 50,
+        talent_evaluation INTEGER DEFAULT 50,
+        growth_evaluation INTEGER DEFAULT 50,
+        mental_evaluation INTEGER DEFAULT 50,
+        potential_evaluation INTEGER DEFAULT 50,
+        -- その他
+        is_graduated INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (player_id) REFERENCES Player (id)
       )
     ''');
 
@@ -1208,8 +1530,11 @@ class DataService {
         for (int i = 0; i < count; i++) {
           // 選手の基本情報を生成
           final playerName = _generateProfessionalPlayerName();
-          final age = 18 + (DateTime.now().millisecondsSinceEpoch % 18); // 18-35歳
+          final age = 18 + (Random().nextInt(18)); // 18-35歳
           final talent = _generateTalentForProfessional(); // 3-5のtalent
+          
+          // ランダム性を向上させるための個別の乱数生成
+          final random = Random();
           
           // Personテーブルに挿入
           final personId = await db.insert('Person', {
@@ -1222,6 +1547,10 @@ class DataService {
             'drafted_at': DateTime.now().subtract(Duration(days: 365)).toIso8601String(),
           });
           
+          // peak_abilityを基準とした能力値生成（95%前後）
+          final peakAbility = _calculatePeakAbilityByAge(talent, age);
+          final targetAbility = (peakAbility * 0.95).round(); // peak_abilityの95%を目標
+          
           // Playerテーブルに挿入
           final playerId = await db.insert('Player', {
             'person_id': personId,
@@ -1229,7 +1558,7 @@ class DataService {
             'grade': 0, // プロ選手は学年なし
             'age': age,
             'position': position,
-            'fame': 60 + (DateTime.now().millisecondsSinceEpoch % 41), // 60-100
+            'fame': 60 + random.nextInt(41), // 60-100
             'is_publicly_known': 1,
             'is_scout_favorite': 0,
             'is_graduated': 1, // プロ選手は高校卒業済み
@@ -1238,109 +1567,114 @@ class DataService {
             'growth_rate': _calculateGrowthRateByAge(age),
             'talent': talent,
             'growth_type': _getGrowthTypeByAge(age),
-            'mental_grit': 0.6 + (DateTime.now().millisecondsSinceEpoch % 40) / 100.0, // 0.6-1.0
-            'peak_ability': _calculatePeakAbilityByAge(talent, age),
-            // 技術的能力値（ポテンシャルの80%程度から開始）
-            'contact': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'power': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'plate_discipline': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'bunt': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'opposite_field_hitting': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'pull_hitting': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'bat_control': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'swing_speed': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'fielding': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'throwing': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'catcher_ability': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'control': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'fastball': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'breaking_ball': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'pitch_movement': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            // 精神的能力値（ポテンシャルの80%程度から開始）
-            'concentration': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'anticipation': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'vision': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'composure': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'aggression': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'bravery': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'leadership': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'work_rate': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'self_discipline': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'ambition': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'teamwork': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'positioning': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'pressure_handling': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'clutch_ability': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'motivation': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'pressure': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'adaptability': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'consistency': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'clutch': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'work_ethic': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            // 身体的能力値（ポテンシャルの80%程度から開始）
-            'speed': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'agility': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'balance': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'jumping_reach': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'natural_fitness': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'injury_proneness': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'stamina': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'strength': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'pace': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
-            'flexibility': ((50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20)) * 0.8).round(),
+            'mental_grit': 0.6 + random.nextDouble() * 0.4, // 0.6-1.0
+            'peak_ability': peakAbility,
+            // 技術的能力値（peak_abilityの95%前後で生成、上限はpeak_ability+10）
+            'contact': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'power': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'plate_discipline': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'bunt': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'opposite_field_hitting': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'pull_hitting': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'bat_control': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'swing_speed': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'fielding': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'throwing': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'catcher_ability': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'control': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'fastball': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'breaking_ball': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'pitch_movement': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            // 精神的能力値（peak_abilityの95%前後で生成、上限はpeak_ability+10）
+            'concentration': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'anticipation': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'vision': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'composure': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'aggression': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'bravery': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'leadership': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'work_rate': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'self_discipline': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'ambition': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'teamwork': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'positioning': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'pressure_handling': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'clutch_ability': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'motivation': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'pressure': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'adaptability': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'consistency': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'clutch': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'work_ethic': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            // 身体的能力値（peak_abilityの95%前後で生成、上限はpeak_ability+10）
+            'acceleration': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'agility': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'balance': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'jumping_reach': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'natural_fitness': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'injury_proneness': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'stamina': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'strength': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'pace': _generateProPlayerAbility(targetAbility, peakAbility, random),
+            'flexibility': _generateProPlayerAbility(targetAbility, peakAbility, random),
           });
           
           // PlayerPotentialsテーブルに挿入
           await db.insert('PlayerPotentials', {
             'player_id': playerId,
-            // 技術的ポテンシャル（高校生と同じロジック）
-            'contact_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'power_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'plate_discipline_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'bunt_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'opposite_field_hitting_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'pull_hitting_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'bat_control_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'swing_speed_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'fielding_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'throwing_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'catcher_ability_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'control_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'fastball_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'breaking_ball_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'pitch_movement_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            // 精神的ポテンシャル（高校生と同じロジック）
-            'concentration_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'anticipation_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'vision_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'composure_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'aggression_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'bravery_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'leadership_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'work_rate_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'self_discipline_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'ambition_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'teamwork_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'positioning_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'pressure_handling_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'clutch_ability_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'motivation_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'pressure_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'adaptability_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'consistency_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'clutch_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'work_ethic_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            // 身体的ポテンシャル（高校生と同じロジック）
-            'speed_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'agility_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'balance_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'jumping_reach_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'natural_fitness_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'injury_proneness_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'stamina_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'strength_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'pace_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
-            'flexibility_potential': 50 + (talent * 10) + (DateTime.now().millisecondsSinceEpoch % 20),
+            // 総合ポテンシャル指標
+            'overall_potential': peakAbility,
+            'technical_potential': peakAbility,
+            'physical_potential': peakAbility,
+            'mental_potential': peakAbility,
+            // 技術的ポテンシャル（peak_abilityを基準に生成、上限はpeak_ability+15）
+            'contact_potential': _generateProPlayerPotential(peakAbility, random),
+            'power_potential': _generateProPlayerPotential(peakAbility, random),
+            'plate_discipline_potential': _generateProPlayerPotential(peakAbility, random),
+            'bunt_potential': _generateProPlayerPotential(peakAbility, random),
+            'opposite_field_hitting_potential': _generateProPlayerPotential(peakAbility, random),
+            'pull_hitting_potential': _generateProPlayerPotential(peakAbility, random),
+            'bat_control_potential': _generateProPlayerPotential(peakAbility, random),
+            'swing_speed_potential': _generateProPlayerPotential(peakAbility, random),
+            'fielding_potential': _generateProPlayerPotential(peakAbility, random),
+            'throwing_potential': _generateProPlayerPotential(peakAbility, random),
+            'catcher_ability_potential': _generateProPlayerPotential(peakAbility, random),
+            'control_potential': _generateProPlayerPotential(peakAbility, random),
+            'fastball_potential': _generateProPlayerPotential(peakAbility, random),
+            'breaking_ball_potential': _generateProPlayerPotential(peakAbility, random),
+            'pitch_movement_potential': _generateProPlayerPotential(peakAbility, random),
+            // 精神的ポテンシャル（peak_abilityを基準に生成、上限はpeak_ability+15）
+            'concentration_potential': _generateProPlayerPotential(peakAbility, random),
+            'anticipation_potential': _generateProPlayerPotential(peakAbility, random),
+            'vision_potential': _generateProPlayerPotential(peakAbility, random),
+            'composure_potential': _generateProPlayerPotential(peakAbility, random),
+            'aggression_potential': _generateProPlayerPotential(peakAbility, random),
+            'bravery_potential': _generateProPlayerPotential(peakAbility, random),
+            'leadership_potential': _generateProPlayerPotential(peakAbility, random),
+            'work_rate_potential': _generateProPlayerPotential(peakAbility, random),
+            'self_discipline_potential': _generateProPlayerPotential(peakAbility, random),
+            'ambition_potential': _generateProPlayerPotential(peakAbility, random),
+            'teamwork_potential': _generateProPlayerPotential(peakAbility, random),
+            'positioning_potential': _generateProPlayerPotential(peakAbility, random),
+            'pressure_handling_potential': _generateProPlayerPotential(peakAbility, random),
+            'clutch_ability_potential': _generateProPlayerPotential(peakAbility, random),
+            'motivation_potential': _generateProPlayerPotential(peakAbility, random),
+            'pressure_potential': _generateProPlayerPotential(peakAbility, random),
+            'adaptability_potential': _generateProPlayerPotential(peakAbility, random),
+            'consistency_potential': _generateProPlayerPotential(peakAbility, random),
+            'clutch_potential': _generateProPlayerPotential(peakAbility, random),
+            'work_ethic_potential': _generateProPlayerPotential(peakAbility, random),
+            // 身体的ポテンシャル（peak_abilityを基準に生成、上限はpeak_ability+15）
+            'speed_potential': _generateProPlayerPotential(peakAbility, random),
+            'agility_potential': _generateProPlayerPotential(peakAbility, random),
+            'balance_potential': _generateProPlayerPotential(peakAbility, random),
+            'jumping_reach_potential': _generateProPlayerPotential(peakAbility, random),
+            'natural_fitness_potential': _generateProPlayerPotential(peakAbility, random),
+            'injury_proneness_potential': _generateProPlayerPotential(peakAbility, random),
+            'stamina_potential': _generateProPlayerPotential(peakAbility, random),
+            'strength_potential': _generateProPlayerPotential(peakAbility, random),
+            'pace_potential': _generateProPlayerPotential(peakAbility, random),
+            'flexibility_potential': _generateProPlayerPotential(peakAbility, random),
           });
           
           // ProfessionalPlayerテーブルに挿入
@@ -1348,7 +1682,7 @@ class DataService {
             'player_id': playerId,
             'team_id': teamId,
             'contract_year': 1,
-            'salary': 1000 + (talent * 200) + (DateTime.now().millisecondsSinceEpoch % 500), // 1000-2500万円
+            'salary': 1000 + (talent * 200) + random.nextInt(500), // 1000-2500万円
             'contract_type': 'regular',
             'draft_year': DateTime.now().year - 1,
             'draft_round': 1,
@@ -1360,15 +1694,9 @@ class DataService {
           
           // 総合能力値指標を計算・更新
           await _updatePlayerOverallAbilities(db, playerId);
-          
-          print('${teamShortName}の${position}選手${i + 1}名目を挿入完了: $playerName (ID: $playerId)');
         }
       }
-      
-      print('${teamShortName}のプロ選手生成・挿入完了');
     }
-    
-    print('全プロ選手の初期データ生成・挿入完了');
   }
 
   // プロ選手用の名前生成
@@ -1423,55 +1751,165 @@ class DataService {
       
       final playerData = player.first;
       
-      // 技術的能力値の平均
-      final technicalAbility = (
-        (playerData['contact'] as int? ?? 50) +
-        (playerData['power'] as int? ?? 50) +
-        (playerData['plate_discipline'] as int? ?? 50) +
-        (playerData['bunt'] as int? ?? 50) +
-        (playerData['opposite_field_hitting'] as int? ?? 50) +
-        (playerData['pull_hitting'] as int? ?? 50) +
-        (playerData['bat_control'] as int? ?? 50) +
-        (playerData['swing_speed'] as int? ?? 50) +
-        (playerData['fielding'] as int? ?? 50) +
-        (playerData['throwing'] as int? ?? 50) +
-        (playerData['catcher_ability'] as int? ?? 50) +
-        (playerData['control'] as int? ?? 50) +
-        (playerData['fastball'] as int? ?? 50) +
-        (playerData['breaking_ball'] as int? ?? 50) +
-        (playerData['pitch_movement'] as int? ?? 50)
-      ) ~/ 15;
+      // 技術的能力値の平均（投手と野手で異なる重み付け）
+      final position = playerData['position'] as String? ?? '投手';
+      int technicalAbility;
       
-      // 精神的能力値の平均
-      final mentalAbility = (
-        (playerData['leadership'] as int? ?? 50) +
-        (playerData['teamwork'] as int? ?? 50) +
-        (playerData['motivation'] as int? ?? 50) +
-        (playerData['pressure'] as int? ?? 50) +
-        (playerData['adaptability'] as int? ?? 50) +
-        (playerData['consistency'] as int? ?? 50) +
-        (playerData['clutch'] as int? ?? 50) +
-        (playerData['work_ethic'] as int? ?? 50)
-      ) ~/ 8;
+      if (position == '投手') {
+        // 投手は投球関連能力値を重視
+        final pitchingAbilities = [
+          playerData['control'] as int? ?? 50,
+          playerData['fastball'] as int? ?? 50,
+          playerData['breaking_ball'] as int? ?? 50,
+          playerData['pitch_movement'] as int? ?? 50,
+        ];
+        final fieldingAbilities = [
+          playerData['fielding'] as int? ?? 50,
+          playerData['throwing'] as int? ?? 50,
+        ];
+        final battingAbilities = [
+          playerData['contact'] as int? ?? 50,
+          playerData['power'] as int? ?? 50,
+          playerData['plate_discipline'] as int? ?? 50,
+          playerData['bunt'] as int? ?? 50,
+        ];
+        
+        // 投手能力: 投球関連60%、守備関連25%、打撃関連15%
+        final pitchingAvg = pitchingAbilities.reduce((a, b) => a + b) / pitchingAbilities.length;
+        final fieldingAvg = fieldingAbilities.reduce((a, b) => a + b) / fieldingAbilities.length;
+        final battingAvg = battingAbilities.reduce((a, b) => a + b) / battingAbilities.length;
+        
+        technicalAbility = (
+          (pitchingAvg * 0.6) +
+          (fieldingAvg * 0.25) +
+          (battingAvg * 0.15)
+        ).round();
+      } else {
+        // 野手は打撃・守備関連能力値を重視
+        final battingAbilities = [
+          playerData['contact'] as int? ?? 50,
+          playerData['power'] as int? ?? 50,
+          playerData['plate_discipline'] as int? ?? 50,
+          playerData['bunt'] as int? ?? 50,
+          playerData['opposite_field_hitting'] as int? ?? 50,
+          playerData['pull_hitting'] as int? ?? 50,
+          playerData['bat_control'] as int? ?? 50,
+          playerData['swing_speed'] as int? ?? 50,
+        ];
+        final fieldingAbilities = [
+          playerData['fielding'] as int? ?? 50,
+          playerData['throwing'] as int? ?? 50,
+        ];
+        
+        // 野手能力: 打撃関連70%、守備関連30%
+        final battingAvg = battingAbilities.reduce((a, b) => a + b) / battingAbilities.length;
+        final fieldingAvg = fieldingAbilities.reduce((a, b) => a + b) / fieldingAbilities.length;
+        
+        technicalAbility = (
+          (battingAvg * 0.7) +
+          (fieldingAvg * 0.3)
+        ).round();
+      }
       
-      // 身体的能力値の平均
-      final physicalAbility = (
-        (playerData['speed'] as int? ?? 50) +
-        (playerData['agility'] as int? ?? 50) +
-        (playerData['balance'] as int? ?? 50) +
-        (playerData['jumping_reach'] as int? ?? 50) +
-        (playerData['natural_fitness'] as int? ?? 50) +
-        (playerData['injury_proneness'] as int? ?? 50) +
-        (playerData['stamina'] as int? ?? 50) +
-        (playerData['strength'] as int? ?? 50) +
-        (playerData['pace'] as int? ?? 50) +
-        (playerData['flexibility'] as int? ?? 50)
-      ) ~/ 10;
+      // 精神的能力値の平均（重要な能力値を重視）
+      final mentalAbilities = [
+        (playerData['concentration'] as int? ?? 50) * 1.2, // 集中力
+        (playerData['anticipation'] as int? ?? 50) * 1.1, // 予測力
+        (playerData['vision'] as int? ?? 50) * 1.1, // 視野
+        (playerData['composure'] as int? ?? 50) * 1.2, // 冷静さ
+        (playerData['aggression'] as int? ?? 50) * 1.0, // 積極性
+        (playerData['bravery'] as int? ?? 50) * 1.0, // 勇気
+        (playerData['leadership'] as int? ?? 50) * 1.1, // リーダーシップ
+        (playerData['work_rate'] as int? ?? 50) * 1.2, // 練習量
+        (playerData['self_discipline'] as int? ?? 50) * 1.1, // 自己管理
+        (playerData['ambition'] as int? ?? 50) * 1.0, // 野心
+        (playerData['teamwork'] as int? ?? 50) * 1.1, // チームワーク
+        (playerData['positioning'] as int? ?? 50) * 1.0, // ポジショニング
+        (playerData['pressure_handling'] as int? ?? 50) * 1.2, // プレッシャー処理
+        (playerData['clutch_ability'] as int? ?? 50) * 1.2, // 勝負強さ
+        (playerData['motivation'] as int? ?? 50) * 1.1, // モチベーション
+        (playerData['pressure'] as int? ?? 50) * 1.0, // プレッシャー
+        (playerData['adaptability'] as int? ?? 50) * 1.0, // 適応力
+        (playerData['consistency'] as int? ?? 50) * 1.1, // 安定性
+        (playerData['clutch'] as int? ?? 50) * 1.2, // 勝負強さ
+        (playerData['work_ethic'] as int? ?? 50) * 1.2, // 練習熱心
+      ];
       
-      // 総合能力値（全能力値の平均）
-      final overallAbility = (
-        technicalAbility * 15 + mentalAbility * 8 + physicalAbility * 10
-      ) ~/ 33;
+      final mentalAbility = (mentalAbilities.reduce((a, b) => a + b) / mentalAbilities.length).round();
+      
+      // 身体的能力値の平均（ポジション別の重み付け）
+      int physicalAbility;
+      if (position == '投手') {
+        // 投手は持久力と筋力を重視
+        final staminaAbilities = [
+          (playerData['stamina'] as int? ?? 50) * 1.3, // 持久力
+          (playerData['strength'] as int? ?? 50) * 1.2, // 筋力
+          (playerData['natural_fitness'] as int? ?? 50) * 1.1, // 自然な体力
+        ];
+        final otherAbilities = [
+          playerData['speed'] as int? ?? 50,
+          playerData['agility'] as int? ?? 50,
+          playerData['balance'] as int? ?? 50,
+          playerData['jumping_reach'] as int? ?? 50,
+          playerData['injury_proneness'] as int? ?? 50,
+          playerData['pace'] as int? ?? 50,
+          playerData['flexibility'] as int? ?? 50,
+        ];
+        
+        final staminaAvg = staminaAbilities.reduce((a, b) => a + b) / staminaAbilities.length;
+        final otherAvg = otherAbilities.reduce((a, b) => a + b) / otherAbilities.length;
+        
+        physicalAbility = (
+          (staminaAvg * 0.6) +
+          (otherAvg * 0.4)
+        ).round();
+      } else {
+        // 野手はスピードと敏捷性を重視
+        final speedAbilities = [
+          (playerData['speed'] as int? ?? 50) * 1.3, // スピード
+          (playerData['agility'] as int? ?? 50) * 1.2, // 敏捷性
+          (playerData['acceleration'] as int? ?? 50) * 1.2, // 加速力
+        ];
+        final otherAbilities = [
+          playerData['balance'] as int? ?? 50,
+          playerData['jumping_reach'] as int? ?? 50,
+          playerData['natural_fitness'] as int? ?? 50,
+          playerData['injury_proneness'] as int? ?? 50,
+          playerData['stamina'] as int? ?? 50,
+          playerData['strength'] as int? ?? 50,
+          playerData['pace'] as int? ?? 50,
+          playerData['flexibility'] as int? ?? 50,
+        ];
+        
+        final speedAvg = speedAbilities.reduce((a, b) => a + b) / speedAbilities.length;
+        final otherAvg = otherAbilities.reduce((a, b) => a + b) / otherAbilities.length;
+        
+        physicalAbility = (
+          (speedAvg * 0.5) +
+          (otherAvg * 0.5)
+        ).round();
+      }
+      
+      // 総合能力値（ポジション別の重み付け）
+      int overallAbility;
+      if (position == '投手') {
+        // 投手: 技術50%、精神30%、身体20%
+        overallAbility = (
+          (technicalAbility * 0.5) +
+          (mentalAbility * 0.3) +
+          (physicalAbility * 0.2)
+        ).round();
+      } else {
+        // 野手: 技術40%、精神25%、身体35%
+        overallAbility = (
+          (technicalAbility * 0.4) +
+          (mentalAbility * 0.25) +
+          (physicalAbility * 0.35)
+        ).round();
+      }
+      
+      print('総合能力値計算: プレイヤーID $playerId, ポジション: $position');
+      print('技術: $technicalAbility, 精神: $mentalAbility, 身体: $physicalAbility, 総合: $overallAbility');
       
       // データベースを更新
       await db.update('Player', {
@@ -1480,6 +1918,8 @@ class DataService {
         'physical_ability': physicalAbility,
         'mental_ability': mentalAbility,
       }, where: 'id = ?', whereArgs: [playerId]);
+      
+      print('総合能力値指標の更新完了: プレイヤーID $playerId');
       
     } catch (e) {
       print('総合能力値指標の計算・更新でエラー: $e');
@@ -1504,6 +1944,32 @@ class DataService {
       // シニア：ピーク能力の75-85%（能力低下）
       return (basePeak * (0.75 + random.nextDouble() * 0.1)).round();
     }
+  }
+
+  /// プロ選手の能力値を生成（peak_abilityを基準とした95%前後）
+  int _generateProPlayerAbility(int targetAbility, int peakAbility, Random random) {
+    // targetAbility（peak_abilityの95%）を中心とした変動
+    final variation = random.nextInt(21) - 10; // -10 から +10 の変動
+    final ability = targetAbility + variation;
+    
+    // 上限はpeak_ability + 10、下限はtargetAbility - 15
+    final maxAbility = peakAbility + 10;
+    final minAbility = (targetAbility - 15).clamp(0, targetAbility);
+    
+    return ability.clamp(minAbility, maxAbility);
+  }
+
+  /// プロ選手のポテンシャルを生成（peak_abilityを基準とした上限+15）
+  int _generateProPlayerPotential(int peakAbility, Random random) {
+    // peak_abilityを中心とした変動
+    final variation = random.nextInt(21) - 10; // -10 から +10 の変動
+    final potential = peakAbility + variation;
+    
+    // 上限はpeak_ability + 15、下限はpeak_ability - 10
+    final maxPotential = peakAbility + 15;
+    final minPotential = (peakAbility - 10).clamp(0, peakAbility);
+    
+    return potential.clamp(minPotential, maxPotential);
   }
 
   /// 既存選手の注目選手フラグを再計算して設定（マイグレーション用）

@@ -91,10 +91,10 @@ class ActionService {
   }
 
   /// 学校視察アクション（学校単位で実行）
-  static SchoolScoutResult scoutSchool({
+  static Future<SchoolScoutResult> scoutSchool({
     required School school,
     required int currentWeek,
-  }) {
+  }) async {
     // 未発掘選手リスト
     final undiscovered = school.players.where((p) => !p.isDiscovered).toList();
     if (undiscovered.isNotEmpty) {
@@ -115,6 +115,10 @@ class ActionService {
         final randomVariation = Random().nextInt(21) - 10; // ±10%
         return (baseKnowledge + randomVariation).clamp(0, 100);
       });
+      
+      // 学校視察で発見した選手のScoutAnalysisデータを生成
+      await _generateSchoolScoutAnalysis(player, 1); // デフォルトスカウトID 1
+      
       return SchoolScoutResult(
         discoveredPlayer: player,
         improvedPlayer: null,
@@ -141,6 +145,10 @@ class ActionService {
         }
         return (v + 10 + Random().nextInt(11)).clamp(0, 80);
       });
+      
+      // 学校視察で把握度を上げた選手のScoutAnalysisデータを更新
+      await _generateSchoolScoutAnalysis(player, 1); // デフォルトスカウトID 1
+      
       return SchoolScoutResult(
         discoveredPlayer: null,
         improvedPlayer: player,
@@ -510,6 +518,9 @@ class ActionService {
     // 基本情報分析データを生成・保存
     await _generateBasicInfoAnalysis(targetPlayer, 1, growthTypeAnalysis, injuryRisk, potentialAnalysis);
     
+    // ビデオ分析で把握できる能力値のScoutAnalysisデータも生成
+    await _generateVideoAnalysisScoutData(targetPlayer, 1); // デフォルトスカウトID 1
+    
     return ScoutActionResult(
       success: true,
       message: '📹 ${targetPlayer.name}のビデオ分析: 成長タイプ「${growthTypeAnalysis}」、怪我リスク「${injuryRisk}」、ポテンシャル「${potentialAnalysis}」を分析しました',
@@ -758,6 +769,9 @@ class ActionService {
     } catch (e) {
       print('インタビュー基本情報分析データ生成呼び出しエラー: $e');
     }
+    
+    // インタビューで把握できる能力値のScoutAnalysisデータも生成
+    await _generateInterviewScoutData(targetPlayer, 1); // デフォルトスカウトID 1
     
     return ScoutActionResult(
       success: true,
@@ -1100,6 +1114,208 @@ class ActionService {
     }
   }
 
+  /// 学校視察用のスカウト分析データ生成・保存
+  static Future<void> _generateSchoolScoutAnalysis(Player targetPlayer, int scoutId) async {
+    try {
+      final dataService = DataService();
+      final db = await dataService.database;
+      
+      // 既存データを削除してから新しいデータを挿入
+      await db.delete(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId],
+      );
+      
+      // 学校視察で把握できる能力値を生成（フィジカル面中心、精度は中程度）
+      final scoutedAbilities = <String, dynamic>{
+        'player_id': targetPlayer.id ?? 0,
+        'scout_id': scoutId,
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': 75, // 学校視察は中程度の精度
+      };
+      
+      // フィジカル面の能力値を追加（学校視察で見える部分）
+      final physicalAbilities = [
+        {'key': 'acceleration_scouted', 'ability': PhysicalAbility.acceleration},
+        {'key': 'agility_scouted', 'ability': PhysicalAbility.agility},
+        {'key': 'balance_scouted', 'ability': PhysicalAbility.balance},
+        {'key': 'stamina_scouted', 'ability': PhysicalAbility.stamina},
+        {'key': 'strength_scouted', 'ability': PhysicalAbility.strength},
+        {'key': 'pace_scouted', 'ability': PhysicalAbility.pace},
+        {'key': 'flexibility_scouted', 'ability': PhysicalAbility.flexibility},
+      ];
+      
+      for (final abilityInfo in physicalAbilities) {
+        final columnKey = abilityInfo['key'] as String;
+        final ability = abilityInfo['ability'] as PhysicalAbility;
+        
+        // 真の能力値を取得
+        final trueValue = targetPlayer.getPhysicalAbility(ability);
+        
+        // 学校視察は中精度（誤差±8程度）
+        final errorRange = 8;
+        final random = Random();
+        final error = random.nextInt(errorRange * 2 + 1) - errorRange;
+        final scoutedValue = (trueValue + error).clamp(0, 100);
+        
+        scoutedAbilities[columnKey] = scoutedValue;
+      }
+      
+      // 技術面の一部能力値も追加（学校視察で見える部分）
+      final technicalAbilities = [
+        {'key': 'fielding_scouted', 'ability': TechnicalAbility.fielding},
+        {'key': 'throwing_scouted', 'ability': TechnicalAbility.throwing},
+        {'key': 'bat_control_scouted', 'ability': TechnicalAbility.batControl},
+      ];
+      
+      for (final abilityInfo in technicalAbilities) {
+        final columnKey = abilityInfo['key'] as String;
+        final ability = abilityInfo['ability'] as TechnicalAbility;
+        
+        // 真の能力値を取得
+        final trueValue = targetPlayer.getTechnicalAbility(ability);
+        
+        // 学校視察は中精度（誤差±8程度）
+        final errorRange = 8;
+        final random = Random();
+        final error = random.nextInt(errorRange * 2 + 1) - errorRange;
+        final scoutedValue = (trueValue + error).clamp(0, 100);
+        
+        scoutedAbilities[columnKey] = scoutedValue;
+      }
+      
+      // データベースに保存
+      await db.insert('ScoutAnalysis', scoutedAbilities);
+      
+      print('学校視察スカウト分析データ生成完了: プレイヤーID ${targetPlayer.id}');
+    } catch (e) {
+      print('学校視察スカウト分析データ生成エラー: $e');
+    }
+  }
+
+  /// インタビュー用のスカウト分析データ生成・保存
+  static Future<void> _generateInterviewScoutData(Player targetPlayer, int scoutId) async {
+    try {
+      final dataService = DataService();
+      final db = await dataService.database;
+      
+      // 既存データを削除してから新しいデータを挿入
+      await db.delete(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId],
+      );
+      
+      // インタビューで把握できる能力値を生成（メンタル面中心、精度は高め）
+      final scoutedAbilities = <String, dynamic>{
+        'player_id': targetPlayer.id ?? 0,
+        'scout_id': scoutId,
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': 90, // インタビューは高精度
+      };
+      
+      // メンタル面の能力値を追加（インタビューで見える部分）
+      final mentalAbilities = [
+        {'key': 'concentration_scouted', 'ability': MentalAbility.concentration},
+        {'key': 'anticipation_scouted', 'ability': MentalAbility.anticipation},
+        {'key': 'vision_scouted', 'ability': MentalAbility.vision},
+        {'key': 'composure_scouted', 'ability': MentalAbility.composure},
+        {'key': 'aggression_scouted', 'ability': MentalAbility.aggression},
+        {'key': 'bravery_scouted', 'ability': MentalAbility.bravery},
+        {'key': 'leadership_scouted', 'ability': MentalAbility.leadership},
+        {'key': 'work_rate_scouted', 'ability': MentalAbility.workRate},
+        {'key': 'self_discipline_scouted', 'ability': MentalAbility.selfDiscipline},
+        {'key': 'ambition_scouted', 'ability': MentalAbility.ambition},
+        {'key': 'teamwork_scouted', 'ability': MentalAbility.teamwork},
+        {'key': 'positioning_scouted', 'ability': MentalAbility.positioning},
+        {'key': 'pressure_handling_scouted', 'ability': MentalAbility.pressureHandling},
+        {'key': 'clutch_ability_scouted', 'ability': MentalAbility.clutchAbility},
+      ];
+      
+      for (final abilityInfo in mentalAbilities) {
+        final columnKey = abilityInfo['key'] as String;
+        final ability = abilityInfo['ability'] as MentalAbility;
+        
+        // 真の能力値を取得
+        final trueValue = targetPlayer.getMentalAbility(ability);
+        
+        // インタビューは高精度（誤差±3程度）
+        final errorRange = 3;
+        final random = Random();
+        final error = random.nextInt(errorRange * 2 + 1) - errorRange;
+        final scoutedValue = (trueValue + error).clamp(0, 100);
+        
+        scoutedAbilities[columnKey] = scoutedValue;
+      }
+      
+      // データベースに保存
+      await db.insert('ScoutAnalysis', scoutedAbilities);
+      
+      print('インタビュースカウト分析データ生成完了: プレイヤーID ${targetPlayer.id}');
+    } catch (e) {
+      print('インタビュースカウト分析データ生成エラー: $e');
+    }
+  }
+
+  /// ビデオ分析用のスカウト分析データ生成・保存
+  static Future<void> _generateVideoAnalysisScoutData(Player targetPlayer, int scoutId) async {
+    try {
+      final dataService = DataService();
+      final db = await dataService.database;
+      
+      // 既存データを削除してから新しいデータを挿入
+      await db.delete(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [targetPlayer.id ?? 0, scoutId],
+      );
+      
+      // ビデオ分析で把握できる能力値を生成（技術面中心、精度は高め）
+      final scoutedAbilities = <String, dynamic>{
+        'player_id': targetPlayer.id ?? 0,
+        'scout_id': scoutId,
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': 85, // ビデオ分析は高精度
+      };
+      
+      // 技術面の能力値を追加（ビデオ分析で見える部分）
+      final technicalAbilities = [
+        {'key': 'contact_scouted', 'ability': TechnicalAbility.contact},
+        {'key': 'power_scouted', 'ability': TechnicalAbility.power},
+        {'key': 'bat_control_scouted', 'ability': TechnicalAbility.batControl},
+        {'key': 'fielding_scouted', 'ability': TechnicalAbility.fielding},
+        {'key': 'throwing_scouted', 'ability': TechnicalAbility.throwing},
+        {'key': 'control_scouted', 'ability': TechnicalAbility.control},
+        {'key': 'fastball_scouted', 'ability': TechnicalAbility.fastball},
+        {'key': 'breaking_ball_scouted', 'ability': TechnicalAbility.breakingBall},
+      ];
+      
+      for (final abilityInfo in technicalAbilities) {
+        final columnKey = abilityInfo['key'] as String;
+        final ability = abilityInfo['ability'] as TechnicalAbility;
+        
+        // 真の能力値を取得
+        final trueValue = targetPlayer.getTechnicalAbility(ability);
+        
+        // ビデオ分析は高精度（誤差±5程度）
+        final errorRange = 5;
+        final random = Random();
+        final error = random.nextInt(errorRange * 2 + 1) - errorRange;
+        final scoutedValue = (trueValue + error).clamp(0, 100);
+        
+        scoutedAbilities[columnKey] = scoutedValue;
+      }
+      
+      // データベースに保存
+      await db.insert('ScoutAnalysis', scoutedAbilities);
+      
+      print('ビデオ分析スカウト分析データ生成完了: プレイヤーID ${targetPlayer.id}');
+    } catch (e) {
+      print('ビデオ分析スカウト分析データ生成エラー: $e');
+    }
+  }
+
   /// 基本情報分析データ生成・保存
   static Future<void> _generateBasicInfoAnalysis(Player targetPlayer, int scoutId, String growthTypeAnalysis, String injuryRisk, String potentialAnalysis) async {
     try {
@@ -1243,11 +1459,251 @@ class ActionService {
   }
 
   /// スカウト分析データを保存
-  static void _saveScoutAnalysis(String playerId, Scout scout, double accuracy) {
-    // プレイヤーIDからプレイヤーオブジェクトを取得する必要がある
-    // この実装では、GameManagerからプレイヤー情報を取得する必要がある
-    // 簡易的な実装として、後でGameManagerから呼び出される際にプレイヤー情報を渡す
-    print('スカウト分析データ保存: プレイヤーID $playerId, 精度 $accuracy');
+  static Future<void> _saveScoutAnalysis(String playerId, Scout scout, double accuracy) async {
+    try {
+      print('スカウト分析データ保存開始: プレイヤーID $playerId, 精度 $accuracy');
+      
+      // DataServiceを取得
+      final dataService = DataService();
+      final db = await dataService.database;
+      
+      // プレイヤー情報を取得
+      final playerData = await db.query('Player', where: 'id = ?', whereArgs: [int.tryParse(playerId) ?? 0]);
+      if (playerData.isEmpty) {
+        print('プレイヤーが見つかりません: ID $playerId');
+        return;
+      }
+      
+      final player = playerData.first;
+      final scoutId = scout.name; // nameプロパティを使用
+      
+      // 既存のスカウト分析データを削除
+      await db.delete(
+        'ScoutAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [int.tryParse(playerId) ?? 0, scoutId],
+      );
+      
+      // スカウト分析データを生成・挿入
+      final insertData = {
+        'player_id': int.tryParse(playerId) ?? 0,
+        'scout_id': scoutId,
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': accuracy.round(),
+        // 技術的能力値評価（簡易版）
+        'contact_evaluation': _generateScoutedValue(player['contact'] as int? ?? 50, accuracy),
+        'power_evaluation': _generateScoutedValue(player['power'] as int? ?? 50, accuracy),
+        'plate_discipline_evaluation': _generateScoutedValue(player['plate_discipline'] as int? ?? 50, accuracy),
+        'bunt_evaluation': _generateScoutedValue(player['bunt'] as int? ?? 50, accuracy),
+        'opposite_field_hitting_evaluation': _generateScoutedValue(player['opposite_field_hitting'] as int? ?? 50, accuracy),
+        'pull_hitting_evaluation': _generateScoutedValue(player['pull_hitting'] as int? ?? 50, accuracy),
+        'bat_control_evaluation': _generateScoutedValue(player['bat_control'] as int? ?? 50, accuracy),
+        'swing_speed_evaluation': _generateScoutedValue(player['swing_speed'] as int? ?? 50, accuracy),
+        'fielding_evaluation': _generateScoutedValue(player['fielding'] as int? ?? 50, accuracy),
+        'throwing_evaluation': _generateScoutedValue(player['throwing'] as int? ?? 50, accuracy),
+        'catcher_ability_evaluation': _generateScoutedValue(player['catcher_ability'] as int? ?? 50, accuracy),
+        'control_evaluation': _generateScoutedValue(player['control'] as int? ?? 50, accuracy),
+        'fastball_evaluation': _generateScoutedValue(player['fastball'] as int? ?? 50, accuracy),
+        'breaking_ball_evaluation': _generateScoutedValue(player['breaking_ball'] as int? ?? 50, accuracy),
+        'pitch_movement_evaluation': _generateScoutedValue(player['pitch_movement'] as int? ?? 50, accuracy),
+        // 精神的能力値評価（簡易版）
+        'concentration_evaluation': _generateScoutedValue(player['concentration'] as int? ?? 50, accuracy),
+        'anticipation_evaluation': _generateScoutedValue(player['anticipation'] as int? ?? 50, accuracy),
+        'vision_evaluation': _generateScoutedValue(player['vision'] as int? ?? 50, accuracy),
+        'composure_evaluation': _generateScoutedValue(player['composure'] as int? ?? 50, accuracy),
+        'aggression_evaluation': _generateScoutedValue(player['aggression'] as int? ?? 50, accuracy),
+        'bravery_evaluation': _generateScoutedValue(player['bravery'] as int? ?? 50, accuracy),
+        'leadership_evaluation': _generateScoutedValue(player['leadership'] as int? ?? 50, accuracy),
+        'work_rate_evaluation': _generateScoutedValue(player['work_rate'] as int? ?? 50, accuracy),
+        'self_discipline_evaluation': _generateScoutedValue(player['self_discipline'] as int? ?? 50, accuracy),
+        'ambition_evaluation': _generateScoutedValue(player['ambition'] as int? ?? 50, accuracy),
+        'teamwork_evaluation': _generateScoutedValue(player['teamwork'] as int? ?? 50, accuracy),
+        'positioning_evaluation': _generateScoutedValue(player['positioning'] as int? ?? 50, accuracy),
+        'pressure_handling_evaluation': _generateScoutedValue(player['pressure_handling'] as int? ?? 50, accuracy),
+        'clutch_ability_evaluation': _generateScoutedValue(player['clutch_ability'] as int? ?? 50, accuracy),
+        'motivation_evaluation': _generateScoutedValue(player['motivation'] as int? ?? 50, accuracy),
+        'pressure_evaluation': _generateScoutedValue(player['pressure'] as int? ?? 50, accuracy),
+        'adaptability_evaluation': _generateScoutedValue(player['adaptability'] as int? ?? 50, accuracy),
+        'consistency_evaluation': _generateScoutedValue(player['consistency'] as int? ?? 50, accuracy),
+        'clutch_evaluation': _generateScoutedValue(player['clutch'] as int? ?? 50, accuracy),
+        'work_ethic_evaluation': _generateScoutedValue(player['work_ethic'] as int? ?? 50, accuracy),
+        // 身体的能力値評価（簡易版）
+        'acceleration_evaluation': _generateScoutedValue(player['acceleration'] as int? ?? 50, accuracy),
+        'agility_evaluation': _generateScoutedValue(player['agility'] as int? ?? 50, accuracy),
+        'balance_evaluation': _generateScoutedValue(player['balance'] as int? ?? 50, accuracy),
+        'jumping_reach_evaluation': _generateScoutedValue(player['jumping_reach'] as int? ?? 50, accuracy),
+        'natural_fitness_evaluation': _generateScoutedValue(player['natural_fitness'] as int? ?? 50, accuracy),
+        'injury_proneness_evaluation': _generateScoutedValue(player['injury_proneness'] as int? ?? 50, accuracy),
+        'stamina_evaluation': _generateScoutedValue(player['stamina'] as int? ?? 50, accuracy),
+        'strength_evaluation': _generateScoutedValue(player['strength'] as int? ?? 50, accuracy),
+        'pace_evaluation': _generateScoutedValue(player['pace'] as int? ?? 50, accuracy),
+        'flexibility_evaluation': _generateScoutedValue(player['flexibility'] as int? ?? 50, accuracy),
+        'speed_evaluation': _generateScoutedValue(player['speed'] as int? ?? 50, accuracy),
+        // 総合評価指標
+        'overall_evaluation': _calculateOverallEvaluation(player, accuracy),
+        'technical_evaluation': _calculateTechnicalEvaluation(player, accuracy),
+        'physical_evaluation': _calculatePhysicalEvaluation(player, accuracy),
+        'mental_evaluation': _calculateMentalEvaluation(player, accuracy),
+        'is_graduated': player['is_graduated'] as int? ?? 0,
+      };
+      
+      // データベースに挿入
+      await db.insert('ScoutAnalysis', insertData);
+      
+      print('スカウト分析データ保存完了: プレイヤーID $playerId');
+      
+    } catch (e) {
+      print('スカウト分析データ保存エラー: $e');
+    }
+  }
+  
+  /// スカウトされた能力値を生成（精度に基づく誤差付き）
+  static int _generateScoutedValue(int trueValue, double accuracy) {
+    final random = Random();
+    final errorRange = ((100 - accuracy) / 10).round(); // 精度が低いほど誤差が大きい
+    final error = random.nextInt(errorRange * 2 + 1) - errorRange;
+    return (trueValue + error).clamp(0, 100);
+  }
+  
+  /// 総合評価を計算
+  static int _calculateOverallEvaluation(Map<String, dynamic> player, double accuracy) {
+    final technical = _calculateTechnicalEvaluation(player, accuracy);
+    final mental = _calculateMentalEvaluation(player, accuracy);
+    final physical = _calculatePhysicalEvaluation(player, accuracy);
+    
+    // 投手と野手で重み付けを変更
+    final position = player['position'] as String? ?? '投手';
+    if (position == '投手') {
+      return ((technical * 0.5) + (mental * 0.3) + (physical * 0.2)).round();
+    } else {
+      return ((technical * 0.4) + (mental * 0.25) + (physical * 0.35)).round();
+    }
+  }
+  
+  /// 技術的評価を計算
+  static int _calculateTechnicalEvaluation(Map<String, dynamic> player, double accuracy) {
+    final position = player['position'] as String? ?? '投手';
+    
+    if (position == '投手') {
+      final pitchingAbilities = [
+        player['control'] as int? ?? 50,
+        player['fastball'] as int? ?? 50,
+        player['breaking_ball'] as int? ?? 50,
+        player['pitch_movement'] as int? ?? 50,
+      ];
+      final fieldingAbilities = [
+        player['fielding'] as int? ?? 50,
+        player['throwing'] as int? ?? 50,
+      ];
+      final battingAbilities = [
+        player['contact'] as int? ?? 50,
+        player['power'] as int? ?? 50,
+        player['plate_discipline'] as int? ?? 50,
+        player['bunt'] as int? ?? 50,
+      ];
+      
+      return (
+        (pitchingAbilities.reduce((a, b) => a + b) * 0.6) +
+        (fieldingAbilities.reduce((a, b) => a + b) * 0.25) +
+        (battingAbilities.reduce((a, b) => a + b) * 0.15)
+      ).round();
+    } else {
+      final battingAbilities = [
+        player['contact'] as int? ?? 50,
+        player['power'] as int? ?? 50,
+        player['plate_discipline'] as int? ?? 50,
+        player['bunt'] as int? ?? 50,
+        player['opposite_field_hitting'] as int? ?? 50,
+        player['pull_hitting'] as int? ?? 50,
+        player['bat_control'] as int? ?? 50,
+        player['swing_speed'] as int? ?? 50,
+      ];
+      final fieldingAbilities = [
+        player['fielding'] as int? ?? 50,
+        player['throwing'] as int? ?? 50,
+      ];
+      
+      return (
+        (battingAbilities.reduce((a, b) => a + b) * 0.7) +
+        (fieldingAbilities.reduce((a, b) => a + b) * 0.3)
+      ).round();
+    }
+  }
+  
+  /// 精神的評価を計算
+  static int _calculateMentalEvaluation(Map<String, dynamic> player, double accuracy) {
+    final mentalAbilities = [
+      (player['concentration'] as int? ?? 50) * 1.2,
+      (player['anticipation'] as int? ?? 50) * 1.1,
+      (player['vision'] as int? ?? 50) * 1.1,
+      (player['composure'] as int? ?? 50) * 1.2,
+      (player['aggression'] as int? ?? 50) * 1.0,
+      (player['bravery'] as int? ?? 50) * 1.0,
+      (player['leadership'] as int? ?? 50) * 1.1,
+      (player['work_rate'] as int? ?? 50) * 1.2,
+      (player['self_discipline'] as int? ?? 50) * 1.1,
+      (player['ambition'] as int? ?? 50) * 1.0,
+      (player['teamwork'] as int? ?? 50) * 1.1,
+      (player['positioning'] as int? ?? 50) * 1.0,
+      (player['pressure_handling'] as int? ?? 50) * 1.2,
+      (player['clutch_ability'] as int? ?? 50) * 1.2,
+      (player['motivation'] as int? ?? 50) * 1.1,
+      (player['pressure'] as int? ?? 50) * 1.0,
+      (player['adaptability'] as int? ?? 50) * 1.0,
+      (player['consistency'] as int? ?? 50) * 1.1,
+      (player['clutch'] as int? ?? 50) * 1.2,
+      (player['work_ethic'] as int? ?? 50) * 1.2,
+    ];
+    
+    return (mentalAbilities.reduce((a, b) => a + b) / mentalAbilities.length).round();
+  }
+  
+  /// 身体的評価を計算
+  static int _calculatePhysicalEvaluation(Map<String, dynamic> player, double accuracy) {
+    final position = player['position'] as String? ?? '投手';
+    
+    if (position == '投手') {
+      final staminaAbilities = [
+        (player['stamina'] as int? ?? 50) * 1.3,
+        (player['strength'] as int? ?? 50) * 1.2,
+        (player['natural_fitness'] as int? ?? 50) * 1.1,
+      ];
+      final otherAbilities = [
+        player['speed'] as int? ?? 50,
+        player['agility'] as int? ?? 50,
+        player['balance'] as int? ?? 50,
+        player['jumping_reach'] as int? ?? 50,
+        player['injury_proneness'] as int? ?? 50,
+        player['pace'] as int? ?? 50,
+        player['flexibility'] as int? ?? 50,
+      ];
+      
+      return (
+        (staminaAbilities.reduce((a, b) => a + b) * 0.6) +
+        (otherAbilities.reduce((a, b) => a + b) * 0.4)
+      ).round();
+    } else {
+      final speedAbilities = [
+        (player['speed'] as int? ?? 50) * 1.3,
+        (player['agility'] as int? ?? 50) * 1.2,
+        (player['acceleration'] as int? ?? 50) * 1.2,
+      ];
+      final otherAbilities = [
+        player['balance'] as int? ?? 50,
+        player['jumping_reach'] as int? ?? 50,
+        player['natural_fitness'] as int? ?? 50,
+        player['injury_proneness'] as int? ?? 50,
+        player['stamina'] as int? ?? 50,
+        player['strength'] as int? ?? 50,
+        player['pace'] as int? ?? 50,
+        player['flexibility'] as int? ?? 50,
+      ];
+      
+      return (
+        (speedAbilities.reduce((a, b) => a + b) * 0.5) +
+        (otherAbilities.reduce((a, b) => a + b) * 0.5)
+      ).round();
+    }
   }
 
   /// 取得情報の生成

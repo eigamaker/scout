@@ -166,7 +166,186 @@ class PlayerDataGenerator {
       abilityKnowledge: _generateInitialAbilityKnowledge(),
     );
 
+    // 総合能力値指標を計算・更新
+    await _updatePlayerOverallAbilities(playerId);
+
     return player;
+  }
+
+  /// 選手の総合能力値指標を計算・更新
+  Future<void> _updatePlayerOverallAbilities(int playerId) async {
+    try {
+      final db = await _dataService.database;
+      
+      // 選手の能力値を取得
+      final player = await db.query('Player', where: 'id = ?', whereArgs: [playerId]);
+      if (player.isEmpty) return;
+      
+      final playerData = player.first;
+      
+      // 技術的能力値の平均（投手と野手で異なる重み付け）
+      final position = playerData['position'] as String? ?? '投手';
+      int technicalAbility;
+      
+      if (position == '投手') {
+        // 投手は投球関連能力値を重視
+        final pitchingAbilities = [
+          playerData['control'] as int? ?? 50,
+          playerData['fastball'] as int? ?? 50,
+          playerData['breaking_ball'] as int? ?? 50,
+          playerData['pitch_movement'] as int? ?? 50,
+        ];
+        final fieldingAbilities = [
+          playerData['fielding'] as int? ?? 50,
+          playerData['throwing'] as int? ?? 50,
+        ];
+        final battingAbilities = [
+          playerData['contact'] as int? ?? 50,
+          playerData['power'] as int? ?? 50,
+          playerData['plate_discipline'] as int? ?? 50,
+          playerData['bunt'] as int? ?? 50,
+        ];
+        
+        // 投手能力: 投球関連60%、守備関連25%、打撃関連15%
+        technicalAbility = (
+          (pitchingAbilities.reduce((a, b) => a + b) * 0.6) +
+          (fieldingAbilities.reduce((a, b) => a + b) * 0.25) +
+          (battingAbilities.reduce((a, b) => a + b) * 0.15)
+        ).round();
+      } else {
+        // 野手は打撃・守備関連能力値を重視
+        final battingAbilities = [
+          playerData['contact'] as int? ?? 50,
+          playerData['power'] as int? ?? 50,
+          playerData['plate_discipline'] as int? ?? 50,
+          playerData['bunt'] as int? ?? 50,
+          playerData['opposite_field_hitting'] as int? ?? 50,
+          playerData['pull_hitting'] as int? ?? 50,
+          playerData['bat_control'] as int? ?? 50,
+          playerData['swing_speed'] as int? ?? 50,
+        ];
+        final fieldingAbilities = [
+          playerData['fielding'] as int? ?? 50,
+          playerData['throwing'] as int? ?? 50,
+        ];
+        
+        // 野手能力: 打撃関連70%、守備関連30%
+        technicalAbility = (
+          (battingAbilities.reduce((a, b) => a + b) * 0.7) +
+          (fieldingAbilities.reduce((a, b) => a + b) * 0.3)
+        ).round();
+      }
+      
+      // 精神的能力値の平均（重要な能力値を重視）
+      final mentalAbilities = [
+        (playerData['concentration'] as int? ?? 50) * 1.2, // 集中力
+        (playerData['anticipation'] as int? ?? 50) * 1.1, // 予測力
+        (playerData['vision'] as int? ?? 50) * 1.1, // 視野
+        (playerData['composure'] as int? ?? 50) * 1.2, // 冷静さ
+        (playerData['aggression'] as int? ?? 50) * 1.0, // 積極性
+        (playerData['bravery'] as int? ?? 50) * 1.0, // 勇気
+        (playerData['leadership'] as int? ?? 50) * 1.1, // リーダーシップ
+        (playerData['work_rate'] as int? ?? 50) * 1.2, // 練習量
+        (playerData['self_discipline'] as int? ?? 50) * 1.1, // 自己管理
+        (playerData['ambition'] as int? ?? 50) * 1.0, // 野心
+        (playerData['teamwork'] as int? ?? 50) * 1.1, // チームワーク
+        (playerData['positioning'] as int? ?? 50) * 1.0, // ポジショニング
+        (playerData['pressure_handling'] as int? ?? 50) * 1.2, // プレッシャー処理
+        (playerData['clutch_ability'] as int? ?? 50) * 1.2, // 勝負強さ
+        (playerData['motivation'] as int? ?? 50) * 1.1, // モチベーション
+        (playerData['pressure'] as int? ?? 50) * 1.0, // プレッシャー
+        (playerData['adaptability'] as int? ?? 50) * 1.0, // 適応力
+        (playerData['consistency'] as int? ?? 50) * 1.1, // 安定性
+        (playerData['clutch'] as int? ?? 50) * 1.2, // 勝負強さ
+        (playerData['work_ethic'] as int? ?? 50) * 1.2, // 練習熱心
+      ];
+      
+      final mentalAbility = (mentalAbilities.reduce((a, b) => a + b) / mentalAbilities.length).round();
+      
+      // 身体的能力値の平均（ポジション別の重み付け）
+      int physicalAbility;
+      if (position == '投手') {
+        // 投手は持久力と筋力を重視
+        final staminaAbilities = [
+          (playerData['stamina'] as int? ?? 50) * 1.3, // 持久力
+          (playerData['strength'] as int? ?? 50) * 1.2, // 筋力
+          (playerData['natural_fitness'] as int? ?? 50) * 1.1, // 自然な体力
+        ];
+        final otherAbilities = [
+          playerData['speed'] as int? ?? 50,
+          playerData['agility'] as int? ?? 50,
+          playerData['balance'] as int? ?? 50,
+          playerData['jumping_reach'] as int? ?? 50,
+          playerData['injury_proneness'] as int? ?? 50,
+          playerData['pace'] as int? ?? 50,
+          playerData['flexibility'] as int? ?? 50,
+        ];
+        
+        physicalAbility = (
+          (staminaAbilities.reduce((a, b) => a + b) * 0.6) +
+          (otherAbilities.reduce((a, b) => a + b) * 0.4)
+        ).round();
+      } else {
+        // 野手はスピードと敏捷性を重視
+        final speedAbilities = [
+          (playerData['speed'] as int? ?? 50) * 1.3, // スピード
+          (playerData['agility'] as int? ?? 50) * 1.2, // 敏捷性
+          (playerData['acceleration'] as int? ?? 50) * 1.2, // 加速力
+        ];
+        final otherAbilities = [
+          playerData['balance'] as int? ?? 50,
+          playerData['jumping_reach'] as int? ?? 50,
+          playerData['natural_fitness'] as int? ?? 50,
+          playerData['injury_proneness'] as int? ?? 50,
+          playerData['stamina'] as int? ?? 50,
+          playerData['strength'] as int? ?? 50,
+          playerData['pace'] as int? ?? 50,
+          playerData['flexibility'] as int? ?? 50,
+        ];
+        
+        final speedAvg = speedAbilities.reduce((a, b) => a + b) / speedAbilities.length;
+        final otherAvg = otherAbilities.reduce((a, b) => a + b) / otherAbilities.length;
+        
+        physicalAbility = (
+          (speedAvg * 0.5) +
+          (otherAvg * 0.5)
+        ).round();
+      }
+      
+      // 総合能力値（ポジション別の重み付け）
+      int overallAbility;
+      if (position == '投手') {
+        // 投手: 技術50%、精神30%、身体20%
+        overallAbility = (
+          (technicalAbility * 0.5) +
+          (mentalAbility * 0.3) +
+          (physicalAbility * 0.2)
+        ).round();
+      } else {
+        // 野手: 技術40%、精神25%、身体35%
+        overallAbility = (
+          (technicalAbility * 0.4) +
+          (mentalAbility * 0.25) +
+          (physicalAbility * 0.35)
+        ).round();
+      }
+      
+      print('高校生選手総合能力値計算: プレイヤーID $playerId, ポジション: $position');
+      print('技術: $technicalAbility, 精神: $mentalAbility, 身体: $physicalAbility, 総合: $overallAbility');
+      
+      // データベースを更新
+      await db.update('Player', {
+        'overall_ability': overallAbility,
+        'technical_ability': technicalAbility,
+        'physical_ability': physicalAbility,
+        'mental_ability': mentalAbility,
+      }, where: 'id = ?', whereArgs: [playerId]);
+      
+      print('高校生選手総合能力値指標の更新完了: プレイヤーID $playerId');
+      
+    } catch (e) {
+      print('高校生選手総合能力値指標の計算・更新でエラー: $e');
+    }
   }
 
   /// 個別ポテンシャル生成システム
@@ -591,8 +770,60 @@ class PlayerDataGenerator {
   Future<Map<String, int>> _generateAndSavePotentials(int playerId, Map<String, int> potentials) async {
     final db = await _dataService.database;
     
+    // 総合ポテンシャル指標を計算
+    final technicalPotentials = <int>[];
+    final mentalPotentials = <int>[];
+    final physicalPotentials = <int>[];
+    
+    // 技術的ポテンシャル
+    final technicalKeys = [
+      'contact', 'power', 'plateDiscipline', 'bunt', 'oppositeFieldHitting', 
+      'pullHitting', 'batControl', 'swingSpeed', 'fielding', 'throwing', 
+      'catcherAbility', 'control', 'fastball', 'breakingBall', 'pitchMovement'
+    ];
+    
+    // 精神的ポテンシャル
+    final mentalKeys = [
+      'concentration', 'anticipation', 'vision', 'composure', 'aggression', 
+      'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
+      'teamwork', 'positioning', 'pressureHandling', 'clutchAbility'
+    ];
+    
+    // 身体的ポテンシャル
+    final physicalKeys = [
+      'acceleration', 'agility', 'balance', 'jumpingReach', 'naturalFitness', 
+      'injuryProneness', 'stamina', 'strength', 'pace', 'flexibility'
+    ];
+    
+    for (final key in technicalKeys) {
+      if (potentials.containsKey(key)) {
+        technicalPotentials.add(potentials[key]!);
+      }
+    }
+    
+    for (final key in mentalKeys) {
+      if (potentials.containsKey(key)) {
+        mentalPotentials.add(potentials[key]!);
+      }
+    }
+    
+    for (final key in physicalKeys) {
+      if (potentials.containsKey(key)) {
+        physicalPotentials.add(potentials[key]!);
+      }
+    }
+    
+    final overallPotential = potentials.values.reduce((a, b) => a + b) ~/ potentials.length;
+    final technicalPotential = technicalPotentials.isNotEmpty ? technicalPotentials.reduce((a, b) => a + b) ~/ technicalPotentials.length : 50;
+    final mentalPotential = mentalPotentials.isNotEmpty ? mentalPotentials.reduce((a, b) => a + b) ~/ mentalPotentials.length : 50;
+    final physicalPotential = physicalPotentials.isNotEmpty ? physicalPotentials.reduce((a, b) => a + b) ~/ physicalPotentials.length : 50;
+    
     final potentialData = <String, dynamic>{
       'player_id': playerId,
+      'overall_potential': overallPotential,
+      'technical_potential': technicalPotential,
+      'physical_potential': physicalPotential,
+      'mental_potential': mentalPotential,
     };
     
     // ポテンシャルデータを変換

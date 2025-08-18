@@ -1498,7 +1498,7 @@ class GameManager {
           final school = _currentGame!.schools[schoolIndex];
           
           // ActionServiceを使用して学校視察を実行
-          final scoutResult = scouting.ActionService.scoutSchool(
+          final scoutResult = await scouting.ActionService.scoutSchool(
             school: school,
             currentWeek: _currentGame!.currentWeekOfMonth,
           );
