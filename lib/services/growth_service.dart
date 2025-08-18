@@ -66,10 +66,6 @@ class GrowthService {
     // 5月1週、8月1週、11月1週、2月1週で成長
     final isGrowthWeek = _isGrowthWeek(currentWeek);
     
-    if (isGrowthWeek) {
-      print('GrowthService: 週$currentWeekで選手成長を実行します');
-    }
-    
     return isGrowthWeek;
   }
 

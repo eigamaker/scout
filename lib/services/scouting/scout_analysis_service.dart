@@ -8,88 +8,10 @@ class ScoutAnalysisService {
   
   ScoutAnalysisService(this._dataService);
   
-  /// スカウト分析データを保存
-  Future<void> saveScoutAnalysis(Player player, String scoutId, double accuracy) async {
-    final random = Random();
-    final errorRange = _calculateErrorRange(accuracy);
-    
-    print('スカウト分析開始: プレイヤー ${player.name}, 精度 $accuracy, 誤差範囲 ±$errorRange');
-    
-    // スカウトされた能力値を生成
-    final scoutedAbilities = <String, int>{};
-    
-    // 技術的能力値
-    for (final ability in TechnicalAbility.values) {
-      int trueValue;
-      
-      // 球速の場合は特別な処理
-      if (ability == TechnicalAbility.fastball) {
-        trueValue = player.veloScore; // 既に制限された球速スコアを使用
-      } else {
-        trueValue = player.getTechnicalAbility(ability);
-      }
-      
-      final scoutedValue = _generateScoutedValue(trueValue, errorRange, random);
-      if (scoutedValue != null) {
-        final columnName = _getColumnName(ability.name);
-        scoutedAbilities[columnName] = scoutedValue;
-        print('技術面能力値生成: ${ability.name} = $trueValue → $scoutedValue (誤差: ${scoutedValue - trueValue})');
-      } else {
-        print('技術面能力値生成失敗: ${ability.name} = $trueValue (誤差範囲: ±$errorRange)');
-      }
-    }
-    
-    // 精神的能力値
-    for (final ability in MentalAbility.values) {
-      final trueValue = player.getMentalAbility(ability);
-      final scoutedValue = _generateScoutedValue(trueValue, errorRange, random);
-      if (scoutedValue != null) {
-        final columnName = _getColumnName(ability.name);
-        scoutedAbilities[columnName] = scoutedValue;
-        print('精神面能力値生成: ${ability.name} = $trueValue → $scoutedValue (誤差: ${scoutedValue - trueValue})');
-      } else {
-        print('精神面能力値生成失敗: ${ability.name} = $trueValue (誤差範囲: ±$errorRange)');
-      }
-    }
-    
-    // 身体的能力値
-    for (final ability in PhysicalAbility.values) {
-      final trueValue = player.getPhysicalAbility(ability);
-      final scoutedValue = _generateScoutedValue(trueValue, errorRange, random);
-      if (scoutedValue != null) {
-        final columnName = _getColumnName(ability.name);
-        scoutedAbilities[columnName] = scoutedValue;
-        print('身体面能力値生成: ${ability.name} = $trueValue → $scoutedValue (誤差: ${scoutedValue - trueValue})');
-      } else {
-        print('身体面能力値生成失敗: ${ability.name} = $trueValue (誤差範囲: ±$errorRange)');
-      }
-    }
-    
-    try {
-      final db = await _dataService.database;
-      final insertData = {
-        'player_id': player.id ?? 0,
-        'scout_id': scoutId,
-        'analysis_date': DateTime.now().toIso8601String(), // TEXT形式で保存
-        'accuracy': accuracy,
-        ...scoutedAbilities,
-      };
-      
-      print('スカウト分析データ保存: プレイヤーID ${player.id}, 精度 $accuracy, 生成された能力値数: ${scoutedAbilities.length}件');
-      print('生成された能力値: $scoutedAbilities');
-      await db.insert('ScoutAnalysis', insertData);
-      print('スカウト分析データ保存完了');
-
-    } catch (e) {
-      print('データベース保存エラー: $e');
-    }
-  }
-  
   /// 最新のスカウト分析データを取得
   Future<Map<String, int>?> getLatestScoutAnalysis(int playerId, String scoutId) async {
     try {
       final db = await _dataService.database;
-      print('スカウト分析データ取得開始: プレイヤーID $playerId, スカウトID $scoutId');
       
       final List<Map<String, dynamic>> results = await db.query(
         'ScoutAnalysis',
@@ -99,11 +21,6 @@ class ScoutAnalysisService {
         limit: 1,
       );
       
-      print('クエリ結果: ${results.length}件 (プレイヤーID: $playerId, スカウトID: $scoutId)');
-      if (results.isNotEmpty) {
-        print('最新レコード: ${results.first}');
-      }
-      
       if (results.isNotEmpty) {
         final record = results.first;
         final scoutedAbilities = <String, int>{};
@@ -112,18 +29,15 @@ class ScoutAnalysisService {
         for (final key in record.keys) {
           if (key.endsWith('_scouted') && record[key] != null) {
             scoutedAbilities[key] = record[key] as int;
-            print('能力値抽出: $key = ${record[key]}');
           }
         }
         
-        print('抽出された能力値: $scoutedAbilities');
         return scoutedAbilities;
       } else {
-        print('スカウト分析データが見つかりません (プレイヤーID: $playerId, スカウトID: $scoutId)');
         return null;
       }
     } catch (e) {
-      print('データベース取得エラー: $e');
+      print('スカウト分析データ取得エラー: $e');
       return null;
     }
   }
@@ -162,7 +76,6 @@ class ScoutAnalysisService {
   Future<Map<String, dynamic>?> getLatestBasicInfoAnalysis(int playerId, String scoutId) async {
     try {
       final db = await _dataService.database;
-      print('基本情報分析データ取得開始: プレイヤーID $playerId, スカウトID $scoutId');
       
       final List<Map<String, dynamic>> results = await db.query(
         'ScoutBasicInfoAnalysis',
@@ -172,27 +85,9 @@ class ScoutAnalysisService {
         limit: 1,
       );
       
-      print('基本情報クエリ結果: ${results.length}件 (プレイヤーID: $playerId, スカウトID: $scoutId)');
-      
       if (results.isNotEmpty) {
-        final record = results.first;
-        print('基本情報分析レコード: $record');
-        final analysisData = {
-          'personality': record['personality_analyzed'] as String?,
-          'talent': record['talent_analyzed'] as String?,
-          'growth': record['growth_analyzed'] as String?,
-          'mental_grit': record['mental_grit_analyzed'] as String?,
-          'potential': record['potential_analyzed'] as String?,
-          'personality_accuracy': record['personality_accuracy'] as double?,
-          'talent_accuracy': record['talent_accuracy'] as double?,
-          'growth_accuracy': record['growth_accuracy'] as double?,
-          'mental_grit_accuracy': record['mental_grit_accuracy'] as double?,
-          'potential_accuracy': record['potential_accuracy'] as double?,
-        };
-        print('基本情報分析データ変換結果: $analysisData');
-        return analysisData;
+        return results.first;
       } else {
-        print('基本情報分析データが見つかりません (プレイヤーID: $playerId, スカウトID: $scoutId)');
         return null;
       }
     } catch (e) {
@@ -373,59 +268,6 @@ class ScoutAnalysisService {
       else if (player.peakAbility >= 80) return '大学トップ級';
       else if (player.peakAbility >= 65) return '実業団級';
       else return 'アマチュア級';
-    }
-  }
-
-  /// データベースのテーブル構造を確認
-  Future<void> debugTableStructure() async {
-    try {
-      final db = await _dataService.database;
-      
-      // ScoutAnalysisテーブルの構造を確認
-      final tableInfo = await db.rawQuery("PRAGMA table_info(ScoutAnalysis)");
-      print('ScoutAnalysisテーブル構造:');
-      for (final column in tableInfo) {
-        print('  ${column['name']}: ${column['type']}');
-      }
-      
-      // テーブル内のデータ数を確認
-      final countResult = await db.rawQuery("SELECT COUNT(*) as count FROM ScoutAnalysis");
-      final count = countResult.first['count'] as int;
-      print('ScoutAnalysisテーブルのデータ数: $count');
-      
-      // 最新のデータを確認
-      if (count > 0) {
-        final latestData = await db.rawQuery("SELECT * FROM ScoutAnalysis ORDER BY analysis_date DESC LIMIT 1");
-        print('最新のスカウト分析データ: ${latestData.first}');
-      }
-      
-      // ScoutBasicInfoAnalysisテーブルの構造も確認
-      final basicTableInfo = await db.rawQuery("PRAGMA table_info(ScoutBasicInfoAnalysis)");
-      print('ScoutBasicInfoAnalysisテーブル構造:');
-      for (final column in basicTableInfo) {
-        print('  ${column['name']}: ${column['type']}');
-      }
-      
-      // ScoutBasicInfoAnalysisテーブルのデータ数を確認
-      final basicCountResult = await db.rawQuery("SELECT COUNT(*) as count FROM ScoutBasicInfoAnalysis");
-      final basicCount = basicCountResult.first['count'] as int;
-      print('ScoutBasicInfoAnalysisテーブルのデータ数: $basicCount');
-      
-      // 最新の基本情報分析データを確認
-      if (basicCount > 0) {
-        final latestBasicData = await db.rawQuery("SELECT * FROM ScoutBasicInfoAnalysis ORDER BY analysis_date DESC LIMIT 1");
-        print('最新の基本情報分析データ: ${latestBasicData.first}');
-        
-        // 全ての基本情報分析データを確認
-        final allBasicData = await db.rawQuery("SELECT * FROM ScoutBasicInfoAnalysis ORDER BY analysis_date DESC");
-        print('全ての基本情報分析データ:');
-        for (int i = 0; i < allBasicData.length; i++) {
-          print('  ${i + 1}: ${allBasicData[i]}');
-        }
-      }
-      
-    } catch (e) {
-      print('テーブル構造確認エラー: $e');
     }
   }
 } 

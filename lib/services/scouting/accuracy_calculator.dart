@@ -83,23 +83,6 @@ class AccuracyCalculator {
     return (baseSuccessRate + skillBonus + intuitionBonus).clamp(0.0, 1.0);
   }
 
-  /// 精度レベルを取得
-  static String getAccuracyLevel(double accuracy) {
-    if (accuracy < 10) {
-      return '判定失敗';
-    } else if (accuracy <= 30) {
-      return '非常に不正確';
-    } else if (accuracy <= 50) {
-      return '不正確';
-    } else if (accuracy <= 70) {
-      return 'やや正確';
-    } else if (accuracy <= 85) {
-      return '正確';
-    } else {
-      return '非常に正確';
-    }
-  }
-
   /// 能力値の表示範囲を計算
   static String getAbilityDisplayRange(int actualValue, double accuracy) {
     int errorRange;

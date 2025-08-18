@@ -1188,7 +1188,6 @@ class ActionService {
       // データベースに保存
       await db.insert('ScoutAnalysis', scoutedAbilities);
       
-      print('学校視察スカウト分析データ生成完了: プレイヤーID ${targetPlayer.id}');
     } catch (e) {
       print('学校視察スカウト分析データ生成エラー: $e');
     }
@@ -1252,7 +1251,6 @@ class ActionService {
       // データベースに保存
       await db.insert('ScoutAnalysis', scoutedAbilities);
       
-      print('インタビュースカウト分析データ生成完了: プレイヤーID ${targetPlayer.id}');
     } catch (e) {
       print('インタビュースカウト分析データ生成エラー: $e');
     }
@@ -1310,7 +1308,6 @@ class ActionService {
       // データベースに保存
       await db.insert('ScoutAnalysis', scoutedAbilities);
       
-      print('ビデオ分析スカウト分析データ生成完了: プレイヤーID ${targetPlayer.id}');
     } catch (e) {
       print('ビデオ分析スカウト分析データ生成エラー: $e');
     }
@@ -1349,7 +1346,6 @@ class ActionService {
       
       await db.insert('ScoutBasicInfoAnalysis', insertData);
       
-      print('基本情報分析データ生成完了: プレイヤーID ${targetPlayer.id}');
     } catch (e) {
       print('基本情報分析データ生成エラー: $e');
     }
