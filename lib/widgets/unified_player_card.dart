@@ -20,15 +20,19 @@ class UnifiedPlayerCard extends StatelessWidget {
   
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+    // デバッグ情報
+    print('UnifiedPlayerCard.build: ${player.name} (${player.school}) - isPubliclyKnown: ${player.isPubliclyKnown}');
+    
+    try {
+      return Card(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                              // 1行目: 名前、ポジション、学年、マーク
                Row(
                  children: [
@@ -128,13 +132,15 @@ class UnifiedPlayerCard extends StatelessWidget {
                    ],
                  ],
                ),
-              
-              
-            ],
-          ),
-        ),
-      ),
-    );
+             ],
+           ),
+         ),
+       ),
+     );
+    } catch (e) {
+      print('Error rendering UnifiedPlayerCard: $e');
+      return Container(); // エラー時は空のコンテナを返す
+    }
   }
   
   // アクションボタンを構築

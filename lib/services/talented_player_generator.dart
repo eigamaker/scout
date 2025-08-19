@@ -420,6 +420,6 @@ class TalentedPlayerGenerator {
     final overallAvg = (technicalAvg + mentalAvg + physicalAvg) / 3;
     
     // 選手の総合能力値を更新（実際の実装ではPlayerクラスにsetterが必要）
-    print('選手 ${player.name} の総合能力値: ${overallAvg.toStringAsFixed(1)}');
+    // print('選手 ${player.name} の総合能力値: ${overallAvg.toStringAsFixed(1)}');
   }
 }

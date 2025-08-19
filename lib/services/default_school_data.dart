@@ -179,19 +179,26 @@ class DefaultSchoolData {
         final direction = directions[(index - 6) % directions.length];
         return '${city}${direction}高等学校';
       case SchoolRank.weak:
-        // 弱小校は一般的な名前
-        final prefix = _schoolPrefixes[index % _schoolPrefixes.length];
-        final schoolType = _schoolTypes[index % _schoolTypes.length];
-        
-        // 特別なパターンを追加
-        if (index < 20) {
-          return '$prefix${city}第${(index - 13 + 1)}$schoolType';
-        } else if (index < 30) {
+        // 弱小校は現実的な名前
+        if (index < 15) {
+          // 番号付き高校
+          final number = index - 13 + 1;
+          return '${city}第${number}高等学校';
+        } else if (index < 25) {
+          // 専門高校
           final specialTypes = ['商業', '工業', '農業', '総合', '普通'];
-          final specialType = specialTypes[(index - 20) % specialTypes.length];
-          return '$prefix${city}${specialType}高校';
+          final specialType = specialTypes[(index - 15) % specialTypes.length];
+          return '${city}${specialType}高等学校';
+        } else if (index < 35) {
+          // 方向性高校
+          final directions = ['東', '西', '南', '北', '中央', '新'];
+          final direction = directions[(index - 25) % directions.length];
+          return '${city}${direction}高等学校';
         } else {
-          return '$prefix${city}$schoolType';
+          // その他の高校
+          final otherTypes = ['高等学校', '高校', '学園', '学院'];
+          final otherType = otherTypes[(index - 35) % otherTypes.length];
+          return '${city}${otherType}';
         }
     }
   }

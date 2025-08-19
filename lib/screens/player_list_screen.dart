@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/player/player.dart';
 import '../services/game_manager.dart';
-import '../widgets/unified_player_card.dart';
+import '../widgets/player_list_card.dart';
 
 class PlayerListScreen extends StatefulWidget {
   const PlayerListScreen({super.key});
@@ -27,9 +27,38 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
     super.dispose();
   }
 
-  // 分類別の選手リストを取得（複数カテゴリ対応）
+  // 分類別の選手リストを取得（学校リストと同じ方式）
   List<Player> _getPlayersByCategory(List<Player> allPlayers, PlayerCategory category) {
-    return allPlayers.where((player) => player.allCategories.contains(category)).toList();
+    List<Player> result;
+    
+    switch (category) {
+      case PlayerCategory.favorite:
+        // お気に入り: isScoutFavorite = true
+        result = allPlayers.where((player) => player.isScoutFavorite).toList();
+        break;
+      case PlayerCategory.discovered:
+        // 発掘済み: discoveredCount > 0 かつ isPubliclyKnown = false（注目選手は除外）
+        result = allPlayers.where((player) => player.discoveredCount > 0 && !player.isPubliclyKnown).toList();
+        break;
+      case PlayerCategory.famous:
+        // 注目選手: isPubliclyKnown = true
+        result = allPlayers.where((player) => player.isPubliclyKnown).toList();
+        break;
+      case PlayerCategory.graduated:
+        // 卒業生: isGraduated = true
+        result = allPlayers.where((player) => player.isGraduated).toList();
+        break;
+      case PlayerCategory.unknown:
+        // 未発掘: discoveredCount = 0 かつ isPubliclyKnown = false
+        result = allPlayers.where((player) => player.discoveredCount == 0 && !player.isPubliclyKnown).toList();
+        break;
+    }
+    
+    print('カテゴリ ${category.name} の選手数: ${result.length}名');
+    if (result.isNotEmpty) {
+      print('最初の選手: ${result.first.name}, isPubliclyKnown: ${result.first.isPubliclyKnown}, discoveredCount: ${result.first.discoveredCount}');
+    }
+    return result;
   }
 
 
@@ -242,7 +271,7 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
                    padding: const EdgeInsets.all(8),
                    color: Colors.orange[100],
                    child: Text(
-                     'デバッグ: isPubliclyKnown=true: ${players.where((p) => p.isPubliclyKnown).length}名, allCategories: ${players.map((p) => p.allCategories.map((c) => c.name).join(',')).join(' | ')}',
+                     'デバッグ: 選手数: ${players.length}名, 最初の選手: ${players.isNotEmpty ? players.first.name : "なし"}',
                      style: const TextStyle(fontSize: 10, color: Colors.orange),
                    ),
                  ),
@@ -253,7 +282,7 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
                    padding: const EdgeInsets.all(8),
                    color: Colors.blue[100],
                    child: Text(
-                     'デバッグ: isDiscovered=true: ${players.where((p) => p.isDiscovered).length}名, discoveredCount>0: ${players.where((p) => p.discoveredCount > 0).length}名, allCategories: ${players.map((p) => p.allCategories.map((c) => c.name).join(',')).join(' | ')}',
+                     'デバッグ: 選手数: ${players.length}名, 最初の選手: ${players.isNotEmpty ? players.first.name : "なし"}',
                      style: const TextStyle(fontSize: 10, color: Colors.blue),
                    ),
                  ),
@@ -264,29 +293,29 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
         // 選手リスト
         Expanded(
           child: players.isEmpty
-              ? Center(
+              ? const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.people_outline,
                         size: 64,
-                        color: Colors.grey[400],
+                        color: Colors.grey,
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       Text(
                         '選手がいません',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.grey[600],
+                          color: Colors.grey,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Text(
                         '視察や発掘で選手を追加してください',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[500],
+                          color: Colors.grey,
                         ),
                       ),
                     ],
@@ -296,7 +325,8 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
                   itemCount: players.length,
                   itemBuilder: (context, index) {
                     final player = players[index];
-                    return UnifiedPlayerCard(
+                    
+                    return PlayerListCard(
                       player: player,
                       onTap: () {
                         Navigator.pushNamed(
@@ -305,8 +335,6 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
                           arguments: player,
                         );
                       },
-                      showActions: true,
-                      showSchool: true,
                     );
                   },
                 ),

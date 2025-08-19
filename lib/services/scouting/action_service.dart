@@ -95,8 +95,8 @@ class ActionService {
     required School school,
     required int currentWeek,
   }) async {
-    // 未発掘選手リスト
-    final undiscovered = school.players.where((p) => !p.isDiscovered).toList();
+    // 未発掘選手リスト（デフォルト選手は除外）
+    final undiscovered = school.players.where((p) => !p.isDiscovered && p.talent >= 3).toList();
     if (undiscovered.isNotEmpty) {
       // 未発掘選手がいればランダムで1人発掘
       final player = undiscovered[Random().nextInt(undiscovered.length)];
@@ -162,8 +162,8 @@ class ActionService {
     required School school,
     required int currentWeek,
   }) {
-    // 未発掘選手リスト
-    final undiscovered = school.players.where((p) => !p.isDiscovered).toList();
+    // 未発掘選手リスト（デフォルト選手は除外）
+    final undiscovered = school.players.where((p) => !p.isDiscovered && p.talent >= 3).toList();
     final discoveredPlayers = <Player>[];
     
     if (undiscovered.isNotEmpty) {
@@ -405,8 +405,8 @@ class ActionService {
         improvedPlayer: targetPlayer,
       );
     } else {
-      // 学校全体の試合観戦で高能力値選手を発掘
-      final undiscovered = school.players.where((p) => !p.isDiscovered).toList();
+      // 学校全体の試合観戦で高能力値選手を発掘（デフォルト選手は除外）
+      final undiscovered = school.players.where((p) => !p.isDiscovered && p.talent >= 3).toList();
       
       // 高能力値選手（レギュラークラス）のみを対象とする
       final regularPlayers = undiscovered.where((p) => p.trueTotalAbility >= 70).toList();
@@ -643,8 +643,8 @@ class ActionService {
         improvedPlayer: targetPlayer,
       );
     } else {
-      // 学校全体の練習試合観戦で高能力値選手を発掘
-      final undiscovered = school.players.where((p) => !p.isDiscovered).toList();
+      // 学校全体の練習試合観戦で高能力値選手を発掘（デフォルト選手は除外）
+      final undiscovered = school.players.where((p) => !p.isDiscovered && p.talent >= 3).toList();
       
       // 高能力値選手（レギュラークラス）のみを対象とする
       final regularPlayers = undiscovered.where((p) => p.trueTotalAbility >= 70).toList();

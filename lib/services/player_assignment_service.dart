@@ -1,4 +1,4 @@
-Rimport 'dart:math';
+import 'dart:math' as math;
 import '../models/player/player.dart';
 import '../models/school/school.dart';
 import '../models/player/player_abilities.dart';
@@ -10,7 +10,7 @@ import 'package:sqflite/sqflite.dart';
 /// 選手を学校に配属するサービス
 class PlayerAssignmentService {
   final DataService _dataService;
-  final Random _random = Random();
+  final math.Random _random = math.Random();
 
   PlayerAssignmentService(this._dataService);
 
@@ -91,7 +91,7 @@ class PlayerAssignmentService {
       
       if (currentGeneratedCount < maxGeneratedPlayers) {
         final availableSlots = maxGeneratedPlayers - currentGeneratedCount;
-        final playersToAssign = min(schoolPlayerCount, availableSlots);
+        final playersToAssign = math.min(schoolPlayerCount, availableSlots);
         
         for (int j = 0; j < playersToAssign && playerIndex < players.length; j++) {
           final player = players[playerIndex];

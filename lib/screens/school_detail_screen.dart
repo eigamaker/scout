@@ -8,6 +8,7 @@ import '../screens/player_detail_screen.dart';
 import '../services/game_manager.dart';
 import '../services/scouting/action_service.dart';
 import '../models/game/game.dart';
+import '../widgets/player_list_card.dart';
 
 class SchoolDetailScreen extends StatefulWidget {
   final School school;
@@ -315,11 +316,9 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
 
   /// 選手カードを構築
   Widget _buildPlayerCard(Player player) {
-    return UnifiedPlayerCard(
+    return PlayerListCard(
       player: player,
       onTap: () => _showPlayerDetail(player),
-      showActions: false,
-      showSchool: false,
     );
   }
 
