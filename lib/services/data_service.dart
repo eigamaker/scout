@@ -29,7 +29,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
               path,
-        version: 32, // バージョンを32に更新
+        version: 34, // バージョンを34に更新
         onCreate: (db, version) async {
           // 既存のテーブル作成処理を流用
           await _createAllTables(db);
@@ -177,26 +177,9 @@ class DataService {
     if (count > 0) return;
     
     // サンプルデータは削除（実際の選手生成はGameManagerで行う）
-    // 学校（神奈川県の高校）
+    // 古い学校データの挿入は無効化（新しいシステムで学校データを生成）
+    print('古い学校データの挿入をスキップしました（新しいシステムを使用）');
     final schoolIds = <int>[];
-    final schools = [
-      {'name': '横浜工業高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 80, 'last_year_strength': 75, 'scouting_popularity': 70},
-      {'name': '川崎商業高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 75, 'last_year_strength': 70, 'scouting_popularity': 65},
-      {'name': '湘南学園', 'type': '高校', 'location': '神奈川県', 'school_strength': 85, 'last_year_strength': 80, 'scouting_popularity': 80},
-      {'name': '相模原高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 70, 'last_year_strength': 68, 'scouting_popularity': 60},
-      {'name': '横浜東高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 78, 'last_year_strength': 74, 'scouting_popularity': 68},
-      {'name': '横浜西高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 77, 'last_year_strength': 73, 'scouting_popularity': 67},
-      {'name': '横浜南高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 76, 'last_year_strength': 72, 'scouting_popularity': 66},
-      {'name': '横浜北高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 79, 'last_year_strength': 75, 'scouting_popularity': 69},
-      {'name': '鎌倉工業高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 74, 'last_year_strength': 70, 'scouting_popularity': 65},
-      {'name': '藤沢商業高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 73, 'last_year_strength': 69, 'scouting_popularity': 64},
-      {'name': '厚木学園', 'type': '高校', 'location': '神奈川県', 'school_strength': 82, 'last_year_strength': 78, 'scouting_popularity': 72},
-      {'name': '平塚高校', 'type': '高校', 'location': '神奈川県', 'school_strength': 71, 'last_year_strength': 67, 'scouting_popularity': 63},
-    ];
-    for (final school in schools) {
-      final id = await db.insert('School', school);
-      schoolIds.add(id);
-    }
     
     // プロ野球団とプロ選手の初期データを挿入
     await _insertProfessionalTeams(db);
@@ -209,7 +192,7 @@ class DataService {
     final path = join(dbPath, dbName);
     return await openDatabase(
               path,
-        version: 32, // バージョンを32に更新
+        version: 34, // バージョンを34に更新
         onCreate: (db, version) async {
           // 既存のテーブル作成処理を流用
           await _createAllTables(db);
@@ -244,6 +227,29 @@ class DataService {
           await _createAllTables(db);
           await _insertProfessionalTeams(db);
         }
+            if (oldVersion < 33) {
+      // バージョン33では新しい学校スキーマで再作成
+      print('データベーススキーマを強制更新中（バージョン33）...');
+      // 古いテーブルを削除して新しいスキーマで再作成
+      await db.execute('DROP TABLE IF EXISTS School');
+      await db.execute('DROP TABLE IF EXISTS Player');
+      await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+      await db.execute('DROP TABLE IF EXISTS Person');
+      await _createAllTables(db);
+      await _insertProfessionalTeams(db);
+    }
+    
+    if (oldVersion < 34) {
+      // バージョン34ではPlayerテーブルにschoolカラムを追加
+      print('データベーススキーマを更新中（バージョン34）: Playerテーブルにschoolカラムを追加...');
+      try {
+        await db.execute('ALTER TABLE Player ADD COLUMN school TEXT');
+        print('Playerテーブルにschoolカラムを追加しました');
+      } catch (e) {
+        print('バージョン34のアップグレードでエラー: $e');
+      }
+    }
+
       },
     );
   }
@@ -927,6 +933,22 @@ class DataService {
     }
   }
   
+  if (oldVersion < 33) {
+    // バージョン33: Schoolテーブルにprefecture、rank、coach_trust、coach_nameカラムを追加
+    print('データベーススキーマを更新中（バージョン33）: Schoolテーブルに新しいカラムを追加...');
+    
+    try {
+      // 新しいカラムを追加
+      await db.execute('ALTER TABLE School ADD COLUMN prefecture TEXT DEFAULT "未設定"');
+      await db.execute('ALTER TABLE School ADD COLUMN rank TEXT DEFAULT "weak"');
+      await db.execute('ALTER TABLE School ADD COLUMN coach_trust INTEGER DEFAULT 50');
+      await db.execute('ALTER TABLE School ADD COLUMN coach_name TEXT DEFAULT "未設定"');
+      print('Schoolテーブルに新しいカラムを追加しました');
+    } catch (e) {
+      print('バージョン33のアップグレードでエラー: $e');
+    }
+  }
+  
   print('データベーススキーマのアップグレード完了');
   }
 
@@ -939,9 +961,13 @@ class DataService {
         name TEXT NOT NULL,
         type TEXT NOT NULL,
         location TEXT NOT NULL,
+        prefecture TEXT NOT NULL,
+        rank TEXT NOT NULL,
         school_strength INTEGER DEFAULT 50,
         last_year_strength INTEGER DEFAULT 50,
         scouting_popularity INTEGER DEFAULT 50,
+        coach_trust INTEGER DEFAULT 50,
+        coach_name TEXT DEFAULT '未設定',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
@@ -969,6 +995,7 @@ class DataService {
         id INTEGER PRIMARY KEY,
         person_id INTEGER NOT NULL,
         school_id INTEGER,
+        school TEXT, -- 学校名（インタビューなどの機能で使用）
         grade INTEGER,
         age INTEGER DEFAULT 15,
         position TEXT NOT NULL,

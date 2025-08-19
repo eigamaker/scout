@@ -19,6 +19,10 @@ import '../models/professional/professional_team.dart';
 import '../models/game/pennant_race.dart';
 import 'growth_service.dart';
 import 'pennant_race_service.dart';
+import 'default_school_data.dart';
+import 'school_data_service.dart';
+import 'talented_player_generator.dart';
+import 'player_assignment_service.dart';
 
 
 
@@ -156,26 +160,41 @@ class GameManager {
     _playerDataGenerator = PlayerDataGenerator(dataService);
   }
 
-  // ニューゲーム時に全学校に1〜3年生を生成・配属（DBにもinsert）
+  // 新しい選手生成・配属システム
   Future<void> generateInitialStudentsForAllSchoolsDb(DataService dataService) async {
-    final updatedSchools = <School>[];
-    
-    for (final school in _currentGame!.schools) {
-      final newPlayers = <Player>[];
-      
-      // 各学校に1〜3年生を生成（各学年10人）
-      for (int grade = 1; grade <= 3; grade++) {
-        final playerCount = 10; // 各学年10人
+    try {
+                      // 1. 47都道府県×50校の学校を生成（デフォルトデータから）
+        final allSchools = DefaultSchoolData.getAllSchools();
         
-        // 新しいPlayerDataGeneratorを使用して選手を生成
-        final players = await _playerDataGenerator.generatePlayersForSchool(school, playerCount);
-        newPlayers.addAll(players);
+        // 1.5. 学校データをデータベースに挿入
+        final db = await dataService.database;
+        final schoolDataService = SchoolDataService(db);
+        await schoolDataService.insertDefaultSchools();
+        
+        // 2. 才能のある選手（ランク3以上）を1000人生成
+        final talentedPlayerGenerator = TalentedPlayerGenerator(dataService);
+        final talentedPlayers = await talentedPlayerGenerator.generateTalentedPlayers();
+        
+        // 3. 選手を学校に配属
+        final playerAssignmentService = PlayerAssignmentService(dataService);
+        await playerAssignmentService.assignPlayersToSchools(allSchools, talentedPlayers);
+        
+        // 4. 学校リストを更新
+        _currentGame = _currentGame!.copyWith(schools: allSchools);
+      
+      // 5. 統計情報を表示
+      final stats = await playerAssignmentService.getPlayerDistributionStats(allSchools);
+      print('選手配属完了:');
+      for (final entry in stats.entries) {
+        final rank = entry.key;
+        final data = entry.value;
+        print('${rank.name}: ${data['total_schools']}校, 生成選手${data['total_generated_players']}人');
       }
       
-      updatedSchools.add(school.copyWith(players: newPlayers));
+    } catch (e) {
+      print('選手生成・配属でエラー: $e');
+      rethrow;
     }
-    
-    _currentGame = _currentGame!.copyWith(schools: updatedSchools);
   }
 
   Future<void> startNewGameWithDb(String scoutName, DataService dataService) async {
@@ -185,17 +204,8 @@ class GameManager {
       
       final db = await dataService.database;
       
-    // 学校リスト取得
-    final schoolMaps = await db.query('School', where: 'type = ?', whereArgs: ['高校']);
-    final schools = schoolMaps.map((m) => School(
-      id: m['id'] as int,
-      name: m['name'] as String,
-      location: m['location'] as String,
-      players: [], // 後で選手を割り当て
-      coachTrust: m['school_strength'] as int? ?? 70,
-      coachName: '未設定',
-    )).toList();
-    // 初期選手リストは空で開始（generateInitialStudentsForAllSchoolsDbで生成される）
+    // 学校リストは空で開始（generateInitialStudentsForAllSchoolsDbで生成される）
+    final schools = <School>[];
     final players = <Player>[];
     // スカウトインスタンス生成
     _currentScout = Scout.createDefault(scoutName);
