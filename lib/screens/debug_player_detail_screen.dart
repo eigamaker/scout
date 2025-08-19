@@ -468,6 +468,9 @@ class _DebugPlayerDetailScreenState extends State<DebugPlayerDetailScreen> {
       case 'positioning': return 'ポジショニング';
       case 'pressureHandling': return 'プレッシャー耐性';
       case 'clutchAbility': return '勝負強さ';
+      case 'motivation': return 'モチベーション';
+      case 'adaptability': return '適応力';
+      case 'consistency': return '安定性';
       
       // Physical abilities
       case 'acceleration': return '加速力';
@@ -476,6 +479,10 @@ class _DebugPlayerDetailScreenState extends State<DebugPlayerDetailScreen> {
       case 'jumpingReach': return 'ジャンプ力';
       case 'flexibility': return '柔軟性';
       case 'strength': return '筋力';
+      case 'naturalFitness': return '自然体力';
+      case 'injuryProneness': return '怪我しやすさ';
+      case 'pace': return '走力';
+      case 'stamina': return 'スタミナ';
       
       default: return abilityName;
     }

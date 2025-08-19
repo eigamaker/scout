@@ -121,6 +121,9 @@ class PlayerDataGenerator {
       'positioning': mentalAbilities[MentalAbility.positioning] ?? 25,
       'pressure_handling': mentalAbilities[MentalAbility.pressureHandling] ?? 25,
       'clutch_ability': mentalAbilities[MentalAbility.clutchAbility] ?? 25,
+      'motivation': mentalAbilities[MentalAbility.motivation] ?? 25,
+      'adaptability': mentalAbilities[MentalAbility.adaptability] ?? 25,
+      'consistency': mentalAbilities[MentalAbility.consistency] ?? 25,
       // Physical abilities
       'acceleration': physicalAbilities[PhysicalAbility.acceleration] ?? 25,
       'agility': physicalAbilities[PhysicalAbility.agility] ?? 25,
@@ -272,7 +275,6 @@ class PlayerDataGenerator {
           (playerData['natural_fitness'] as int? ?? 50) * 1.1, // 自然な体力
         ];
         final otherAbilities = [
-          playerData['speed'] as int? ?? 50,
           playerData['agility'] as int? ?? 50,
           playerData['balance'] as int? ?? 50,
           playerData['jumping_reach'] as int? ?? 50,
@@ -286,9 +288,8 @@ class PlayerDataGenerator {
           (otherAbilities.reduce((a, b) => a + b) * 0.4)
         ).round();
       } else {
-        // 野手はスピードと敏捷性を重視
+        // 野手は敏捷性と加速力を重視
         final speedAbilities = [
-          (playerData['speed'] as int? ?? 50) * 1.3, // スピード
           (playerData['agility'] as int? ?? 50) * 1.2, // 敏捷性
           (playerData['acceleration'] as int? ?? 50) * 1.2, // 加速力
         ];
@@ -361,7 +362,8 @@ class PlayerDataGenerator {
     final mentalAbilities = [
       'concentration', 'anticipation', 'vision', 'composure', 'aggression', 
       'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
-      'teamwork', 'positioning', 'pressureHandling', 'clutchAbility'
+      'teamwork', 'positioning', 'pressureHandling', 'clutchAbility',
+      'motivation', 'adaptability', 'consistency'
     ];
     
     // Physical（フィジカル面）能力値
@@ -780,7 +782,8 @@ class PlayerDataGenerator {
     final mentalKeys = [
       'concentration', 'anticipation', 'vision', 'composure', 'aggression', 
       'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
-      'teamwork', 'positioning', 'pressureHandling', 'clutchAbility'
+      'teamwork', 'positioning', 'pressureHandling', 'clutchAbility',
+      'motivation', 'adaptability', 'consistency'
     ];
     
     // 身体的ポテンシャル
@@ -872,6 +875,9 @@ class PlayerDataGenerator {
       'positioning': 0,
       'pressure_handling': 0,
       'clutch_ability': 0,
+      'motivation': 0,
+      'adaptability': 0,
+      'consistency': 0,
       'acceleration': 0,
       'agility': 0,
       'balance': 0,

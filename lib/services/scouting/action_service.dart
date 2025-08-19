@@ -825,21 +825,25 @@ class ActionService {
         }
       }
       
-      // メンタル面の能力値を追加
+      // メンタル面の能力値を追加（インタビューで見える部分）
       final mentalAbilities = [
-        {'key': 'work_rate_scouted', 'ability': MentalAbility.workRate},
-        {'key': 'self_discipline_scouted', 'ability': MentalAbility.selfDiscipline},
-        {'key': 'pressure_handling_scouted', 'ability': MentalAbility.pressureHandling},
-        {'key': 'clutch_ability_scouted', 'ability': MentalAbility.clutchAbility},
-        {'key': 'leadership_scouted', 'ability': MentalAbility.leadership},
-        {'key': 'teamwork_scouted', 'ability': MentalAbility.teamwork},
         {'key': 'concentration_scouted', 'ability': MentalAbility.concentration},
         {'key': 'anticipation_scouted', 'ability': MentalAbility.anticipation},
         {'key': 'vision_scouted', 'ability': MentalAbility.vision},
         {'key': 'composure_scouted', 'ability': MentalAbility.composure},
         {'key': 'aggression_scouted', 'ability': MentalAbility.aggression},
         {'key': 'bravery_scouted', 'ability': MentalAbility.bravery},
-        {'key': 'ambition_scouted', 'ability': MentalAbility.ambition}
+        {'key': 'leadership_scouted', 'ability': MentalAbility.leadership},
+        {'key': 'work_rate_scouted', 'ability': MentalAbility.workRate},
+        {'key': 'self_discipline_scouted', 'ability': MentalAbility.selfDiscipline},
+        {'key': 'ambition_scouted', 'ability': MentalAbility.ambition},
+        {'key': 'teamwork_scouted', 'ability': MentalAbility.teamwork},
+        {'key': 'positioning_scouted', 'ability': MentalAbility.positioning},
+        {'key': 'pressure_handling_scouted', 'ability': MentalAbility.pressureHandling},
+        {'key': 'clutch_ability_scouted', 'ability': MentalAbility.clutchAbility},
+        {'key': 'motivation_scouted', 'ability': MentalAbility.motivation},
+        {'key': 'adaptability_scouted', 'ability': MentalAbility.adaptability},
+        {'key': 'consistency_scouted', 'ability': MentalAbility.consistency},
       ];
       
       for (final abilityInfo in mentalAbilities) {
@@ -867,16 +871,42 @@ class ActionService {
         ...scoutedAbilities,
       };
       
-      // 既存データを削除してから新しいデータを挿入
-      await db.delete(
+      // 既存データを確認
+      final existingAnalysisData = await db.query(
         'ScoutAnalysis',
         where: 'player_id = ? AND scout_id = ?',
         whereArgs: [targetPlayer.id ?? 0, scoutId],
       );
       
-      await db.insert('ScoutAnalysis', insertData);
+      if (existingAnalysisData.isNotEmpty) {
+        // 既存データがある場合は更新（既存の分析データを保持）
+        final existing = existingAnalysisData.first;
+        final updatedData = Map<String, dynamic>.from(existing);
+        
+        // 新しいデータで既存のnullフィールドのみを更新
+        insertData.forEach((key, value) {
+          if (value != null && (existing[key] == null || existing[key] == 0)) {
+            updatedData[key] = value;
+          }
+        });
+        
+        // 分析日時と精度は常に更新
+        updatedData['analysis_date'] = insertData['analysis_date'];
+        updatedData['accuracy'] = insertData['accuracy'];
+        
+        await db.update(
+          'ScoutAnalysis',
+          updatedData,
+          where: 'player_id = ? AND scout_id = ?',
+          whereArgs: [targetPlayer.id ?? 0, scoutId],
+        );
+        print('メンタル面スカウト分析データ更新完了: プレイヤーID ${targetPlayer.id}');
+      } else {
+        // 新規データの場合は挿入
+        await db.insert('ScoutAnalysis', insertData);
+        print('メンタル面スカウト分析データ新規挿入完了: プレイヤーID ${targetPlayer.id}');
+      }
       
-
     } catch (e) {
       print('メンタル面スカウト分析データ生成エラー: $e');
     }
@@ -912,7 +942,8 @@ class ActionService {
         // フィジカル面の能力値以外のみを継承
         final physicalAbilities = [
           'pace_scouted', 'acceleration_scouted', 'agility_scouted', 'balance_scouted',
-          'jumping_reach_scouted', 'stamina_scouted', 'strength_scouted', 'flexibility_scouted'
+          'jumping_reach_scouted', 'stamina_scouted', 'strength_scouted', 'flexibility_scouted',
+          'natural_fitness_scouted', 'injury_proneness_scouted',
         ];
         
         for (final entry in existingMap.entries) {
@@ -931,7 +962,9 @@ class ActionService {
         {'key': 'jumping_reach_scouted', 'ability': PhysicalAbility.jumpingReach},
         {'key': 'stamina_scouted', 'ability': PhysicalAbility.stamina},
         {'key': 'strength_scouted', 'ability': PhysicalAbility.strength},
-        {'key': 'flexibility_scouted', 'ability': PhysicalAbility.flexibility}
+        {'key': 'flexibility_scouted', 'ability': PhysicalAbility.flexibility},
+        {'key': 'natural_fitness_scouted', 'ability': PhysicalAbility.naturalFitness},
+        {'key': 'injury_proneness_scouted', 'ability': PhysicalAbility.injuryProneness},
       ];
       
       for (final abilityInfo in physicalAbilities) {
@@ -959,16 +992,42 @@ class ActionService {
         ...scoutedAbilities,
       };
       
-      // 既存データを削除してから新しいデータを挿入
-      await db.delete(
+      // 既存データを確認
+      final existingAnalysisData = await db.query(
         'ScoutAnalysis',
         where: 'player_id = ? AND scout_id = ?',
         whereArgs: [targetPlayer.id ?? 0, scoutId],
       );
       
-      await db.insert('ScoutAnalysis', insertData);
+      if (existingAnalysisData.isNotEmpty) {
+        // 既存データがある場合は更新（既存の分析データを保持）
+        final existing = existingAnalysisData.first;
+        final updatedData = Map<String, dynamic>.from(existing);
+        
+        // 新しいデータで既存のnullフィールドのみを更新
+        insertData.forEach((key, value) {
+          if (value != null && (existing[key] == null || existing[key] == 0)) {
+            updatedData[key] = value;
+          }
+        });
+        
+        // 分析日時と精度は常に更新
+        updatedData['analysis_date'] = insertData['analysis_date'];
+        updatedData['accuracy'] = insertData['accuracy'];
+        
+        await db.update(
+          'ScoutAnalysis',
+          updatedData,
+          where: 'player_id = ? AND scout_id = ?',
+          whereArgs: [targetPlayer.id ?? 0, scoutId],
+        );
+        print('フィジカル面スカウト分析データ更新完了: プレイヤーID ${targetPlayer.id}');
+      } else {
+        // 新規データの場合は挿入
+        await db.insert('ScoutAnalysis', insertData);
+        print('フィジカル面スカウト分析データ新規挿入完了: プレイヤーID ${targetPlayer.id}');
+      }
       
-
     } catch (e) {
       print('フィジカル面スカウト分析データ生成エラー: $e');
     }
@@ -1020,16 +1079,18 @@ class ActionService {
         {'key': 'contact_scouted', 'ability': TechnicalAbility.contact},
         {'key': 'power_scouted', 'ability': TechnicalAbility.power},
         {'key': 'plate_discipline_scouted', 'ability': TechnicalAbility.plateDiscipline},
+        {'key': 'bunt_scouted', 'ability': TechnicalAbility.bunt},
         {'key': 'opposite_field_hitting_scouted', 'ability': TechnicalAbility.oppositeFieldHitting},
         {'key': 'pull_hitting_scouted', 'ability': TechnicalAbility.pullHitting},
         {'key': 'bat_control_scouted', 'ability': TechnicalAbility.batControl},
         {'key': 'swing_speed_scouted', 'ability': TechnicalAbility.swingSpeed},
         {'key': 'fielding_scouted', 'ability': TechnicalAbility.fielding},
         {'key': 'throwing_scouted', 'ability': TechnicalAbility.throwing},
+        {'key': 'catcher_ability_scouted', 'ability': TechnicalAbility.catcherAbility},
+        {'key': 'control_scouted', 'ability': TechnicalAbility.control},
         {'key': 'fastball_scouted', 'ability': TechnicalAbility.fastball},
         {'key': 'breaking_ball_scouted', 'ability': TechnicalAbility.breakingBall},
         {'key': 'pitch_movement_scouted', 'ability': TechnicalAbility.pitchMovement},
-        {'key': 'control_scouted', 'ability': TechnicalAbility.control}
       ];
       
       for (final abilityInfo in technicalAbilities) {
@@ -1057,16 +1118,42 @@ class ActionService {
         ...scoutedAbilities,
       };
       
-      // 既存データを削除してから新しいデータを挿入
-      await db.delete(
+      // 既存データを確認
+      final existingAnalysisData = await db.query(
         'ScoutAnalysis',
         where: 'player_id = ? AND scout_id = ?',
         whereArgs: [targetPlayer.id ?? 0, scoutId],
       );
       
-      await db.insert('ScoutAnalysis', insertData);
+      if (existingAnalysisData.isNotEmpty) {
+        // 既存データがある場合は更新（既存の分析データを保持）
+        final existing = existingAnalysisData.first;
+        final updatedData = Map<String, dynamic>.from(existing);
+        
+        // 新しいデータで既存のnullフィールドのみを更新
+        insertData.forEach((key, value) {
+          if (value != null && (existing[key] == null || existing[key] == 0)) {
+            updatedData[key] = value;
+          }
+        });
+        
+        // 分析日時と精度は常に更新
+        updatedData['analysis_date'] = insertData['analysis_date'];
+        updatedData['accuracy'] = insertData['accuracy'];
+        
+        await db.update(
+          'ScoutAnalysis',
+          updatedData,
+          where: 'player_id = ? AND scout_id = ?',
+          whereArgs: [targetPlayer.id ?? 0, scoutId],
+        );
+        print('技術面スカウト分析データ更新完了: プレイヤーID ${targetPlayer.id}');
+      } else {
+        // 新規データの場合は挿入
+        await db.insert('ScoutAnalysis', insertData);
+        print('技術面スカウト分析データ新規挿入完了: プレイヤーID ${targetPlayer.id}');
+      }
       
-
     } catch (e) {
       print('技術面スカウト分析データ生成エラー: $e');
     }
@@ -1079,15 +1166,6 @@ class ActionService {
       final dataService = DataService();
       final db = await dataService.database;
       
-      // 既存データを削除してから新しいデータを挿入
-      final deleteCount = await db.delete(
-        'ScoutBasicInfoAnalysis',
-        where: 'player_id = ? AND scout_id = ?',
-        whereArgs: [targetPlayer.id ?? 0, scoutId.toString()],
-      );
-      print('既存データ削除: ${deleteCount}件削除');
-      
-      // 基本情報分析データを挿入
       // スカウトのスキル情報を取得
       final scout = await _getScoutById(scoutId);
       if (scout == null) {
@@ -1276,8 +1354,8 @@ class ActionService {
       final dataService = DataService();
       final db = await dataService.database;
       
-      // 既存データを削除してから新しいデータを挿入
-      await db.delete(
+      // 既存データを確認
+      final existingData = await db.query(
         'ScoutAnalysis',
         where: 'player_id = ? AND scout_id = ?',
         whereArgs: [targetPlayer.id ?? 0, scoutId],
@@ -1307,6 +1385,9 @@ class ActionService {
         {'key': 'positioning_scouted', 'ability': MentalAbility.positioning},
         {'key': 'pressure_handling_scouted', 'ability': MentalAbility.pressureHandling},
         {'key': 'clutch_ability_scouted', 'ability': MentalAbility.clutchAbility},
+        {'key': 'motivation_scouted', 'ability': MentalAbility.motivation},
+        {'key': 'adaptability_scouted', 'ability': MentalAbility.adaptability},
+        {'key': 'consistency_scouted', 'ability': MentalAbility.consistency},
       ];
       
       for (final abilityInfo in mentalAbilities) {
@@ -1325,8 +1406,34 @@ class ActionService {
         scoutedAbilities[columnKey] = scoutedValue;
       }
       
-      // データベースに保存
-      await db.insert('ScoutAnalysis', scoutedAbilities);
+      if (existingData.isNotEmpty) {
+        // 既存データがある場合は更新（既存の分析データを保持）
+        final existing = existingData.first;
+        final updatedData = Map<String, dynamic>.from(existing);
+        
+        // 新しいデータで既存のnullフィールドのみを更新
+        scoutedAbilities.forEach((key, value) {
+          if (value != null && (existing[key] == null || existing[key] == 0)) {
+            updatedData[key] = value;
+          }
+        });
+        
+        // 分析日時と精度は常に更新
+        updatedData['analysis_date'] = scoutedAbilities['analysis_date'];
+        updatedData['accuracy'] = scoutedAbilities['accuracy'];
+        
+        await db.update(
+          'ScoutAnalysis',
+          updatedData,
+          where: 'player_id = ? AND scout_id = ?',
+          whereArgs: [targetPlayer.id ?? 0, scoutId],
+        );
+        print('インタビュースカウト分析データ更新完了: プレイヤーID ${targetPlayer.id}');
+      } else {
+        // 新規データの場合は挿入
+        await db.insert('ScoutAnalysis', scoutedAbilities);
+        print('インタビュースカウト分析データ新規挿入完了: プレイヤーID ${targetPlayer.id}');
+      }
       
     } catch (e) {
       print('インタビュースカウト分析データ生成エラー: $e');
@@ -1358,12 +1465,19 @@ class ActionService {
       final technicalAbilities = [
         {'key': 'contact_scouted', 'ability': TechnicalAbility.contact},
         {'key': 'power_scouted', 'ability': TechnicalAbility.power},
+        {'key': 'plate_discipline_scouted', 'ability': TechnicalAbility.plateDiscipline},
+        {'key': 'bunt_scouted', 'ability': TechnicalAbility.bunt},
+        {'key': 'opposite_field_hitting_scouted', 'ability': TechnicalAbility.oppositeFieldHitting},
+        {'key': 'pull_hitting_scouted', 'ability': TechnicalAbility.pullHitting},
         {'key': 'bat_control_scouted', 'ability': TechnicalAbility.batControl},
+        {'key': 'swing_speed_scouted', 'ability': TechnicalAbility.swingSpeed},
         {'key': 'fielding_scouted', 'ability': TechnicalAbility.fielding},
         {'key': 'throwing_scouted', 'ability': TechnicalAbility.throwing},
+        {'key': 'catcher_ability_scouted', 'ability': TechnicalAbility.catcherAbility},
         {'key': 'control_scouted', 'ability': TechnicalAbility.control},
         {'key': 'fastball_scouted', 'ability': TechnicalAbility.fastball},
         {'key': 'breaking_ball_scouted', 'ability': TechnicalAbility.breakingBall},
+        {'key': 'pitch_movement_scouted', 'ability': TechnicalAbility.pitchMovement},
       ];
       
       for (final abilityInfo in technicalAbilities) {
@@ -1673,7 +1787,6 @@ class ActionService {
         'strength_scouted': _generateScoutedValue(player['strength'] as int? ?? 50, accuracy),
         'pace_scouted': _generateScoutedValue(player['pace'] as int? ?? 50, accuracy),
         'flexibility_scouted': _generateScoutedValue(player['flexibility'] as int? ?? 50, accuracy),
-        'speed_scouted': _generateScoutedValue(player['speed'] as int? ?? 50, accuracy),
         // 総合評価指標
         'overall_evaluation': _calculateOverallEvaluation(player, accuracy),
         'technical_evaluation': _calculateTechnicalEvaluation(player, accuracy),
@@ -1830,7 +1943,6 @@ class ActionService {
         (player['natural_fitness'] as int? ?? 50) * 1.1,
       ];
       final otherAbilities = [
-        player['speed'] as int? ?? 50,
         player['agility'] as int? ?? 50,
         player['balance'] as int? ?? 50,
         player['jumping_reach'] as int? ?? 50,
@@ -1845,7 +1957,6 @@ class ActionService {
       ).round();
     } else {
       final speedAbilities = [
-        (player['speed'] as int? ?? 50) * 1.3,
         (player['agility'] as int? ?? 50) * 1.2,
         (player['acceleration'] as int? ?? 50) * 1.2,
       ];
@@ -1998,7 +2109,8 @@ class ActionService {
           'throwing_scouted', 'fastball_scouted', 'breaking_ball_scouted', 'pitch_movement_scouted', 'control_scouted',
           // フィジカル面
           'pace_scouted', 'acceleration_scouted', 'agility_scouted', 'balance_scouted',
-          'jumping_reach_scouted', 'stamina_scouted', 'strength_scouted', 'flexibility_scouted'
+          'jumping_reach_scouted', 'stamina_scouted', 'strength_scouted', 'flexibility_scouted',
+          'natural_fitness_scouted', 'injury_proneness_scouted',
         ];
         
         for (final entry in existingMap.entries) {
@@ -2013,16 +2125,18 @@ class ActionService {
         {'key': 'contact_scouted', 'ability': TechnicalAbility.contact},
         {'key': 'power_scouted', 'ability': TechnicalAbility.power},
         {'key': 'plate_discipline_scouted', 'ability': TechnicalAbility.plateDiscipline},
+        {'key': 'bunt_scouted', 'ability': TechnicalAbility.bunt},
         {'key': 'opposite_field_hitting_scouted', 'ability': TechnicalAbility.oppositeFieldHitting},
         {'key': 'pull_hitting_scouted', 'ability': TechnicalAbility.pullHitting},
         {'key': 'bat_control_scouted', 'ability': TechnicalAbility.batControl},
         {'key': 'swing_speed_scouted', 'ability': TechnicalAbility.swingSpeed},
         {'key': 'fielding_scouted', 'ability': TechnicalAbility.fielding},
         {'key': 'throwing_scouted', 'ability': TechnicalAbility.throwing},
+        {'key': 'catcher_ability_scouted', 'ability': TechnicalAbility.catcherAbility},
+        {'key': 'control_scouted', 'ability': TechnicalAbility.control},
         {'key': 'fastball_scouted', 'ability': TechnicalAbility.fastball},
         {'key': 'breaking_ball_scouted', 'ability': TechnicalAbility.breakingBall},
         {'key': 'pitch_movement_scouted', 'ability': TechnicalAbility.pitchMovement},
-        {'key': 'control_scouted', 'ability': TechnicalAbility.control}
       ];
       
       for (final abilityInfo in technicalAbilities) {
@@ -2050,7 +2164,9 @@ class ActionService {
         {'key': 'jumping_reach_scouted', 'ability': PhysicalAbility.jumpingReach},
         {'key': 'stamina_scouted', 'ability': PhysicalAbility.stamina},
         {'key': 'strength_scouted', 'ability': PhysicalAbility.strength},
-        {'key': 'flexibility_scouted', 'ability': PhysicalAbility.flexibility}
+        {'key': 'flexibility_scouted', 'ability': PhysicalAbility.flexibility},
+        {'key': 'natural_fitness_scouted', 'ability': PhysicalAbility.naturalFitness},
+        {'key': 'injury_proneness_scouted', 'ability': PhysicalAbility.injuryProneness},
       ];
       
       for (final abilityInfo in physicalAbilities) {

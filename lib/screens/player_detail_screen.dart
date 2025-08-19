@@ -64,6 +64,9 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     'ポジショニング': 'positioning_scouted',
     'プレッシャー耐性': 'pressure_handling_scouted',
     '勝負強さ': 'clutch_ability_scouted',
+    'モチベーション': 'motivation_scouted',
+    '適応力': 'adaptability_scouted',
+    '安定性': 'consistency_scouted',
     
     // Physical abilities
     '加速力': 'acceleration_scouted',
@@ -245,6 +248,12 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         return widget.player.getMentalAbility(MentalAbility.pressureHandling);
       case 'clutchAbility':
         return widget.player.getMentalAbility(MentalAbility.clutchAbility);
+      case 'motivation':
+        return widget.player.getMentalAbility(MentalAbility.motivation);
+      case 'adaptability':
+        return widget.player.getMentalAbility(MentalAbility.adaptability);
+      case 'consistency':
+        return widget.player.getMentalAbility(MentalAbility.consistency);
       case 'acceleration':
         return widget.player.getPhysicalAbility(PhysicalAbility.acceleration);
       case 'agility':
@@ -316,6 +325,9 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       case MentalAbility.positioning: return 'positioning_scouted';
       case MentalAbility.pressureHandling: return 'pressure_handling_scouted';
       case MentalAbility.clutchAbility: return 'clutch_ability_scouted';
+      case MentalAbility.motivation: return 'motivation_scouted';
+      case MentalAbility.adaptability: return 'adaptability_scouted';
+      case MentalAbility.consistency: return 'consistency_scouted';
     }
   }
 
@@ -1051,6 +1063,23 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 _buildAbilityRow(ability.displayName, _getDisplayMentalAbility(ability), textColor, categoryColor)
               ).toList(),
             ),
+            
+            const SizedBox(height: 16),
+            
+            // 成長・適応力
+            _buildAbilitySubCategory(
+              context, 
+              textColor, 
+              categoryColor, 
+              '成長・適応力', 
+              [
+                MentalAbility.motivation,
+                MentalAbility.adaptability,
+                MentalAbility.consistency,
+              ].map((ability) => 
+                _buildAbilityRow(ability.displayName, _getDisplayMentalAbility(ability), textColor, categoryColor)
+              ).toList(),
+            ),
           ],
         ),
       ),
@@ -1117,6 +1146,22 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 PhysicalAbility.strength,
                 PhysicalAbility.flexibility,
                 PhysicalAbility.jumpingReach,
+              ].map((ability) => 
+                _buildAbilityRow(ability.displayName, _getDisplayPhysicalAbility(ability), textColor, categoryColor)
+              ).toList(),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // 体質・健康
+            _buildAbilitySubCategory(
+              context, 
+              textColor, 
+              categoryColor, 
+              '体質・健康', 
+              [
+                PhysicalAbility.naturalFitness,
+                PhysicalAbility.injuryProneness,
               ].map((ability) => 
                 _buildAbilityRow(ability.displayName, _getDisplayPhysicalAbility(ability), textColor, categoryColor)
               ).toList(),
@@ -1622,7 +1667,8 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     final mentalAbilities = [
       'concentration', 'anticipation', 'vision', 'composure', 'aggression',
       'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
-      'teamwork', 'positioning', 'pressureHandling', 'clutchAbility'
+      'teamwork', 'positioning', 'pressureHandling', 'clutchAbility',
+      'motivation', 'adaptability', 'consistency'
     ];
     
     for (final ability in mentalAbilities) {
@@ -1695,7 +1741,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       'concentration', 'anticipation', 'vision', 'composure',
       'aggression', 'bravery', 'leadership', 'workRate',
       'selfDiscipline', 'ambition', 'teamwork', 'positioning',
-      'pressureHandling', 'clutchAbility'
+      'pressureHandling', 'clutchAbility', 'motivation', 'adaptability', 'consistency'
     ];
 
     int knownCount = 0;
@@ -1716,7 +1762,8 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
     final physicalAbilities = [
       'acceleration', 'agility', 'balance', 'pace',
-      'stamina', 'strength', 'flexibility', 'jumpingReach'
+      'stamina', 'strength', 'flexibility', 'jumpingReach',
+      'naturalFitness', 'injuryProneness'
     ];
 
     int knownCount = 0;

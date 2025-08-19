@@ -139,7 +139,7 @@ class School {
       'concentration', 'anticipation', 'vision', 'composure', 'aggression', 
       'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
       'teamwork', 'positioning', 'pressureHandling', 'clutchAbility',
-      'naturalFitness', 'injuryProneness'
+      'motivation', 'adaptability', 'consistency'
     ];
     
     // Physical（フィジカル面）能力値ポテンシャル

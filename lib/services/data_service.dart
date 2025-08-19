@@ -548,11 +548,9 @@ class DataService {
       print('データベーススキーマを更新中（バージョン23）: 不足している身体的能力値カラムを追加...');
       
       try {
-        // Playerテーブルに不足しているカラムを追加
-        await db.execute('ALTER TABLE Player ADD COLUMN speed INTEGER DEFAULT 50');
+        // Playerテーブルに不足しているカラムを追加（speedは削除済み）
         
-        // PlayerPotentialsテーブルに不足しているカラムを追加
-        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN speed_potential INTEGER DEFAULT 50');
+        // PlayerPotentialsテーブルに不足しているカラムを追加（speed_potentialは削除済み）
         
         print('不足している身体的能力値カラムの追加完了');
       } catch (e) {
@@ -899,11 +897,8 @@ class DataService {
           pressure_handling_scouted INTEGER,
           clutch_ability_scouted INTEGER,
           motivation_scouted INTEGER,
-          pressure_scouted INTEGER,
           adaptability_scouted INTEGER,
           consistency_scouted INTEGER,
-          clutch_scouted INTEGER,
-          work_ethic_scouted INTEGER,
           acceleration_scouted INTEGER,
           agility_scouted INTEGER,
           balance_scouted INTEGER,
@@ -914,7 +909,6 @@ class DataService {
           strength_scouted INTEGER,
           pace_scouted INTEGER,
           flexibility_scouted INTEGER,
-          speed_scouted INTEGER,
           -- 総合評価指標
           overall_evaluation INTEGER DEFAULT 50,
           technical_evaluation INTEGER DEFAULT 50,
@@ -1039,7 +1033,6 @@ class DataService {
         strength INTEGER DEFAULT 50,
         pace INTEGER DEFAULT 50,
         flexibility INTEGER DEFAULT 50,
-        speed INTEGER DEFAULT 50,
         -- 総合能力値指標
         overall_ability INTEGER DEFAULT 50,
         technical_ability INTEGER DEFAULT 50,
@@ -1105,7 +1098,6 @@ class DataService {
         strength_potential INTEGER DEFAULT 50,
         pace_potential INTEGER DEFAULT 50,
         flexibility_potential INTEGER DEFAULT 50,
-        speed_potential INTEGER DEFAULT 50,
         -- 総合ポテンシャル指標
         overall_potential INTEGER DEFAULT 50,
         technical_potential INTEGER DEFAULT 50,
@@ -1272,11 +1264,8 @@ class DataService {
         pressure_handling_scouted INTEGER,
         clutch_ability_scouted INTEGER,
         motivation_scouted INTEGER,
-        pressure_scouted INTEGER,
         adaptability_scouted INTEGER,
         consistency_scouted INTEGER,
-        clutch_scouted INTEGER,
-        work_ethic_scouted INTEGER,
         acceleration_scouted INTEGER,
         agility_scouted INTEGER,
         balance_scouted INTEGER,
@@ -1287,7 +1276,6 @@ class DataService {
         strength_scouted INTEGER,
         pace_scouted INTEGER,
         flexibility_scouted INTEGER,
-        speed_scouted INTEGER,
         -- 総合評価指標
         overall_evaluation INTEGER DEFAULT 50,
         technical_evaluation INTEGER DEFAULT 50,
@@ -1702,7 +1690,6 @@ class DataService {
             'clutch_potential': _generateProPlayerPotential(peakAbility, random),
             'work_ethic_potential': _generateProPlayerPotential(peakAbility, random),
             // 身体的ポテンシャル（peak_abilityを基準に生成、上限はpeak_ability+15）
-            'speed_potential': _generateProPlayerPotential(peakAbility, random),
             'agility_potential': _generateProPlayerPotential(peakAbility, random),
             'balance_potential': _generateProPlayerPotential(peakAbility, random),
             'jumping_reach_potential': _generateProPlayerPotential(peakAbility, random),
@@ -1884,7 +1871,6 @@ class DataService {
           (playerData['natural_fitness'] as int? ?? 50) * 1.1, // 自然な体力
         ];
         final otherAbilities = [
-          playerData['speed'] as int? ?? 50,
           playerData['agility'] as int? ?? 50,
           playerData['balance'] as int? ?? 50,
           playerData['jumping_reach'] as int? ?? 50,
@@ -1901,9 +1887,8 @@ class DataService {
           (otherAvg * 0.4)
         ).round();
       } else {
-        // 野手はスピードと敏捷性を重視
+        // 野手は敏捷性と加速力を重視
         final speedAbilities = [
-          (playerData['speed'] as int? ?? 50) * 1.3, // スピード
           (playerData['agility'] as int? ?? 50) * 1.2, // 敏捷性
           (playerData['acceleration'] as int? ?? 50) * 1.2, // 加速力
         ];
