@@ -795,8 +795,8 @@ class GameManager {
     }
   }
 
-  // 選手のお気に入り状態を更新
-  Future<void> togglePlayerFavorite(Player player, DataService dataService) async {
+  // 選手の注目選手状態を更新
+  Future<void> toggleScoutFavorite(Player player, DataService dataService) async {
     final newFavoriteState = !player.isScoutFavorite;
     
     // discoveredPlayersリスト内の選手を更新
@@ -821,6 +821,40 @@ class GameManager {
       await db.update(
         'Player',
         {'is_scout_favorite': newFavoriteState ? 1 : 0},
+        where: 'id = ?',
+        whereArgs: [player.id],
+      );
+    } catch (e) {
+      print('注目選手状態のデータベース保存エラー: $e');
+    }
+  }
+
+  // 選手のお気に入り状態を更新
+  Future<void> togglePlayerFavorite(Player player, DataService dataService) async {
+    final newFavoriteState = !player.isPubliclyKnown;
+    
+    // discoveredPlayersリスト内の選手を更新
+    final index = _currentGame!.discoveredPlayers.indexWhere((p) => p.id == player.id);
+    if (index != -1) {
+      final updatedPlayer = player.copyWith(isPubliclyKnown: newFavoriteState);
+      _currentGame!.discoveredPlayers[index] = updatedPlayer;
+    }
+    
+    // 学校の選手リストも更新
+    for (final school in _currentGame!.schools) {
+      final playerIndex = school.players.indexWhere((p) => p.id == player.id);
+      if (playerIndex != -1) {
+        final updatedPlayer = player.copyWith(isPubliclyKnown: newFavoriteState);
+        school.players[playerIndex] = updatedPlayer;
+      }
+    }
+    
+    // データベースにも保存
+    try {
+      final db = await dataService.database;
+      await db.update(
+        'Player',
+        {'is_publicly_known': newFavoriteState ? 1 : 0},
         where: 'id = ?',
         whereArgs: [player.id],
       );

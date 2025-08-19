@@ -258,8 +258,8 @@ class Player {
       categories.add(PlayerCategory.famous);
     }
     
-    // 発掘済みの場合は必ず含める
-    if (isDiscovered) {
+    // 発掘済みの場合は必ず含める（isDiscoveredフラグまたはisPubliclyKnownフラグがtrueの場合）
+    if (isDiscovered || isPubliclyKnown) {
       categories.add(PlayerCategory.discovered);
     }
     

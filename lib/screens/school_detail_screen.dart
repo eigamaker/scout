@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/school/school.dart';
 import '../models/player/player.dart';
-import '../models/player/player_abilities.dart';
+import '../widgets/unified_player_card.dart';
+import '../screens/player_detail_screen.dart';
+
 import '../services/game_manager.dart';
 import '../services/scouting/action_service.dart';
 import '../models/game/game.dart';
@@ -22,9 +24,6 @@ class SchoolDetailScreen extends StatefulWidget {
 class _SchoolDetailScreenState extends State<SchoolDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String _searchQuery = '';
-  String _selectedPosition = 'すべて';
-  int? _selectedTalentRank;
 
   @override
   void initState() {
@@ -67,8 +66,6 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
 
   /// 基本情報タブを構築
   Widget _buildBasicInfoTab() {
-    final generatedPlayerCount = widget.school.players.where((p) => p.talent >= 3).length;
-    final defaultPlayerCount = widget.school.players.where((p) => p.talent < 3).length;
     
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -178,90 +175,36 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
 
   /// 所属選手タブを構築
   Widget _buildPlayersTab() {
-    final filteredPlayers = _getFilteredPlayers();
+    // 注目選手（isPubliclyKnown）と発掘済み選手（discoveredCount > 0）を表示
+    final visiblePlayers = widget.school.players.where((player) => 
+      player.isPubliclyKnown || player.discoveredCount > 0
+    ).toList();
+    
+    // デバッグ情報を表示
+    final totalPlayers = widget.school.players.length;
+    final publiclyKnownPlayers = widget.school.players.where((p) => p.isPubliclyKnown).length;
+    final discoveredPlayers = widget.school.players.where((p) => p.discoveredCount > 0).length;
     
     return Column(
       children: [
-        // 検索・フィルターバー
+        // デバッグ情報
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(8),
           color: Colors.grey[100],
-          child: Column(
-            children: [
-              TextField(
-                decoration: const InputDecoration(
-                  hintText: '選手名で検索...',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value;
-                  });
-                },
-              ),
-              
-              const SizedBox(height: 12),
-              
-              Row(
-                children: [
-                  // ポジションフィルター
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedPosition,
-                      decoration: const InputDecoration(
-                        labelText: 'ポジション',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: <String>[
-                        'すべて',
-                        '投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '左翼手', '中堅手', '右翼手'
-                      ].map((pos) => DropdownMenuItem<String>(value: pos, child: Text(pos))).toList(),
-                                              onChanged: (value) {
-                          setState(() {
-                            _selectedPosition = value as String;
-                          });
-                        },
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 8),
-                  
-                  // 才能ランクフィルター
-                  Expanded(
-                    child: DropdownButtonFormField<int?>(
-                      value: _selectedTalentRank,
-                      decoration: const InputDecoration(
-                        labelText: '才能ランク',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('すべて')),
-                        ...List.generate(6, (i) => i + 1).map((rank) => 
-                          DropdownMenuItem(value: rank, child: Text('ランク$rank'))
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedTalentRank = value;
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          child: Text(
+            'デバッグ: 総選手数: $totalPlayers, 注目選手: $publiclyKnownPlayers, 発掘済み: $discoveredPlayers, 表示対象: ${visiblePlayers.length}',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ),
         
         // 選手リスト
         Expanded(
-          child: filteredPlayers.isEmpty
-              ? const Center(child: Text('条件に合う選手が見つかりません'))
+          child: visiblePlayers.isEmpty
+              ? const Center(child: Text('注目選手・発掘済み選手がいません'))
               : ListView.builder(
-                  itemCount: filteredPlayers.length,
+                  itemCount: visiblePlayers.length,
                   itemBuilder: (context, index) {
-                    final player = filteredPlayers[index];
+                    final player = visiblePlayers[index];
                     return _buildPlayerCard(player);
                   },
                 ),
@@ -368,124 +311,19 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
     );
   }
 
-  /// フィルタリングされた選手リストを取得
-  List<Player> _getFilteredPlayers() {
-    return widget.school.players.where((player) {
-      // 検索クエリでフィルタリング
-      if (_searchQuery.isNotEmpty) {
-        if (!player.name.toLowerCase().contains(_searchQuery.toLowerCase())) {
-          return false;
-        }
-      }
-      
-      // ポジションでフィルタリング
-      if (_selectedPosition != 'すべて' && player.position != _selectedPosition) {
-        return false;
-      }
-      
-      // 才能ランクでフィルタリング
-      if (_selectedTalentRank != null && player.talent != _selectedTalentRank) {
-        return false;
-      }
-      
-      return true;
-    }).toList();
-  }
+
 
   /// 選手カードを構築
   Widget _buildPlayerCard(Player player) {
-    final isGeneratedPlayer = player.talent >= 3;
-    
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: isGeneratedPlayer ? Colors.green : Colors.grey,
-          child: Text(
-            player.position.substring(0, 1),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        title: Text(
-          player.name,
-          style: TextStyle(
-            fontWeight: isGeneratedPlayer ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${player.position} • ${player.grade}年生'),
-            Text(
-              '才能ランク${player.talent} • ${player.personality}',
-              style: TextStyle(
-                color: isGeneratedPlayer ? Colors.green[700] : Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (isGeneratedPlayer)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text(
-                  '生成',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            Text(
-              '知名度: ${player.fame}',
-              style: const TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-        onTap: () => _showPlayerDetail(player),
-      ),
+    return UnifiedPlayerCard(
+      player: player,
+      onTap: () => _showPlayerDetail(player),
+      showActions: false,
+      showSchool: false,
     );
   }
 
-  /// 統計カードを構築
-  Widget _buildStatCard(String label, String value, IconData icon) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Icon(icon, size: 32, color: Colors.blue),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   /// 詳細行を構築
   Widget _buildDetailRow(String label, String value) {
@@ -523,57 +361,17 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
     }
   }
 
-  /// 選手詳細を表示
+  /// 選手詳細画面に遷移
   void _showPlayerDetail(Player player) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(player.name),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('ポジション: ${player.position}'),
-              Text('学年: ${player.grade}年生'),
-              Text('才能ランク: ${player.talent}'),
-              Text('性格: ${player.personality}'),
-              Text('知名度: ${player.fame}'),
-              if (player.talent >= 3) ...[
-                const SizedBox(height: 16),
-                const Text('能力値', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                _buildAbilitySection('技術面', player.technicalAbilities),
-                _buildAbilitySection('メンタル面', player.mentalAbilities),
-                _buildAbilitySection('フィジカル面', player.physicalAbilities),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('閉じる'),
-          ),
-        ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PlayerDetailScreen(player: player),
       ),
     );
   }
 
-  /// 能力値セクションを構築
-  Widget _buildAbilitySection(String title, Map<dynamic, int> abilities) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-        ...abilities.entries.map((entry) => Padding(
-          padding: const EdgeInsets.only(left: 16),
-          child: Text('${entry.key}: ${entry.value}'),
-        )),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
+
 
   /// 練習視察アクションを追加
   void _addPracticeWatchAction(BuildContext context, GameManager gameManager, Game game) {
@@ -635,3 +433,4 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
     }
   }
 }
+

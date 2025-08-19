@@ -102,11 +102,12 @@ class TalentedPlayerGenerator {
       fame: fame,
       isPubliclyKnown: isPubliclyKnown,
       isScoutFavorite: false,
+      isDiscovered: isPubliclyKnown, // 注目選手は自動的に発掘済み
       isGraduated: false,
-      discoveredAt: null,
-      discoveredBy: null,
-      discoveredCount: 0,
-      scoutedDates: [],
+      discoveredAt: isPubliclyKnown ? DateTime.now() : null, // 注目選手は自動的に発掘済み
+      discoveredBy: isPubliclyKnown ? '自動生成' : null,
+      discoveredCount: isPubliclyKnown ? 1 : 0, // 注目選手は発掘回数1
+      scoutedDates: isPubliclyKnown ? [DateTime.now()] : [], // 注目選手は視察済み
       abilityKnowledge: <String, int>{},
       type: PlayerType.highSchool,
       yearsAfterGraduation: 0,

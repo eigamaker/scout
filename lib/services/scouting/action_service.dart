@@ -276,8 +276,8 @@ class ActionService {
         improvedPlayer: targetPlayer,
       );
     } else {
-      // 学校全体の練習視察でポテンシャル基準での発掘
-      final undiscovered = school.players.where((p) => !p.isDiscovered).toList();
+      // 学校全体の練習視察でポテンシャル基準での発掘（デフォルト選手は除外）
+      final undiscovered = school.players.where((p) => !p.isDiscovered && p.talent >= 3).toList();
       if (undiscovered.isNotEmpty) {
         // 探索スキルに基づいて発掘可能性を計算
         final explorationSkill = scoutSkills[ScoutSkill.exploration] ?? 1;
@@ -351,19 +351,11 @@ class ActionService {
             improvedPlayer: null,
           );
         } else {
-          // ランダムで1人は必ず発掘（最低保証）
-          final player = undiscovered[Random().nextInt(undiscovered.length)];
-          player.isDiscovered = true;
-          player.discoveredAt = DateTime.now();
-          player.discoveredCount = 1;
-          player.scoutedDates.add(DateTime.now());
-          
-          // 練習視察では発掘のみ行い、詳細な能力値判定はスカウト分析システムで処理する
-          
+          // 発掘可能な選手がいない場合
           return ScoutActionResult(
             success: true,
-            message: '🏃 ${school.name}の練習視察: 「${player.name}」を発見しましたが、特に印象的ではありませんでした',
-            discoveredPlayer: player,
+            message: '🏃 ${school.name}の練習視察: 練習は見応えがありましたが、特に印象的な選手は見つかりませんでした',
+            discoveredPlayer: null,
             improvedPlayer: null,
           );
         }
@@ -674,27 +666,28 @@ class ActionService {
           improvedPlayer: null,
         );
       } else {
-        // 既に発掘済みの選手から情報を更新
+        // 既に発掘済みの選手すべての情報を更新
         final allPlayers = school.players.where((p) => p.isDiscovered).toList();
         if (allPlayers.isNotEmpty) {
-          final player = allPlayers[Random().nextInt(allPlayers.length)];
-          // 技術面の能力値のみ把握度を設定
-          player.abilityKnowledge.updateAll((k, v) {
-            if (k == 'contact' || k == 'power' || k == 'plateDiscipline' || 
-                k == 'oppositeFieldHitting' || k == 'pullHitting' || k == 'batControl' || 
-                k == 'swingSpeed' || k == 'fielding' || k == 'throwing' || 
-                k == 'catcherAbility' || k == 'fastball' || k == 'breakingBall' || 
-                k == 'pitchMovement' || k == 'control' || k == 'stamina') {
-              return 100; // 完全に把握
-            }
-            return v;
-          });
+          // 発掘済みの選手すべての技術面能力値の把握度を向上
+          for (final player in allPlayers) {
+            player.abilityKnowledge.updateAll((k, v) {
+              if (k == 'contact' || k == 'power' || k == 'plateDiscipline' || 
+                  k == 'oppositeFieldHitting' || k == 'pullHitting' || k == 'batControl' || 
+                  k == 'swingSpeed' || k == 'fielding' || k == 'throwing' || 
+                  k == 'catcherAbility' || k == 'fastball' || k == 'breakingBall' || 
+                  k == 'pitchMovement' || k == 'control' || k == 'stamina') {
+                return 100; // 完全に把握
+              }
+              return v;
+            });
+          }
           
           return ScoutActionResult(
             success: true,
-            message: '🏟️ ${school.name}の練習試合観戦: 「${player.name}」の技術面の把握度が上がりました',
+            message: '🏟️ ${school.name}の練習試合観戦: 発掘済みの選手${allPlayers.length}名の技術面の把握度が上がりました',
             discoveredPlayer: null,
-            improvedPlayer: player,
+            improvedPlayer: null,
           );
         }
         

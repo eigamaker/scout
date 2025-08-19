@@ -172,14 +172,6 @@ class DataService {
 
   Future<void> insertInitialData() async {
     final db = await database;
-    // 既にデータが存在する場合はスキップ
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM School')) ?? 0;
-    if (count > 0) return;
-    
-    // サンプルデータは削除（実際の選手生成はGameManagerで行う）
-    // 古い学校データの挿入は無効化（新しいシステムで学校データを生成）
-    print('古い学校データの挿入をスキップしました（新しいシステムを使用）');
-    final schoolIds = <int>[];
     
     // プロ野球団とプロ選手の初期データを挿入
     await _insertProfessionalTeams(db);
