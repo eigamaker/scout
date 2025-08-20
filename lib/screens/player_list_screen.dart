@@ -328,6 +328,7 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
                     
                     return PlayerListCard(
                       player: player,
+                      showActions: true,
                       onTap: () {
                         Navigator.pushNamed(
                           context,

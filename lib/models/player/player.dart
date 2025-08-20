@@ -764,6 +764,7 @@ class Player {
   }
 
   Map<String, dynamic> toJson() => {
+    'id': id,
     'name': name,
     'school': school,
     'grade': grade,
@@ -806,6 +807,7 @@ class Player {
   };
 
   factory Player.fromJson(Map<String, dynamic> json) => Player(
+    id: json['id'],
     name: json['name'],
     school: json['school'],
     grade: json['grade'],

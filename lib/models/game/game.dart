@@ -21,6 +21,7 @@ class GameAction {
   final String type; // アクション種別（例: PRAC_WATCH, GAME_WATCH など）
   final int schoolId; // 対象学校ID
   final int? playerId; // 対象選手ID（任意）
+  final String? playerName; // 対象選手名（playerIdがnullの場合に使用）
   final int apCost; // AP消費
   final int budgetCost; // 予算消費
   final Map<String, dynamic>? params; // その他パラメータ
@@ -30,6 +31,7 @@ class GameAction {
     required this.type,
     required this.schoolId,
     this.playerId,
+    this.playerName,
     required this.apCost,
     required this.budgetCost,
     this.params,
@@ -40,6 +42,7 @@ class GameAction {
     'type': type,
     'schoolId': schoolId,
     'playerId': playerId,
+    'playerName': playerName,
     'apCost': apCost,
     'budgetCost': budgetCost,
     'params': params,
@@ -50,6 +53,7 @@ class GameAction {
     type: json['type'] as String,
     schoolId: json['schoolId'] as int,
     playerId: json['playerId'] as int?,
+    playerName: json['playerName'] as String?,
     apCost: json['apCost'] as int,
     budgetCost: json['budgetCost'] as int,
     params: json['params'] as Map<String, dynamic>?,

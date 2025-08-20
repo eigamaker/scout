@@ -513,7 +513,7 @@ class ActionService {
     await _generateBasicInfoAnalysis(targetPlayer, 1, growthTypeAnalysis, injuryRisk, potentialAnalysis);
     
     // ビデオ分析で把握できる能力値のScoutAnalysisデータも生成
-    await _generateVideoAnalysisScoutData(targetPlayer, 1); // デフォルトスカウトID 1
+    await generateVideoAnalysisScoutData(targetPlayer, 1); // デフォルトスカウトID 1
     
     return ScoutActionResult(
       success: true,
@@ -779,6 +779,46 @@ class ActionService {
   /// メンタル面能力値専用のスカウト分析データ生成
   static Future<void> generateScoutAnalysisForMentalAbilities(Player targetPlayer, int scoutId) async {
     try {
+      print('インタビュー実行: 選手名=${targetPlayer.name}, 選手ID=${targetPlayer.id}');
+      
+      // 選手のIDがnullの場合は、データベースから正しいIDを取得
+      int? actualPlayerId = targetPlayer.id;
+      if (actualPlayerId == null) {
+        print('選手IDがnullのため、データベースから正しいIDを取得中...');
+        final dataService = DataService();
+        final db = await dataService.database;
+        
+        // 名前と学校で選手を検索
+        final result = await db.rawQuery('''
+          SELECT p.id, p.school, per.name
+          FROM Player p
+          INNER JOIN Person per ON p.person_id = per.id
+          WHERE per.name = ? AND p.school = ?
+        ''', [targetPlayer.name, targetPlayer.school]);
+        
+        if (result.isNotEmpty) {
+          actualPlayerId = result.first['id'] as int;
+          print('選手IDを取得: ${targetPlayer.name}, ID: $actualPlayerId');
+        } else {
+          print('データベースで選手が見つかりません: ${targetPlayer.name}');
+          return;
+        }
+      }
+      
+      // 選手を発掘済み状態にする
+      if (!targetPlayer.isDiscovered) {
+        targetPlayer.isDiscovered = true;
+        targetPlayer.discoveredAt = DateTime.now();
+        targetPlayer.discoveredCount = 1;
+        targetPlayer.scoutedDates.add(DateTime.now());
+        print('選手を発掘済み状態に設定: ${targetPlayer.name}');
+      } else {
+        // 既に発掘済みの場合は視察回数を増やす
+        targetPlayer.discoveredCount += 1;
+        targetPlayer.scoutedDates.add(DateTime.now());
+        print('選手の視察回数を更新: ${targetPlayer.name}, 回数: ${targetPlayer.discoveredCount}');
+      }
+      
       final dataService = DataService();
       final db = await dataService.database;
       
@@ -857,7 +897,7 @@ class ActionService {
       
       // データベースに保存
       final insertData = {
-        'player_id': targetPlayer.id ?? 0,
+        'player_id': actualPlayerId,
         'scout_id': scoutId,
         'analysis_date': DateTime.now().toIso8601String(),
         'accuracy': 90, // インタビューは高精度
@@ -868,7 +908,7 @@ class ActionService {
       final existingAnalysisData = await db.query(
         'ScoutAnalysis',
         where: 'player_id = ? AND scout_id = ?',
-        whereArgs: [targetPlayer.id ?? 0, scoutId],
+        whereArgs: [actualPlayerId, scoutId],
       );
       
       if (existingAnalysisData.isNotEmpty) {
@@ -891,13 +931,13 @@ class ActionService {
           'ScoutAnalysis',
           updatedData,
           where: 'player_id = ? AND scout_id = ?',
-          whereArgs: [targetPlayer.id ?? 0, scoutId],
+          whereArgs: [actualPlayerId, scoutId],
         );
-        print('メンタル面スカウト分析データ更新完了: プレイヤーID ${targetPlayer.id}');
+        print('メンタル面スカウト分析データ更新完了: プレイヤーID $actualPlayerId');
       } else {
         // 新規データの場合は挿入
         await db.insert('ScoutAnalysis', insertData);
-        print('メンタル面スカウト分析データ新規挿入完了: プレイヤーID ${targetPlayer.id}');
+        print('メンタル面スカウト分析データ新規挿入完了: プレイヤーID $actualPlayerId');
       }
       
     } catch (e) {
@@ -908,6 +948,46 @@ class ActionService {
   /// フィジカル面能力値専用のスカウト分析データ生成
   static Future<void> generateScoutAnalysisForPhysicalAbilities(Player targetPlayer, int scoutId) async {
     try {
+      print('フィジカル面分析実行: 選手名=${targetPlayer.name}, 選手ID=${targetPlayer.id}');
+      
+      // 選手のIDがnullの場合は、データベースから正しいIDを取得
+      int? actualPlayerId = targetPlayer.id;
+      if (actualPlayerId == null) {
+        print('フィジカル面分析: 選手IDがnullのため、データベースから正しいIDを取得中...');
+        final dataService = DataService();
+        final db = await dataService.database;
+        
+        // 名前と学校で選手を検索
+        final result = await db.rawQuery('''
+          SELECT p.id, p.school, per.name
+          FROM Player p
+          INNER JOIN Person per ON p.person_id = per.id
+          WHERE per.name = ? AND p.school = ?
+        ''', [targetPlayer.name, targetPlayer.school]);
+        
+        if (result.isNotEmpty) {
+          actualPlayerId = result.first['id'] as int;
+          print('フィジカル面分析: 選手IDを取得: ${targetPlayer.name}, ID: $actualPlayerId');
+        } else {
+          print('フィジカル面分析: データベースで選手が見つかりません: ${targetPlayer.name}');
+          return;
+        }
+      }
+      
+      // 選手を発掘済み状態にする
+      if (!targetPlayer.isDiscovered) {
+        targetPlayer.isDiscovered = true;
+        targetPlayer.discoveredAt = DateTime.now();
+        targetPlayer.discoveredCount = 1;
+        targetPlayer.scoutedDates.add(DateTime.now());
+        print('選手を発掘済み状態に設定: ${targetPlayer.name}');
+      } else {
+        // 既に発掘済みの場合は視察回数を増やす
+        targetPlayer.discoveredCount += 1;
+        targetPlayer.scoutedDates.add(DateTime.now());
+        print('選手の視察回数を更新: ${targetPlayer.name}, 回数: ${targetPlayer.discoveredCount}');
+      }
+      
       final dataService = DataService();
       final db = await dataService.database;
       
@@ -915,7 +995,7 @@ class ActionService {
       final existingData = await db.query(
         'ScoutAnalysis',
         where: 'player_id = ? AND scout_id = ?',
-        whereArgs: [targetPlayer.id ?? 0, scoutId],
+        whereArgs: [actualPlayerId, scoutId],
         orderBy: 'analysis_date DESC',
         limit: 1,
       );
@@ -978,7 +1058,7 @@ class ActionService {
       
       // データベースに保存
       final insertData = {
-        'player_id': targetPlayer.id ?? 0,
+        'player_id': actualPlayerId,
         'scout_id': scoutId,
         'analysis_date': DateTime.now().toIso8601String(),
         'accuracy': 75, // 練習視察は中程度の精度
@@ -989,7 +1069,7 @@ class ActionService {
       final existingAnalysisData = await db.query(
         'ScoutAnalysis',
         where: 'player_id = ? AND scout_id = ?',
-        whereArgs: [targetPlayer.id ?? 0, scoutId],
+        whereArgs: [actualPlayerId, scoutId],
       );
       
       if (existingAnalysisData.isNotEmpty) {
@@ -1012,13 +1092,13 @@ class ActionService {
           'ScoutAnalysis',
           updatedData,
           where: 'player_id = ? AND scout_id = ?',
-          whereArgs: [targetPlayer.id ?? 0, scoutId],
+          whereArgs: [actualPlayerId, scoutId],
         );
-        print('フィジカル面スカウト分析データ更新完了: プレイヤーID ${targetPlayer.id}');
+        print('フィジカル面スカウト分析データ更新完了: プレイヤーID $actualPlayerId');
       } else {
         // 新規データの場合は挿入
         await db.insert('ScoutAnalysis', insertData);
-        print('フィジカル面スカウト分析データ新規挿入完了: プレイヤーID ${targetPlayer.id}');
+        print('フィジカル面スカウト分析データ新規挿入完了: プレイヤーID $actualPlayerId');
       }
       
     } catch (e) {
@@ -1029,6 +1109,30 @@ class ActionService {
   /// 技術面能力値専用のスカウト分析データ生成
   static Future<void> _generateScoutAnalysisForTechnicalAbilities(Player targetPlayer, int scoutId) async {
     try {
+      // 選手のIDがnullの場合は、データベースから正しいIDを取得
+      int? actualPlayerId = targetPlayer.id;
+      if (actualPlayerId == null) {
+        print('技術面分析: 選手IDがnullのため、データベースから正しいIDを取得中...');
+        final dataService = DataService();
+        final db = await dataService.database;
+        
+        // 名前と学校で選手を検索
+        final result = await db.rawQuery('''
+          SELECT p.id, p.school, per.name
+          FROM Player p
+          INNER JOIN Person per ON p.person_id = per.id
+          WHERE per.name = ? AND p.school = ?
+        ''', [targetPlayer.name, targetPlayer.school]);
+        
+        if (result.isNotEmpty) {
+          actualPlayerId = result.first['id'] as int;
+          print('技術面分析: 選手IDを取得: ${targetPlayer.name}, ID: $actualPlayerId');
+        } else {
+          print('技術面分析: データベースで選手が見つかりません: ${targetPlayer.name}');
+          return;
+        }
+      }
+      
       final dataService = DataService();
       final db = await dataService.database;
       
@@ -1036,7 +1140,7 @@ class ActionService {
       final existingData = await db.query(
         'ScoutAnalysis',
         where: 'player_id = ? AND scout_id = ?',
-        whereArgs: [targetPlayer.id ?? 0, scoutId],
+        whereArgs: [actualPlayerId, scoutId],
         orderBy: 'analysis_date DESC',
         limit: 1,
       );
@@ -1104,7 +1208,7 @@ class ActionService {
       
       // データベースに保存
       final insertData = {
-        'player_id': targetPlayer.id ?? 0,
+        'player_id': actualPlayerId,
         'scout_id': scoutId,
         'analysis_date': DateTime.now().toIso8601String(),
         'accuracy': 80, // 試合観戦は高めの精度
@@ -1115,7 +1219,7 @@ class ActionService {
       final existingAnalysisData = await db.query(
         'ScoutAnalysis',
         where: 'player_id = ? AND scout_id = ?',
-        whereArgs: [targetPlayer.id ?? 0, scoutId],
+        whereArgs: [actualPlayerId, scoutId],
       );
       
       if (existingAnalysisData.isNotEmpty) {
@@ -1138,13 +1242,13 @@ class ActionService {
           'ScoutAnalysis',
           updatedData,
           where: 'player_id = ? AND scout_id = ?',
-          whereArgs: [targetPlayer.id ?? 0, scoutId],
+          whereArgs: [actualPlayerId, scoutId],
         );
-        print('技術面スカウト分析データ更新完了: プレイヤーID ${targetPlayer.id}');
+        print('技術面スカウト分析データ更新完了: プレイヤーID $actualPlayerId');
       } else {
         // 新規データの場合は挿入
         await db.insert('ScoutAnalysis', insertData);
-        print('技術面スカウト分析データ新規挿入完了: プレイヤーID ${targetPlayer.id}');
+        print('技術面スカウト分析データ新規挿入完了: プレイヤーID $actualPlayerId');
       }
       
     } catch (e) {
@@ -1434,8 +1538,48 @@ class ActionService {
   }
 
   /// ビデオ分析用のスカウト分析データ生成・保存
-  static Future<void> _generateVideoAnalysisScoutData(Player targetPlayer, int scoutId) async {
+  static Future<void> generateVideoAnalysisScoutData(Player targetPlayer, int scoutId) async {
     try {
+      print('ビデオ分析実行: 選手名=${targetPlayer.name}, 選手ID=${targetPlayer.id}');
+      
+      // 選手のIDがnullの場合は、データベースから正しいIDを取得
+      int? actualPlayerId = targetPlayer.id;
+      if (actualPlayerId == null) {
+        print('選手IDがnullのため、データベースから正しいIDを取得中...');
+        final dataService = DataService();
+        final db = await dataService.database;
+        
+        // 名前と学校で選手を検索
+        final result = await db.rawQuery('''
+          SELECT p.id, p.school, per.name
+          FROM Player p
+          INNER JOIN Person per ON p.person_id = per.id
+          WHERE per.name = ? AND p.school = ?
+        ''', [targetPlayer.name, targetPlayer.school]);
+        
+        if (result.isNotEmpty) {
+          actualPlayerId = result.first['id'] as int;
+          print('選手IDを取得: ${targetPlayer.name}, ID: $actualPlayerId');
+        } else {
+          print('データベースで選手が見つかりません: ${targetPlayer.name}');
+          return;
+        }
+      }
+      
+      // 選手を発掘済み状態にする
+      if (!targetPlayer.isDiscovered) {
+        targetPlayer.isDiscovered = true;
+        targetPlayer.discoveredAt = DateTime.now();
+        targetPlayer.discoveredCount = 1;
+        targetPlayer.scoutedDates.add(DateTime.now());
+        print('選手を発掘済み状態に設定: ${targetPlayer.name}');
+      } else {
+        // 既に発掘済みの場合は視察回数を増やす
+        targetPlayer.discoveredCount += 1;
+        targetPlayer.scoutedDates.add(DateTime.now());
+        print('選手の視察回数を更新: ${targetPlayer.name}, 回数: ${targetPlayer.discoveredCount}');
+      }
+      
       final dataService = DataService();
       final db = await dataService.database;
       
@@ -1443,12 +1587,12 @@ class ActionService {
       final existingData = await db.query(
         'ScoutAnalysis',
         where: 'player_id = ? AND scout_id = ?',
-        whereArgs: [targetPlayer.id ?? 0, scoutId],
+        whereArgs: [actualPlayerId, scoutId],
       );
       
       // ビデオ分析で把握できる能力値を生成（技術面中心、精度は高め）
       final scoutedAbilities = <String, dynamic>{
-        'player_id': targetPlayer.id ?? 0,
+        'player_id': actualPlayerId,
         'scout_id': scoutId,
         'analysis_date': DateTime.now().toIso8601String(),
         'accuracy': 85, // ビデオ分析は高精度
@@ -1509,13 +1653,13 @@ class ActionService {
           'ScoutAnalysis',
           updatedData,
           where: 'player_id = ? AND scout_id = ?',
-          whereArgs: [targetPlayer.id ?? 0, scoutId],
+          whereArgs: [actualPlayerId, scoutId],
         );
-        print('ビデオ分析スカウト分析データ更新完了: プレイヤーID ${targetPlayer.id}');
+        print('ビデオ分析スカウト分析データ更新完了: プレイヤーID $actualPlayerId');
       } else {
         // 新規データの場合は挿入
         await db.insert('ScoutAnalysis', scoutedAbilities);
-        print('ビデオ分析スカウト分析データ新規挿入完了: プレイヤーID ${targetPlayer.id}');
+        print('ビデオ分析スカウト分析データ新規挿入完了: プレイヤーID $actualPlayerId');
       }
       
     } catch (e) {

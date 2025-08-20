@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/school/school.dart';
 import '../models/player/player.dart';
-import '../widgets/unified_player_card.dart';
 import '../screens/player_detail_screen.dart';
 
 import '../services/game_manager.dart';
@@ -318,6 +317,7 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
   Widget _buildPlayerCard(Player player) {
     return PlayerListCard(
       player: player,
+      showActions: true,
       onTap: () => _showPlayerDetail(player),
     );
   }

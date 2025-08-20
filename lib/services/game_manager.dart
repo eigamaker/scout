@@ -1475,9 +1475,22 @@ class GameManager {
         final totalPlayers = game.schools.fold<int>(0, (sum, school) => sum + school.players.length);
         print('GameManager: 復元された選手数: $totalPlayers');
         
-        // 選手データが不足している場合のみ_refreshPlayersFromDbを呼び出し
-        if (totalPlayers == 0) {
-          print('GameManager: 選手データが不足しているため、データベースから再読み込み');
+        // 選手データのIDが正しく設定されているかチェック
+        bool hasValidPlayerIds = true;
+        for (final school in game.schools) {
+          for (final player in school.players) {
+            if (player.id == null) {
+              hasValidPlayerIds = false;
+              print('GameManager: 選手IDがnull: ${player.name}');
+              break;
+            }
+          }
+          if (!hasValidPlayerIds) break;
+        }
+        
+        // 選手データが不足している場合、またはIDが正しく設定されていない場合は_refreshPlayersFromDbを呼び出し
+        if (totalPlayers == 0 || !hasValidPlayerIds) {
+          print('GameManager: 選手データの修正が必要なため、データベースから再読み込み');
           await _refreshPlayersFromDb(dataService);
           print('GameManager: _refreshPlayersFromDb完了');
         }
@@ -1500,6 +1513,8 @@ class GameManager {
 
   void loadGameFromJson(Map<String, dynamic> json) {
     _currentGame = Game.fromJson(json);
+    // 選手データのIDを正しく設定する必要がある
+    print('GameManager: loadGameFromJson完了 - 選手データのID設定が必要');
   }
 
   // 選手を発掘済みとして登録
@@ -1593,6 +1608,86 @@ class GameManager {
             }
           } else {
             results.add(result.message);
+          }
+        }
+      } else if (action.type == 'interview') {
+        // インタビューアクション
+        final schoolIndex = action.schoolId;
+        final playerId = action.playerId;
+        
+        if (schoolIndex < _currentGame!.schools.length) {
+          final school = _currentGame!.schools[schoolIndex];
+          
+          // 指定された選手を探す
+          Player? targetPlayer;
+          if (playerId != null) {
+            targetPlayer = school.players.firstWhere(
+              (p) => p.id == playerId,
+              orElse: () => school.players.first,
+            );
+          } else {
+            // playerIdがnullの場合は、名前で検索
+            final playerName = action.playerName;
+            if (playerName != null) {
+              targetPlayer = school.players.firstWhere(
+                (p) => p.name == playerName,
+                orElse: () => school.players.first,
+              );
+            }
+          }
+          
+          if (targetPlayer != null) {
+            print('インタビュー実行: ${targetPlayer.name}');
+            
+            // ActionServiceを使用してインタビューを実行
+            await scouting.ActionService.generateScoutAnalysisForMentalAbilities(targetPlayer, 1);
+            
+            // 選手を発掘済み状態にする
+            discoverPlayer(targetPlayer);
+            
+            results.add('💬 ${targetPlayer.name}へのインタビューが完了しました');
+          } else {
+            results.add('インタビュー対象の選手が見つかりませんでした');
+          }
+        }
+      } else if (action.type == 'videoAnalyze') {
+        // ビデオ分析アクション
+        final schoolIndex = action.schoolId;
+        final playerId = action.playerId;
+        
+        if (schoolIndex < _currentGame!.schools.length) {
+          final school = _currentGame!.schools[schoolIndex];
+          
+          // 指定された選手を探す
+          Player? targetPlayer;
+          if (playerId != null) {
+            targetPlayer = school.players.firstWhere(
+              (p) => p.id == playerId,
+              orElse: () => school.players.first,
+            );
+          } else {
+            // playerIdがnullの場合は、名前で検索
+            final playerName = action.playerName;
+            if (playerName != null) {
+              targetPlayer = school.players.firstWhere(
+                (p) => p.name == playerName,
+                orElse: () => school.players.first,
+              );
+            }
+          }
+          
+          if (targetPlayer != null) {
+            print('ビデオ分析実行: ${targetPlayer.name}');
+            
+            // ActionServiceを使用してビデオ分析を実行
+            await scouting.ActionService.generateVideoAnalysisScoutData(targetPlayer, 1);
+            
+            // 選手を発掘済み状態にする
+            discoverPlayer(targetPlayer);
+            
+            results.add('📹 ${targetPlayer.name}のビデオ分析が完了しました');
+          } else {
+            results.add('ビデオ分析対象の選手が見つかりませんでした');
           }
         }
       } else if (action.type == 'PRACTICE_WATCH') {

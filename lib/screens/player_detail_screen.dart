@@ -99,9 +99,10 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
   /// スカウト分析データを読み込み
   Future<void> _loadScoutAnalysisData() async {
-    if (widget.player.id != null) {
-      try {
-        final scoutId = '1'; // 現在のスカウトID（action_service.dartと統一）
+    try {
+      final scoutId = '1'; // 現在のスカウトID（action_service.dartと統一）
+      
+      if (widget.player.id != null) {
         print('スカウト分析データ読み込み開始: プレイヤーID ${widget.player.id}, スカウトID $scoutId');
         
         // 能力値の分析データを読み込み
@@ -125,14 +126,77 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         });
         
         print('スカウト分析データ読み込み完了');
-      } catch (e) {
-        print('スカウト分析データの読み込みエラー: $e');
+      } else {
+        // プレイヤーIDがnullの場合は、名前と学校で検索を試行
+        print('プレイヤーIDがnullのため、名前と学校で検索を試行: ${widget.player.name}, ${widget.player.school}');
+        
+        // 名前と学校でデータベースから選手IDを検索
+        final dataService = DataService();
+        final db = await dataService.database;
+        
+        // Personテーブルから名前で検索
+        final personData = await db.query(
+          'Person',
+          where: 'name = ?',
+          whereArgs: [widget.player.name],
+        );
+        
+        if (personData.isNotEmpty) {
+          final personId = personData.first['id'] as int;
+          
+          // Playerテーブルから学校IDで検索
+          final schoolData = await db.query(
+            'School',
+            where: 'name = ?',
+            whereArgs: [widget.player.school],
+          );
+          
+          if (schoolData.isNotEmpty) {
+            final schoolId = schoolData.first['id'] as int;
+            
+            // Playerテーブルからperson_idとschool_idで検索
+            final playerData = await db.query(
+              'Player',
+              where: 'person_id = ? AND school_id = ?',
+              whereArgs: [personId, schoolId],
+            );
+            
+            if (playerData.isNotEmpty) {
+              final actualPlayerId = playerData.first['id'] as int;
+              print('選手IDを特定: $actualPlayerId');
+              
+              // 特定したIDでスカウト分析データを読み込み
+              final analysisData = await _scoutAnalysisService.getLatestScoutAnalysis(
+                actualPlayerId, 
+                scoutId
+              );
+              print('能力値分析データ: $analysisData');
+              
+              final basicInfoData = await _scoutAnalysisService.getLatestBasicInfoAnalysis(
+                actualPlayerId, 
+                scoutId
+              );
+              print('基本情報分析データ: $basicInfoData');
+              
+              setState(() {
+                _scoutAnalysisData = analysisData;
+                _basicInfoAnalysisData = basicInfoData;
+                _isLoading = false;
+              });
+              
+              print('スカウト分析データ読み込み完了（ID特定後）');
+              return;
+            }
+          }
+        }
+        
+        print('選手IDを特定できませんでした');
         setState(() {
           _isLoading = false;
         });
       }
-    } else {
-      print('プレイヤーIDがnullのため、スカウト分析データを読み込めません');
+    } catch (e) {
+      print('スカウト分析データの読み込みエラー: $e');
       setState(() {
         _isLoading = false;
       });
