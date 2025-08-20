@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:io'; // Added for File
 import 'dart:math'; // Added for Random
+import '../utils/name_generator.dart';
 
 class DataService {
   static const String saveKey = 'scout_game_save';
@@ -994,6 +995,7 @@ class DataService {
         fame INTEGER DEFAULT 0,
         is_publicly_known INTEGER DEFAULT 0,
         is_scout_favorite INTEGER DEFAULT 0,
+        is_discovered INTEGER DEFAULT 0,
         is_graduated INTEGER DEFAULT 0,
         graduated_at TEXT,
         is_retired INTEGER DEFAULT 0,
@@ -1744,14 +1746,7 @@ class DataService {
 
   // プロ選手用の名前生成
   String _generateProfessionalPlayerName() {
-    final surnames = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
-    final givenNames = ['翔太', '健一', '大輔', '雄一', '和也', '智也', '達也', '誠', '勇', '剛'];
-    
-    final random = DateTime.now().millisecondsSinceEpoch;
-    final surname = surnames[random % surnames.length];
-    final givenName = givenNames[random % givenNames.length];
-    
-    return '$surname $givenName';
+    return NameGenerator.generateProfessionalPlayerName();
   }
 
   // プロ選手用の性格生成

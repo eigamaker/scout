@@ -1,4 +1,5 @@
 import '../models/school/school.dart';
+import '../utils/name_generator.dart';
 
 /// デフォルトの学校データを提供するクラス
 class DefaultSchoolData {
@@ -125,7 +126,7 @@ class DefaultSchoolData {
     final coachTrust = _getCoachTrustByRank(rankDistribution['rank']!);
     
     // 監督名の生成
-    final coachName = _generateCoachName(prefecture, index);
+          final coachName = NameGenerator.generateCoachName(prefecture, index);
     
     return {
       'name': name,
@@ -230,14 +231,4 @@ class DefaultSchoolData {
     }
   }
 
-  /// 監督名を生成
-  static String _generateCoachName(String prefecture, int index) {
-    final surnames = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
-    final givenNames = ['監督', '先生', 'コーチ'];
-    
-    final surname = surnames[index % surnames.length];
-    final givenName = givenNames[index % givenNames.length];
-    
-    return '$surname$givenName';
-  }
 }

@@ -3,6 +3,7 @@ import '../player/player.dart';
 import '../player/pitch.dart';
 import '../player/player_abilities.dart';
 import '../../services/player_generator.dart';
+import '../../utils/name_generator.dart';
 
 // 学校ランクの定義
 enum SchoolRank {
@@ -680,9 +681,7 @@ class School {
   
   // 名前の生成
   String _generateName(Random random) {
-    final names = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
-    return names[random.nextInt(names.length)] + 
-           (random.nextInt(999) + 1).toString().padLeft(3, '0');
+    return NameGenerator.generatePlayerName();
   }
   
   // 学年の決定

@@ -134,60 +134,45 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         final dataService = DataService();
         final db = await dataService.database;
         
-        // Personテーブルから名前で検索
-        final personData = await db.query(
-          'Person',
-          where: 'name = ?',
-          whereArgs: [widget.player.name],
-        );
+        // より柔軟な検索: 名前のみで検索して、学校名で絞り込み
+        final result = await db.rawQuery('''
+          SELECT p.id, p.school, per.name
+          FROM Player p
+          INNER JOIN Person per ON p.person_id = per.id
+          WHERE per.name = ?
+        ''', [widget.player.name]);
         
-        if (personData.isNotEmpty) {
-          final personId = personData.first['id'] as int;
-          
-          // Playerテーブルから学校IDで検索
-          final schoolData = await db.query(
-            'School',
-            where: 'name = ?',
-            whereArgs: [widget.player.school],
+        if (result.isNotEmpty) {
+          // 学校名が一致する選手を探す
+          final matchingPlayer = result.firstWhere(
+            (player) => player['school'] == widget.player.school,
+            orElse: () => result.first, // 学校名が一致しない場合は最初の選手を使用
           );
           
-          if (schoolData.isNotEmpty) {
-            final schoolId = schoolData.first['id'] as int;
-            
-            // Playerテーブルからperson_idとschool_idで検索
-            final playerData = await db.query(
-              'Player',
-              where: 'person_id = ? AND school_id = ?',
-              whereArgs: [personId, schoolId],
-            );
-            
-            if (playerData.isNotEmpty) {
-              final actualPlayerId = playerData.first['id'] as int;
-              print('選手IDを特定: $actualPlayerId');
-              
-              // 特定したIDでスカウト分析データを読み込み
-              final analysisData = await _scoutAnalysisService.getLatestScoutAnalysis(
-                actualPlayerId, 
-                scoutId
-              );
-              print('能力値分析データ: $analysisData');
-              
-              final basicInfoData = await _scoutAnalysisService.getLatestBasicInfoAnalysis(
-                actualPlayerId, 
-                scoutId
-              );
-              print('基本情報分析データ: $basicInfoData');
-              
-              setState(() {
-                _scoutAnalysisData = analysisData;
-                _basicInfoAnalysisData = basicInfoData;
-                _isLoading = false;
-              });
-              
-              print('スカウト分析データ読み込み完了（ID特定後）');
-              return;
-            }
-          }
+          final actualPlayerId = matchingPlayer['id'] as int;
+          print('選手IDを特定: $actualPlayerId (学校: ${matchingPlayer['school']})');
+          
+          // 特定したIDでスカウト分析データを読み込み
+          final analysisData = await _scoutAnalysisService.getLatestScoutAnalysis(
+            actualPlayerId, 
+            scoutId
+          );
+          print('能力値分析データ: $analysisData');
+          
+          final basicInfoData = await _scoutAnalysisService.getLatestBasicInfoAnalysis(
+            actualPlayerId, 
+            scoutId
+          );
+          print('基本情報分析データ: $basicInfoData');
+          
+          setState(() {
+            _scoutAnalysisData = analysisData;
+            _basicInfoAnalysisData = basicInfoData;
+            _isLoading = false;
+          });
+          
+          print('スカウト分析データ読み込み完了（ID特定後）');
+          return;
         }
         
         print('選手IDを特定できませんでした');

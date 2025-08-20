@@ -37,8 +37,8 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
         result = allPlayers.where((player) => player.isScoutFavorite).toList();
         break;
       case PlayerCategory.discovered:
-        // 発掘済み: discoveredCount > 0 かつ isPubliclyKnown = false（注目選手は除外）
-        result = allPlayers.where((player) => player.discoveredCount > 0 && !player.isPubliclyKnown).toList();
+        // 発掘済み: isDiscovered = true かつ isPubliclyKnown = false（スカウトが視察で発掘した選手のみ）
+        result = allPlayers.where((player) => player.isDiscovered && !player.isPubliclyKnown).toList();
         break;
       case PlayerCategory.famous:
         // 注目選手: isPubliclyKnown = true
@@ -49,14 +49,14 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
         result = allPlayers.where((player) => player.isGraduated).toList();
         break;
       case PlayerCategory.unknown:
-        // 未発掘: discoveredCount = 0 かつ isPubliclyKnown = false
-        result = allPlayers.where((player) => player.discoveredCount == 0 && !player.isPubliclyKnown).toList();
+            // 未発掘: isDiscovered = false かつ isPubliclyKnown = false
+    result = allPlayers.where((player) => !player.isDiscovered && !player.isPubliclyKnown).toList();
         break;
     }
     
     print('カテゴリ ${category.name} の選手数: ${result.length}名');
     if (result.isNotEmpty) {
-      print('最初の選手: ${result.first.name}, isPubliclyKnown: ${result.first.isPubliclyKnown}, discoveredCount: ${result.first.discoveredCount}');
+      print('最初の選手: ${result.first.name}, isPubliclyKnown: ${result.first.isPubliclyKnown}, isDiscovered: ${result.first.isDiscovered}');
     }
     return result;
   }
@@ -153,7 +153,7 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
      final totalPlayers = allPlayers.length;
      final publiclyKnownPlayers = allPlayers.where((p) => p.isPubliclyKnown).length;
      final scoutFavoritePlayers = allPlayers.where((p) => p.isScoutFavorite).length;
-     final discoveredPlayers = allPlayers.where((p) => p.discoveredCount > 0).length;
+           final discoveredPlayers = allPlayers.where((p) => p.isDiscovered).length;
      final isDiscoveredPlayers = allPlayers.where((p) => p.isDiscovered).length;
      
      print('選手リスト画面 デバッグ: 総選手数: $totalPlayers, 注目選手: $publiclyKnownPlayers, お気に入り: $scoutFavoritePlayers, 発掘済み: $discoveredPlayers, isDiscovered: $isDiscoveredPlayers');
@@ -161,7 +161,7 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
      // 各選手の詳細な状態をログ出力
      for (int i = 0; i < allPlayers.length && i < 5; i++) {
        final player = allPlayers[i];
-       print('選手${i + 1}: ${player.name}, isPubliclyKnown: ${player.isPubliclyKnown}, isScoutFavorite: ${player.isScoutFavorite}, isDiscovered: ${player.isDiscovered}, discoveredCount: ${player.discoveredCount}, allCategories: ${player.allCategories.map((c) => c.name).join(', ')}');
+       print('選手${i + 1}: ${player.name}, isPubliclyKnown: ${player.isPubliclyKnown}, isScoutFavorite: ${player.isScoutFavorite}, isDiscovered: ${player.isDiscovered}, allCategories: ${player.allCategories.map((c) => c.name).join(', ')}');
      }
     
     return Scaffold(

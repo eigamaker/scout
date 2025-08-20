@@ -175,15 +175,15 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
 
   /// 所属選手タブを構築
   Widget _buildPlayersTab() {
-    // 注目選手（isPubliclyKnown）と発掘済み選手（discoveredCount > 0）を表示
-    final visiblePlayers = widget.school.players.where((player) => 
-      player.isPubliclyKnown || player.discoveredCount > 0
-    ).toList();
+            // 注目選手（isPubliclyKnown）と発掘済み選手（isDiscovered = true）を表示
+        final visiblePlayers = widget.school.players.where((player) =>
+          player.isPubliclyKnown || player.isDiscovered
+        ).toList();
     
     // デバッグ情報を表示
     final totalPlayers = widget.school.players.length;
     final publiclyKnownPlayers = widget.school.players.where((p) => p.isPubliclyKnown).length;
-    final discoveredPlayers = widget.school.players.where((p) => p.discoveredCount > 0).length;
+          final discoveredPlayers = widget.school.players.where((p) => p.isDiscovered).length;
     
     return Column(
       children: [

@@ -101,8 +101,6 @@ class ActionService {
       // 未発掘選手がいればランダムで1人発掘
       final player = undiscovered[Random().nextInt(undiscovered.length)];
       player.isDiscovered = true;
-      player.discoveredAt = DateTime.now();
-      player.discoveredCount = 1;
       player.scoutedDates.add(DateTime.now());
       // 知名度に基づく初期情報把握度を設定（性格・精神面は除外）
       final baseKnowledge = _getInitialKnowledgeByFame(player.fameLevel);
@@ -135,7 +133,6 @@ class ActionService {
         );
       }
       final player = discovered[Random().nextInt(discovered.length)];
-      player.discoveredCount += 1;
       player.scoutedDates.add(DateTime.now());
       // 能力値把握度を+10～+20%アップ（最大80%）（性格・精神面は除外）
       player.abilityKnowledge.updateAll((k, v) {
@@ -220,8 +217,6 @@ class ActionService {
       
       for (final player in selectedPlayers) {
         player.isDiscovered = true;
-        player.discoveredAt = DateTime.now();
-        player.discoveredCount = 1;
         player.scoutedDates.add(DateTime.now());
         
         // 練習視察では基本情報のみ取得（詳細な能力値判定はしない）
@@ -317,8 +312,6 @@ class ActionService {
         if (potentialPlayers.isNotEmpty) {
           final player = potentialPlayers[Random().nextInt(potentialPlayers.length)];
           player.isDiscovered = true;
-          player.discoveredAt = DateTime.now();
-          player.discoveredCount = 1;
           player.scoutedDates.add(DateTime.now());
           
           // フィジカル面の能力値のみ把握度を設定
@@ -415,8 +408,6 @@ class ActionService {
         // 高能力値選手から発掘
         final player = regularPlayers[Random().nextInt(regularPlayers.length)];
         player.isDiscovered = true;
-        player.discoveredAt = DateTime.now();
-        player.discoveredCount = 1;
         player.scoutedDates.add(DateTime.now());
         
         // 試合観戦では発掘のみ行い、詳細分析はスカウト分析システムで処理する
@@ -479,12 +470,9 @@ class ActionService {
     // 選手を発掘状態にする（まだ発掘されていない場合）
     if (!targetPlayer.isDiscovered) {
       targetPlayer.isDiscovered = true;
-      targetPlayer.discoveredAt = DateTime.now();
-      targetPlayer.discoveredCount = 1;
       targetPlayer.scoutedDates.add(DateTime.now());
     } else {
-      // 既に発掘済みの場合は視察回数を増やす
-      targetPlayer.discoveredCount += 1;
+      // 既に発掘済みの場合は視察履歴を追加
       targetPlayer.scoutedDates.add(DateTime.now());
     }
     
@@ -653,8 +641,6 @@ class ActionService {
         // 高能力値選手から発掘
         final player = regularPlayers[Random().nextInt(regularPlayers.length)];
         player.isDiscovered = true;
-        player.discoveredAt = DateTime.now();
-        player.discoveredCount = 1;
         player.scoutedDates.add(DateTime.now());
         
         // 練習試合観戦では発掘のみ行い、詳細分析はスカウト分析システムで処理する
@@ -714,12 +700,9 @@ class ActionService {
     // 選手を発掘状態にする（まだ発掘されていない場合）
     if (!targetPlayer.isDiscovered) {
       targetPlayer.isDiscovered = true;
-      targetPlayer.discoveredAt = DateTime.now();
-      targetPlayer.discoveredCount = 1;
       targetPlayer.scoutedDates.add(DateTime.now());
     } else {
-      // 既に発掘済みの場合は視察回数を増やす
-      targetPlayer.discoveredCount += 1;
+      // 既に発掘済みの場合は視察履歴を追加
       targetPlayer.scoutedDates.add(DateTime.now());
     }
     
@@ -808,19 +791,22 @@ class ActionService {
       // 選手を発掘済み状態にする
       if (!targetPlayer.isDiscovered) {
         targetPlayer.isDiscovered = true;
-        targetPlayer.discoveredAt = DateTime.now();
-        targetPlayer.discoveredCount = 1;
-        targetPlayer.scoutedDates.add(DateTime.now());
         print('選手を発掘済み状態に設定: ${targetPlayer.name}');
-      } else {
-        // 既に発掘済みの場合は視察回数を増やす
-        targetPlayer.discoveredCount += 1;
-        targetPlayer.scoutedDates.add(DateTime.now());
-        print('選手の視察回数を更新: ${targetPlayer.name}, 回数: ${targetPlayer.discoveredCount}');
       }
       
       final dataService = DataService();
       final db = await dataService.database;
+      
+      // データベースに発掘状態を保存
+      await db.update(
+        'Player',
+        {
+          'is_discovered': targetPlayer.isDiscovered ? 1 : 0,
+        },
+        where: 'id = ?',
+        whereArgs: [actualPlayerId],
+      );
+      print('データベースに発掘状態を保存: ${targetPlayer.name}');
       
       // 既存のスカウト分析データを取得
       final existingData = await db.query(
@@ -940,6 +926,38 @@ class ActionService {
         print('メンタル面スカウト分析データ新規挿入完了: プレイヤーID $actualPlayerId');
       }
       
+      // ScoutBasicInfoAnalysisテーブルにも基本情報を挿入
+      final basicInfoData = {
+        'player_id': actualPlayerId,
+        'scout_id': scoutId.toString(),
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': 90,
+        'personality_scouted': targetPlayer.personality ?? 50,
+        'mental_scouted': targetPlayer.mentalGrit ?? 50,
+      };
+      
+      // 既存の基本情報分析データを確認
+      final existingBasicInfoData = await db.query(
+        'ScoutBasicInfoAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [actualPlayerId, scoutId.toString()],
+      );
+      
+      if (existingBasicInfoData.isNotEmpty) {
+        // 既存データがある場合は更新
+        await db.update(
+          'ScoutBasicInfoAnalysis',
+          basicInfoData,
+          where: 'player_id = ? AND scout_id = ?',
+          whereArgs: [actualPlayerId, scoutId.toString()],
+        );
+        print('基本情報分析データ更新完了: プレイヤーID $actualPlayerId');
+      } else {
+        // 新規データの場合は挿入
+        await db.insert('ScoutBasicInfoAnalysis', basicInfoData);
+        print('基本情報分析データ新規挿入完了: プレイヤーID $actualPlayerId');
+      }
+      
     } catch (e) {
       print('メンタル面スカウト分析データ生成エラー: $e');
     }
@@ -977,19 +995,22 @@ class ActionService {
       // 選手を発掘済み状態にする
       if (!targetPlayer.isDiscovered) {
         targetPlayer.isDiscovered = true;
-        targetPlayer.discoveredAt = DateTime.now();
-        targetPlayer.discoveredCount = 1;
-        targetPlayer.scoutedDates.add(DateTime.now());
         print('選手を発掘済み状態に設定: ${targetPlayer.name}');
-      } else {
-        // 既に発掘済みの場合は視察回数を増やす
-        targetPlayer.discoveredCount += 1;
-        targetPlayer.scoutedDates.add(DateTime.now());
-        print('選手の視察回数を更新: ${targetPlayer.name}, 回数: ${targetPlayer.discoveredCount}');
       }
       
       final dataService = DataService();
       final db = await dataService.database;
+      
+      // データベースに発掘状態を保存
+      await db.update(
+        'Player',
+        {
+          'is_discovered': targetPlayer.isDiscovered ? 1 : 0,
+        },
+        where: 'id = ?',
+        whereArgs: [actualPlayerId],
+      );
+      print('データベースに発掘状態を保存: ${targetPlayer.name}');
       
       // 既存のスカウト分析データを取得
       final existingData = await db.query(
@@ -1135,6 +1156,17 @@ class ActionService {
       
       final dataService = DataService();
       final db = await dataService.database;
+      
+      // データベースに発掘状態を保存
+      await db.update(
+        'Player',
+        {
+          'is_discovered': targetPlayer.isDiscovered ? 1 : 0,
+        },
+        where: 'id = ?',
+        whereArgs: [actualPlayerId],
+      );
+      print('データベースに発掘状態を保存: ${targetPlayer.name}');
       
       // 既存のスカウト分析データを取得
       final existingData = await db.query(
@@ -1569,19 +1601,22 @@ class ActionService {
       // 選手を発掘済み状態にする
       if (!targetPlayer.isDiscovered) {
         targetPlayer.isDiscovered = true;
-        targetPlayer.discoveredAt = DateTime.now();
-        targetPlayer.discoveredCount = 1;
-        targetPlayer.scoutedDates.add(DateTime.now());
         print('選手を発掘済み状態に設定: ${targetPlayer.name}');
-      } else {
-        // 既に発掘済みの場合は視察回数を増やす
-        targetPlayer.discoveredCount += 1;
-        targetPlayer.scoutedDates.add(DateTime.now());
-        print('選手の視察回数を更新: ${targetPlayer.name}, 回数: ${targetPlayer.discoveredCount}');
       }
       
       final dataService = DataService();
       final db = await dataService.database;
+      
+      // データベースに発掘状態を保存
+      await db.update(
+        'Player',
+        {
+          'is_discovered': targetPlayer.isDiscovered ? 1 : 0,
+        },
+        where: 'id = ?',
+        whereArgs: [actualPlayerId],
+      );
+      print('データベースに発掘状態を保存: ${targetPlayer.name}');
       
       // 既存データを確認
       final existingData = await db.query(
@@ -1660,6 +1695,39 @@ class ActionService {
         // 新規データの場合は挿入
         await db.insert('ScoutAnalysis', scoutedAbilities);
         print('ビデオ分析スカウト分析データ新規挿入完了: プレイヤーID $actualPlayerId');
+      }
+      
+      // ScoutBasicInfoAnalysisテーブルにも基本情報を挿入
+      final basicInfoData = {
+        'player_id': actualPlayerId,
+        'scout_id': scoutId.toString(),
+        'analysis_date': DateTime.now().toIso8601String(),
+        'accuracy': 85,
+        'talent_scouted': targetPlayer.talent ?? 50,
+        'growth_scouted': (targetPlayer.growthRate * 100).round(),
+        'potential_scouted': targetPlayer.peakAbility ?? 100,
+      };
+      
+      // 既存の基本情報分析データを確認
+      final existingBasicInfoData = await db.query(
+        'ScoutBasicInfoAnalysis',
+        where: 'player_id = ? AND scout_id = ?',
+        whereArgs: [actualPlayerId, scoutId.toString()],
+      );
+      
+      if (existingBasicInfoData.isNotEmpty) {
+        // 既存データがある場合は更新
+        await db.update(
+          'ScoutBasicInfoAnalysis',
+          basicInfoData,
+          where: 'player_id = ? AND scout_id = ?',
+          whereArgs: [actualPlayerId, scoutId.toString()],
+        );
+        print('ビデオ分析基本情報分析データ更新完了: プレイヤーID $actualPlayerId');
+      } else {
+        // 新規データの場合は挿入
+        await db.insert('ScoutBasicInfoAnalysis', basicInfoData);
+        print('ビデオ分析基本情報分析データ新規挿入完了: プレイヤーID $actualPlayerId');
       }
       
     } catch (e) {

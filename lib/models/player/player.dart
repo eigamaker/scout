@@ -35,9 +35,7 @@ class Player {
   bool isDiscovered; // 発掘済みかどうか
   bool isPubliclyKnown; // 世間から注目されているかどうか
   bool isScoutFavorite; // 自分が気に入っている選手かどうか
-  DateTime? discoveredAt; // 発掘日時
   String? discoveredBy; // 発掘したスカウト（将来的に複数スカウト対応）
-  int discoveredCount; // 発掘回数
   List<DateTime> scoutedDates; // 視察履歴
   
   // 能力値の把握度（0-100、100で完全把握）
@@ -105,9 +103,7 @@ class Player {
     this.isDiscovered = false,
     this.isPubliclyKnown = false,
     this.isScoutFavorite = false,
-    this.discoveredAt,
     this.discoveredBy,
-    this.discoveredCount = 0,
     List<DateTime>? scoutedDates,
     this.type = PlayerType.highSchool,
     this.yearsAfterGraduation = 0,
@@ -777,9 +773,7 @@ class Player {
     'isDiscovered': isDiscovered,
     'isPubliclyKnown': isPubliclyKnown,
     'isScoutFavorite': isScoutFavorite,
-    'discoveredAt': discoveredAt?.toIso8601String(),
     'discoveredBy': discoveredBy,
-    'discoveredCount': discoveredCount,
     'scoutedDates': scoutedDates.map((d) => d.toIso8601String()).toList(),
     'abilityKnowledge': abilityKnowledge,
     'type': type.index,
@@ -820,9 +814,7 @@ class Player {
     isDiscovered: json['isDiscovered'] ?? false,
     isPubliclyKnown: json['isPubliclyKnown'] ?? false,
     isScoutFavorite: json['isScoutFavorite'] ?? false,
-    discoveredAt: json['discoveredAt'] != null ? DateTime.parse(json['discoveredAt']) : null,
     discoveredBy: json['discoveredBy'],
-    discoveredCount: json['discoveredCount'] ?? 0,
     scoutedDates: json['scoutedDates'] != null 
       ? (json['scoutedDates'] as List).map((d) => DateTime.parse(d)).toList()
       : [],
@@ -891,9 +883,7 @@ class Player {
     bool? isDiscovered,
     bool? isPubliclyKnown,
     bool? isScoutFavorite,
-    DateTime? discoveredAt,
     String? discoveredBy,
-    int? discoveredCount,
     List<DateTime>? scoutedDates,
     Map<String, int>? abilityKnowledge,
     PlayerType? type,
@@ -933,10 +923,8 @@ class Player {
       isDiscovered: isDiscovered ?? this.isDiscovered,
       isPubliclyKnown: isPubliclyKnown ?? this.isPubliclyKnown,
       isScoutFavorite: isScoutFavorite ?? this.isScoutFavorite,
-      discoveredAt: discoveredAt ?? this.discoveredAt,
-      discoveredBy: discoveredBy ?? this.discoveredBy,
-      discoveredCount: discoveredCount ?? this.discoveredCount,
-      scoutedDates: scoutedDates ?? this.scoutedDates,
+          discoveredBy: discoveredBy ?? this.discoveredBy,
+    scoutedDates: scoutedDates ?? this.scoutedDates,
       abilityKnowledge: abilityKnowledge ?? Map<String, int>.from(this.abilityKnowledge),
       type: type ?? this.type,
       yearsAfterGraduation: yearsAfterGraduation ?? this.yearsAfterGraduation,

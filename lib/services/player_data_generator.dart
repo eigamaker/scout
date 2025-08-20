@@ -4,6 +4,7 @@ import '../models/player/player_abilities.dart';
 import '../models/player/pitch.dart';
 import '../models/school/school.dart';
 import 'data_service.dart';
+import '../utils/name_generator.dart';
 
 /// 選手データ生成を専門に扱うクラス
 class PlayerDataGenerator {
@@ -30,7 +31,7 @@ class PlayerDataGenerator {
     final db = await _dataService.database;
     
     // 基本情報の生成
-    final name = _generatePlayerName();
+    final name = NameGenerator.generatePlayerName();
     final birthDate = _generateBirthDate();
     final gender = '男性'; // 現在は男性のみ
     final hometown = _generateHometown();
@@ -163,9 +164,7 @@ class PlayerDataGenerator {
       growthType: growthType,
       individualPotentials: individualPotentials,
       isDiscovered: false,
-      discoveredAt: null,
-      discoveredCount: 0,
-      scoutedDates: [],
+              scoutedDates: [],
       abilityKnowledge: _generateInitialAbilityKnowledge(),
     );
 
@@ -893,11 +892,7 @@ class PlayerDataGenerator {
 
   // 以下、各種生成メソッド
   String _generatePlayerName() {
-    final surnames = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
-    final givenNames = ['翔太', '健太', '大輔', '誠', '直樹', '智也', '裕太', '達也', '和也', '正義'];
-    
-    return surnames[_random.nextInt(surnames.length)] + 
-           givenNames[_random.nextInt(givenNames.length)];
+    return NameGenerator.generatePlayerName();
   }
 
   String _generateBirthDate() {
@@ -919,12 +914,7 @@ class PlayerDataGenerator {
 
   // ランダムな名前生成（簡易）
   String generateRandomName() {
-    final random = Random();
-    const familyNames = ['田中', '佐藤', '鈴木', '高橋', '伊藤', '渡辺', '山本', '中村', '小林', '加藤'];
-    const givenNames = ['太郎', '次郎', '大輔', '翔太', '健太', '悠斗', '陸', '蓮', '颯太', '陽斗'];
-    final f = familyNames[random.nextInt(familyNames.length)];
-    final g = givenNames[random.nextInt(givenNames.length)];
-    return '$f$g';
+    return NameGenerator.generatePlayerName();
   }
 
   String generateRandomPersonality() {

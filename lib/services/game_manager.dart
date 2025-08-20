@@ -1051,10 +1051,8 @@ class GameManager {
             isScoutFavorite: false,
             isGraduated: (p['is_graduated'] as int?) == 1, // 卒業フラグを読み込み
             graduatedAt: p['graduated_at'] != null ? DateTime.tryParse(p['graduated_at'] as String) : null, // 卒業日を読み込み
-            discoveredAt: null,
-            discoveredBy: null,
-            discoveredCount: 0,
-            scoutedDates: [],
+                      discoveredBy: null,
+          scoutedDates: [],
             abilityKnowledge: <String, int>{},
             type: PlayerType.highSchool,
             yearsAfterGraduation: 0,
@@ -1092,9 +1090,7 @@ class GameManager {
           isScoutFavorite: isScoutFavoriteFromDb, // データベースから読み込み
           isGraduated: isGraduatedFromDb, // 卒業フラグを読み込み
           graduatedAt: graduatedAtFromDb != null ? DateTime.tryParse(graduatedAtFromDb) : null, // 卒業日を読み込み
-          discoveredAt: existingPlayer.discoveredAt,
           discoveredBy: existingPlayer.discoveredBy,
-          discoveredCount: existingPlayer.discoveredCount,
           scoutedDates: existingPlayer.scoutedDates,
           abilityKnowledge: existingPlayer.abilityKnowledge,
           pitches: [],

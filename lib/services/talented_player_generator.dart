@@ -4,6 +4,7 @@ import '../models/player/player_abilities.dart';
 import '../models/player/pitch.dart';
 import '../models/school/school.dart';
 import 'data_service.dart';
+import '../utils/name_generator.dart';
 
 /// 才能のある選手（ランク3以上）を生成するクラス
 class TalentedPlayerGenerator {
@@ -85,7 +86,7 @@ class TalentedPlayerGenerator {
     final positionFit = _generatePositionFit(position);
     
     // 選手名と基本情報を生成
-    final name = _generatePlayerName();
+    final name = NameGenerator.generatePlayerName();
     final birthDate = _generateBirthDate(age);
     final hometown = prefecture;
     final personality = _generatePersonality();
@@ -102,12 +103,10 @@ class TalentedPlayerGenerator {
       fame: fame,
       isPubliclyKnown: isPubliclyKnown,
       isScoutFavorite: false,
-      isDiscovered: isPubliclyKnown, // 注目選手は自動的に発掘済み
+      isDiscovered: false, // 注目選手でも初期状態では未発掘
       isGraduated: false,
-      discoveredAt: isPubliclyKnown ? DateTime.now() : null, // 注目選手は自動的に発掘済み
-      discoveredBy: isPubliclyKnown ? '自動生成' : null,
-      discoveredCount: isPubliclyKnown ? 1 : 0, // 注目選手は発掘回数1
-      scoutedDates: isPubliclyKnown ? [DateTime.now()] : [], // 注目選手は視察済み
+      discoveredBy: null,
+      scoutedDates: [], // 初期状態では視察履歴なし
       abilityKnowledge: <String, int>{},
       type: PlayerType.highSchool,
       yearsAfterGraduation: 0,
@@ -366,16 +365,7 @@ class TalentedPlayerGenerator {
     return fit;
   }
 
-  /// 選手名を生成
-  String _generatePlayerName() {
-    final surnames = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
-    final givenNames = ['翔太', '健太', '大輔', '直樹', '裕太', '智也', '和也', '達也', '誠', '勇気'];
-    
-    final surname = surnames[_random.nextInt(surnames.length)];
-    final givenName = givenNames[_random.nextInt(givenNames.length)];
-    
-    return '$surname$givenName';
-  }
+
 
   /// 誕生日を生成
   DateTime _generateBirthDate(int age) {

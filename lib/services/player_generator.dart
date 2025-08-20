@@ -3,6 +3,7 @@ import '../models/player/player.dart';
 import '../models/player/achievement.dart';
 import '../models/player/player_abilities.dart';
 import '../models/professional/professional_team.dart';
+import '../utils/name_generator.dart';
 
 class PlayerGenerator {
   static final Random _random = Random();
@@ -695,10 +696,7 @@ class PlayerGenerator {
   
   // プロ野球選手用の名前生成
   static String _generateProfessionalPlayerName() {
-    final surnames = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '伊藤', '山本', '中村', '小林', '加藤'];
-    final givenNames = ['翔太', '健一', '大輔', '雄一', '達也', '智也', '誠', '勇', '剛', '正'];
-    
-    return '${surnames[Random().nextInt(surnames.length)]} ${givenNames[Random().nextInt(givenNames.length)]}';
+    return NameGenerator.generateProfessionalPlayerName();
   }
   
   // プロ野球選手用の性格生成
