@@ -12,6 +12,7 @@ import '../screens/team_requests_screen.dart';
 import '../screens/professional_teams_screen.dart';
 import '../screens/team_detail_screen.dart';
 import '../screens/pennant_race_screen.dart';
+import '../widgets/tournament_list_widget.dart';
 
 import 'theme.dart';
 import '../models/player/player.dart';
@@ -51,6 +52,11 @@ class ScoutGameApp extends StatelessWidget {
           final news = settings.arguments as NewsItem;
           return MaterialPageRoute(
             builder: (context) => NewsDetailScreen(news: news),
+          );
+        }
+        if (settings.name == '/tournaments') {
+          return MaterialPageRoute(
+            builder: (context) => const TournamentListWidget(),
           );
         }
         return null;

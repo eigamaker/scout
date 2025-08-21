@@ -4,6 +4,7 @@ import '../services/game_manager.dart';
 import '../services/news_service.dart';
 import '../services/data_service.dart';
 import '../models/game/game.dart';
+import '../models/game/high_school_tournament.dart';
 import '../models/professional/professional_team.dart';
 
 
@@ -103,6 +104,11 @@ class _GameScreenState extends State<GameScreen> {
               leading: const Icon(Icons.emoji_events),
               title: const Text('ペナントレース'),
               onTap: () => Navigator.pushNamed(context, '/pennantRace'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.sports_baseball),
+              title: const Text('高校野球大会'),
+              onTap: () => Navigator.pushNamed(context, '/tournaments'),
             ),
             const Divider(),
             ListTile(
@@ -209,6 +215,17 @@ class _GameScreenState extends State<GameScreen> {
                     isExpanded: false,
                     onTap: () => Navigator.pushNamed(context, '/pennantRace'),
                     child: _buildPennantRaceContent(gameManager),
+                  ),
+                const SizedBox(height: 8),
+                
+                // 高校野球大会情報
+                if (game.highSchoolTournaments.isNotEmpty)
+                  _buildExpandableCard(
+                    icon: Icons.sports_baseball,
+                    title: '高校野球大会',
+                    isExpanded: false,
+                    onTap: () => Navigator.pushNamed(context, '/tournaments'),
+                    child: _buildTournamentContent(game),
                   ),
                 const SizedBox(height: 8),
                 
@@ -613,6 +630,83 @@ class _GameScreenState extends State<GameScreen> {
       return team.shortName;
     } catch (e) {
       return '未定';
+    }
+  }
+
+  // 大会コンテンツ
+  Widget _buildTournamentContent(Game game) {
+    final activeTournaments = game.highSchoolTournaments.where((t) => !t.isCompleted).toList();
+    final completedTournaments = game.highSchoolTournaments.where((t) => t.isCompleted).toList();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (activeTournaments.isNotEmpty) ...[
+          Text('進行中の大会: ${activeTournaments.length}大会', style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ...activeTournaments.take(3).map((tournament) => _buildTournamentSummary(tournament)),
+        ],
+        if (completedTournaments.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text('終了した大会: ${completedTournaments.length}大会', style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ...completedTournaments.take(2).map((tournament) => _buildTournamentSummary(tournament)),
+        ],
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: () => Navigator.pushNamed(context, '/tournaments'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red[700],
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('詳細を見る'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTournamentSummary(HighSchoolTournament tournament) {
+    final tournamentName = _getTournamentName(tournament.type);
+    final progress = '${tournament.completedGames.length}/${tournament.games.length}試合完了';
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(tournamentName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(progress, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              ],
+            ),
+          ),
+          if (tournament.championSchoolName != null)
+            Text(
+              '優勝: ${tournament.championSchoolName}',
+              style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _getTournamentName(TournamentType type) {
+    switch (type) {
+      case TournamentType.spring:
+        return '春の大会';
+      case TournamentType.summer:
+        return '夏の大会';
+      case TournamentType.autumn:
+        return '秋の大会';
+      case TournamentType.springNational:
+        return '春の全国大会';
     }
   }
 

@@ -96,7 +96,9 @@ class DefaultSchoolData {
     for (int i = 0; i < 50; i++) {
       final schoolData = _getSchoolData(prefecture, i);
       final school = School(
+        id: '${prefecture}_$i',
         name: schoolData['name']!,
+        shortName: _generateShortName(schoolData['name']!),
         location: schoolData['location']!,
         prefecture: prefecture,
         rank: schoolData['rank']!,
@@ -229,6 +231,29 @@ class DefaultSchoolData {
       case SchoolRank.weak:
         return 40; // 弱小校の監督は低信頼度
     }
+  }
+
+  /// 学校名から略称を生成
+  static String _generateShortName(String fullName) {
+    // 「高等学校」「高校」「学園」「学院」を除去
+    String shortName = fullName
+        .replaceAll('高等学校', '')
+        .replaceAll('高校', '')
+        .replaceAll('学園', '')
+        .replaceAll('学院', '');
+    
+    // 「県立」「市立」「私立」「国立」「都立」「府立」「町立」「村立」を除去
+    shortName = shortName
+        .replaceAll('県立', '')
+        .replaceAll('市立', '')
+        .replaceAll('私立', '')
+        .replaceAll('国立', '')
+        .replaceAll('都立', '')
+        .replaceAll('府立', '')
+        .replaceAll('町立', '')
+        .replaceAll('村立', '');
+    
+    return shortName.isEmpty ? fullName : shortName;
   }
 
 }

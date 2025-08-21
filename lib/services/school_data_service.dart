@@ -48,8 +48,9 @@ class SchoolDataService {
       final List<Map<String, dynamic>> maps = await _db.query('School');
       
       return maps.map((map) => School(
-        id: map['id'] as int?,
+        id: map['id']?.toString() ?? '',
         name: map['name'] as String,
+        shortName: _generateShortName(map['name'] as String),
         location: map['location'] as String,
         prefecture: map['prefecture'] as String,
         rank: SchoolRank.values.firstWhere((r) => r.name == map['rank']),
@@ -73,8 +74,9 @@ class SchoolDataService {
       );
       
       return maps.map((map) => School(
-        id: map['id'] as int?,
+        id: map['id']?.toString() ?? '',
         name: map['name'] as String,
+        shortName: _generateShortName(map['name'] as String),
         location: map['location'] as String,
         prefecture: map['prefecture'] as String,
         rank: SchoolRank.values.firstWhere((r) => r.name == map['rank']),
@@ -98,8 +100,9 @@ class SchoolDataService {
       );
       
       return maps.map((map) => School(
-        id: map['id'] as int?,
+        id: map['id']?.toString() ?? '',
         name: map['name'] as String,
+        shortName: _generateShortName(map['name'] as String),
         location: map['location'] as String,
         prefecture: map['prefecture'] as String,
         rank: SchoolRank.values.firstWhere((r) => r.name == map['rank']),
@@ -111,6 +114,29 @@ class SchoolDataService {
       print('ランク別学校データの取得でエラー: $e');
       rethrow;
     }
+  }
+
+  /// 学校名から略称を生成
+  String _generateShortName(String fullName) {
+    // 「高等学校」「高校」「学園」「学院」を除去
+    String shortName = fullName
+        .replaceAll('高等学校', '')
+        .replaceAll('高校', '')
+        .replaceAll('学園', '')
+        .replaceAll('学院', '');
+    
+    // 「県立」「市立」「私立」「国立」「都立」「府立」「町立」「村立」を除去
+    shortName = shortName
+        .replaceAll('県立', '')
+        .replaceAll('市立', '')
+        .replaceAll('私立', '')
+        .replaceAll('国立', '')
+        .replaceAll('都立', '')
+        .replaceAll('府立', '')
+        .replaceAll('町立', '')
+        .replaceAll('村立', '');
+    
+    return shortName.isEmpty ? fullName : shortName;
   }
 
   /// 学校の統計情報を取得

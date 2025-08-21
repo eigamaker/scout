@@ -24,12 +24,30 @@ enum SchoolRank {
         return '名門';
     }
   }
+
+  int get value {
+    switch (this) {
+      case SchoolRank.weak:
+        return 1;
+      case SchoolRank.average:
+        return 2;
+      case SchoolRank.strong:
+        return 3;
+      case SchoolRank.elite:
+        return 4;
+    }
+  }
+
+  int compareTo(SchoolRank other) {
+    return value.compareTo(other.value);
+  }
 }
 
 // 高校クラス
 class School {
-  final int? id; // データベースのID
+  final String id; // データベースのID
   final String name;
+  final String shortName; // 略称
   final String location;
   final String prefecture; // 都道府県
   final SchoolRank rank; // 学校ランク
@@ -38,8 +56,9 @@ class School {
   final String coachName;
   
   School({
-    this.id,
+    required this.id,
     required this.name,
+    required this.shortName,
     required this.location,
     required this.prefecture,
     required this.rank,
@@ -49,8 +68,9 @@ class School {
   });
   
   School copyWith({
-    int? id,
+    String? id,
     String? name,
+    String? shortName,
     String? location,
     String? prefecture,
     SchoolRank? rank,
@@ -61,6 +81,7 @@ class School {
     return School(
       id: id ?? this.id,
       name: name ?? this.name,
+      shortName: shortName ?? this.shortName,
       location: location ?? this.location,
       prefecture: prefecture ?? this.prefecture,
       rank: rank ?? this.rank,
@@ -716,8 +737,9 @@ class School {
   };
 
   factory School.fromJson(Map<String, dynamic> json) => School(
-    id: json['id'],
+    id: json['id'] ?? '',
     name: json['name'],
+    shortName: json['shortName'] ?? json['name'],
     location: json['location'],
     prefecture: json['prefecture'],
     rank: SchoolRank.values.firstWhere((r) => r.name == json['rank']),

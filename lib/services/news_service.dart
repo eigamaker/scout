@@ -2,6 +2,7 @@ import '../models/news/news_item.dart';
 import '../models/player/player.dart';
 import '../models/player/player_abilities.dart';
 import '../models/school/school.dart';
+import '../models/game/high_school_tournament.dart';
 import 'dart:math';
 
 class NewsService {
@@ -89,6 +90,93 @@ class NewsService {
 
   void addNews(NewsItem news) {
     _newsList.add(news);
+  }
+
+  /// 大会関連のニュースを生成
+  void generateTournamentNews(List<HighSchoolTournament> tournaments, int year, int month, int week) {
+    for (final tournament in tournaments) {
+      if (!tournament.isCompleted && tournament.isInProgress) {
+        // 大会開始のニュース
+        if (tournament.games.any((game) => game.isCompleted) && 
+            !_newsList.any((news) => news.title.contains(tournament.type.name))) {
+          _addTournamentStartNews(tournament, year, month, week);
+        }
+        
+        // 決勝戦のニュース
+        final championshipGames = tournament.games.where((game) => 
+          game.round == GameRound.championship && game.isCompleted
+        ).toList();
+        
+        if (championshipGames.isNotEmpty && 
+            !_newsList.any((news) => news.title.contains('決勝') && news.title.contains(tournament.type.name))) {
+          _addChampionshipNews(tournament, championshipGames.first, year, month, week);
+        }
+      }
+      
+      // 大会終了のニュース
+      if (tournament.isCompleted && 
+          !_newsList.any((news) => news.title.contains('終了') && news.title.contains(tournament.type.name))) {
+        _addTournamentEndNews(tournament, year, month, week);
+      }
+    }
+  }
+
+  /// 大会開始のニュースを追加
+  void _addTournamentStartNews(HighSchoolTournament tournament, int year, int month, int week) {
+    final tournamentName = _getTournamentName(tournament.type);
+    final news = NewsItem(
+      title: '$tournamentName開始',
+      content: '$tournamentNameが開始されました。${tournament.participatingSchools.length}校が参加し、熱戦が繰り広げられます。',
+      date: _getNewsDate(year, month, week),
+      importance: NewsImportance.high,
+      category: NewsCategory.tournament,
+    );
+    addNews(news);
+  }
+
+  /// 決勝戦のニュースを追加
+  void _addChampionshipNews(HighSchoolTournament tournament, TournamentGame game, int year, int month, int week) {
+    final tournamentName = _getTournamentName(tournament.type);
+    final homeSchool = tournament.standings[game.homeSchoolId]?.schoolName ?? '不明';
+    final awaySchool = tournament.standings[game.awaySchoolId]?.schoolName ?? '不明';
+    
+    final news = NewsItem(
+      title: '$tournamentName決勝戦',
+      content: '$tournamentNameの決勝戦が行われました。$homeSchool vs $awaySchoolの対戦で、${game.result?.isHomeWin == true ? homeSchool : awaySchool}が優勝しました。',
+      date: _getNewsDate(year, month, week),
+      importance: NewsImportance.critical,
+      category: NewsCategory.tournament,
+    );
+    addNews(news);
+  }
+
+  /// 大会終了のニュースを追加
+  void _addTournamentEndNews(HighSchoolTournament tournament, int year, int month, int week) {
+    final tournamentName = _getTournamentName(tournament.type);
+    final champion = tournament.championSchoolName ?? '不明';
+    
+    final news = NewsItem(
+      title: '$tournamentName終了',
+      content: '$tournamentNameが終了しました。優勝は$championです。',
+      date: _getNewsDate(year, month, week),
+      importance: NewsImportance.high,
+      category: NewsCategory.tournament,
+    );
+    addNews(news);
+  }
+
+  /// 大会名を取得
+  String _getTournamentName(TournamentType type) {
+    switch (type) {
+      case TournamentType.spring:
+        return '春の大会';
+      case TournamentType.summer:
+        return '夏の大会';
+      case TournamentType.autumn:
+        return '秋の大会';
+      case TournamentType.springNational:
+        return '春の全国大会';
+    }
   }
 
   void markAsRead(NewsItem news) {

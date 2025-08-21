@@ -5,6 +5,7 @@ import '../scouting/team_request.dart';
 import '../news/news_item.dart';
 import '../professional/professional_team.dart';
 import '../game/pennant_race.dart';
+import '../game/high_school_tournament.dart';
 
 // ゲーム状態
 enum GameState {
@@ -82,6 +83,7 @@ class Game {
   final List<NewsItem> newsList; // ニュースリスト
   final ProfessionalTeamManager professionalTeams; // プロ野球団管理
   final PennantRace? pennantRace; // ペナントレース
+  final List<HighSchoolTournament> highSchoolTournaments; // 高校野球大会
   
   Game({
     required this.scoutName,
@@ -105,6 +107,7 @@ class Game {
     required this.newsList,
     required this.professionalTeams,
     this.pennantRace,
+    this.highSchoolTournaments = const [],
   });
 
   // 月ごとの最大週数を返す
@@ -354,6 +357,7 @@ class Game {
     'scoutSkills': scoutSkills.map((k, v) => MapEntry(k.name, v)),
     'newsList': newsList.map((n) => n.toJson()).toList(),
     'pennantRace': pennantRace?.toJson(),
+    'highSchoolTournaments': highSchoolTournaments.map((t) => t.toJson()).toList(),
   };
 
   factory Game.fromJson(Map<String, dynamic> json) {
@@ -400,6 +404,7 @@ class Game {
       teamRequests: TeamRequestManager(),
       newsList: newsList,
       professionalTeams: ProfessionalTeamManager(teams: ProfessionalTeamManager.generateDefaultTeams()),
+      highSchoolTournaments: (json['highSchoolTournaments'] as List?)?.map((t) => HighSchoolTournament.fromJson(t)).toList() ?? [],
     );
   }
   
@@ -426,6 +431,7 @@ class Game {
     List<NewsItem>? newsList,
     ProfessionalTeamManager? professionalTeams,
     PennantRace? pennantRace,
+    List<HighSchoolTournament>? highSchoolTournaments,
   }) {
     return Game(
       scoutName: scoutName ?? this.scoutName,
@@ -449,6 +455,7 @@ class Game {
       newsList: newsList ?? this.newsList,
       professionalTeams: professionalTeams ?? this.professionalTeams,
       pennantRace: pennantRace ?? this.pennantRace,
+      highSchoolTournaments: highSchoolTournaments ?? this.highSchoolTournaments,
     );
   }
 } 

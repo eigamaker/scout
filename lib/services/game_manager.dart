@@ -17,8 +17,10 @@ import '../models/scouting/scout.dart';
 import '../models/scouting/team_request.dart';
 import '../models/professional/professional_team.dart';
 import '../models/game/pennant_race.dart';
+import '../models/game/high_school_tournament.dart';
 import 'growth_service.dart';
 import 'pennant_race_service.dart';
+import 'high_school_tournament_service.dart';
 import 'default_school_data.dart';
 import 'school_data_service.dart';
 import 'talented_player_generator.dart';
@@ -152,6 +154,158 @@ class GameManager {
         
         print('GameManager: 試合結果ニュース生成 - ${homeTeam.shortName} ${result.homeScore}-${result.awayScore} ${awayTeam.shortName}');
       }
+    }
+  }
+
+  /// 高校野球大会を進行させる
+  void _advanceHighSchoolTournaments() {
+    if (_currentGame?.highSchoolTournaments.isEmpty ?? true) return;
+    
+    final month = _currentGame!.currentMonth;
+    final week = _currentGame!.currentWeekOfMonth;
+    final year = _currentGame!.currentYear;
+    
+    final updatedTournaments = <HighSchoolTournament>[];
+    
+    for (final tournament in _currentGame!.highSchoolTournaments) {
+      if (!tournament.isCompleted && tournament.isInProgress) {
+        // 今週の試合を実行
+        final updatedTournament = HighSchoolTournamentService.executeWeekGames(
+          tournament,
+          month,
+          week,
+          _currentGame!.schools,
+        );
+        updatedTournaments.add(updatedTournament);
+        
+        print('GameManager: 高校野球大会進行 - ${tournament.type.name} ${month}月${week}週');
+      } else {
+        updatedTournaments.add(tournament);
+      }
+    }
+    
+    // 大会リストを更新
+    _currentGame = _currentGame!.copyWith(highSchoolTournaments: updatedTournaments);
+    
+    // 大会ニュースを生成
+    _generateTournamentNews(updatedTournaments, year, month, week);
+  }
+
+  /// 大会ニュースを生成
+  void _generateTournamentNews(List<HighSchoolTournament> tournaments, int year, int month, int week) {
+    // NewsServiceのインスタンスを取得して大会ニュースを生成
+    // 実際の実装では、NewsServiceをDIで注入するか、シングルトンとして使用
+    print('GameManager: 大会ニュース生成 - ${month}月${week}週');
+  }
+
+  /// 高校野球大会を初期化
+  void _initializeHighSchoolTournaments() {
+    if (_currentGame == null) return;
+    
+    final month = _currentGame!.currentMonth;
+    final week = _currentGame!.currentWeekOfMonth;
+    final year = _currentGame!.currentYear;
+    
+    final tournaments = <HighSchoolTournament>[];
+    
+    // 春の大会（4月3週〜5月1週）
+    if (month == 4 && week >= 3 || month == 5 && week == 1) {
+      if (!_currentGame!.highSchoolTournaments.any((t) => t.type == TournamentType.spring)) {
+        // 都道府県別の春の大会を作成
+        final prefectures = _currentGame!.schools.map((s) => s.prefecture).toSet().toList();
+        for (final prefecture in prefectures) {
+          final prefectureSchools = _currentGame!.schools.where((s) => s.prefecture == prefecture).toList();
+          if (prefectureSchools.isNotEmpty) {
+            final springTournament = HighSchoolTournamentService.createPrefecturalTournament(
+              year,
+              prefecture,
+              prefectureSchools,
+              month,
+              week,
+              TournamentType.spring,
+            );
+            tournaments.add(springTournament);
+          }
+        }
+        print('GameManager: 春の大会を${prefectures.length}都道府県分初期化しました');
+      }
+    }
+    
+    // 夏の大会（7月2週〜8月3週）
+    if (month == 7 && week >= 2 || month == 8 && week <= 3) {
+      if (!_currentGame!.highSchoolTournaments.any((t) => t.type == TournamentType.summer)) {
+        // 都道府県別の夏の大会を作成
+        final prefectures = _currentGame!.schools.map((s) => s.prefecture).toSet().toList();
+        for (final prefecture in prefectures) {
+          final prefectureSchools = _currentGame!.schools.where((s) => s.prefecture == prefecture).toList();
+          if (prefectureSchools.isNotEmpty) {
+            final summerTournament = HighSchoolTournamentService.createPrefecturalTournament(
+              year,
+              prefecture,
+              prefectureSchools,
+              month,
+              week,
+              TournamentType.summer,
+            );
+            tournaments.add(summerTournament);
+          }
+        }
+        print('GameManager: 夏の大会を${prefectures.length}都道府県分初期化しました');
+      }
+    }
+    
+    // 秋の大会（10月1週〜3週）
+    if (month == 10 && week >= 1 && week <= 3) {
+      if (!_currentGame!.highSchoolTournaments.any((t) => t.type == TournamentType.autumn)) {
+        // 都道府県別の秋の大会を作成
+        final prefectures = _currentGame!.schools.map((s) => s.prefecture).toSet().toList();
+        for (final prefecture in prefectures) {
+          final prefectureSchools = _currentGame!.schools.where((s) => s.prefecture == prefecture).toList();
+          if (prefectureSchools.isNotEmpty) {
+            final autumnTournament = HighSchoolTournamentService.createPrefecturalTournament(
+              year,
+              prefecture,
+              prefectureSchools,
+              month,
+              week,
+              TournamentType.autumn,
+            );
+            tournaments.add(autumnTournament);
+          }
+        }
+        print('GameManager: 秋の大会を${prefectures.length}都道府県分初期化しました');
+      }
+    }
+    
+    // 春の全国大会（3月1週〜3週）
+    if (month == 3 && week >= 1 && week <= 3) {
+      if (!_currentGame!.highSchoolTournaments.any((t) => t.type == TournamentType.springNational)) {
+        // 秋の大会の優勝校を取得
+        final autumnWinners = _currentGame!.highSchoolTournaments
+            .where((t) => t.type == TournamentType.autumn && t.isCompleted)
+            .map((t) => t.championSchoolId)
+            .where((id) => id != null)
+            .cast<String>()
+            .toList();
+        
+        if (autumnWinners.isNotEmpty) {
+          final springNationalTournament = HighSchoolTournamentService.createSpringNationalTournament(
+            year,
+            autumnWinners,
+            _currentGame!.schools,
+            month,
+            week,
+          );
+          tournaments.add(springNationalTournament);
+          print('GameManager: 春の全国大会を初期化しました');
+        }
+      }
+    }
+    
+    if (tournaments.isNotEmpty) {
+      _currentGame = _currentGame!.copyWith(
+        highSchoolTournaments: [..._currentGame!.highSchoolTournaments, ...tournaments],
+      );
     }
   }
 
@@ -1155,6 +1309,12 @@ class GameManager {
       _advancePennantRace();
       print('GameManager.advanceWeekWithResults: ペナントレース進行完了');
     }
+    
+    // 高校野球大会の初期化と進行
+    print('GameManager.advanceWeekWithResults: 高校野球大会処理開始');
+    _initializeHighSchoolTournaments();
+    _advanceHighSchoolTournaments();
+    print('GameManager.advanceWeekWithResults: 高校野球大会処理完了');
     
     // 3月1週（年度末）に卒業処理
     final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 1;

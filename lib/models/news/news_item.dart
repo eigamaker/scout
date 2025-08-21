@@ -9,6 +9,7 @@ enum NewsCategory {
   school, // 学校関連
   game, // 試合関連
   draft, // ドラフト関連
+  tournament, // 大会関連
   general // 一般
 }
 
@@ -59,6 +60,8 @@ class NewsItem {
         return Colors.blue;
       case NewsCategory.draft:
         return Colors.orange;
+      case NewsCategory.tournament:
+        return Colors.red;
       case NewsCategory.general:
         return Colors.grey;
     }
@@ -89,6 +92,8 @@ class NewsItem {
         return '試合';
       case NewsCategory.draft:
         return 'ドラフト';
+      case NewsCategory.tournament:
+        return '大会';
       case NewsCategory.general:
         return '一般';
     }
