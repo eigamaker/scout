@@ -4,9 +4,7 @@ import '../services/game_manager.dart';
 import '../services/data_service.dart';
 import 'slot_select_screen.dart';
 import 'slot_copy_screen.dart';
-import 'package:sqflite/sqflite.dart';
-import 'game_screen.dart'; // Added import for GameScreen
-import '../config/debug_config.dart';
+import 'game_screen.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -77,7 +75,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dataService = Provider.of<DataService>(context, listen: false);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Scout Game メインメニュー'),
@@ -86,20 +83,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // デバッグ用: 現在のDBファイルパスを表示
-            FutureBuilder(
-              future: getDatabasesPath(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const SizedBox.shrink();
-                final dbPath = snapshot.data as String;
-                final dbName = dataService.currentSlot == 'オートセーブ'
-                    ? 'autosave.db'
-                    : 'save${dataService.currentSlot == 'セーブ1' ? 1 : dataService.currentSlot == 'セーブ2' ? 2 : 3}.db';
-                final path = '$dbPath/$dbName';
-                return Text('DB: $path', style: const TextStyle(fontSize: 12, color: Colors.grey));
-              },
-            ),
-            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => _startNewGame(context),
               child: const Text('ニューゲーム'),
@@ -138,30 +121,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               },
               child: const Text('セーブデータコピー'),
             ),
-
-            // デバッグモード切り替えボタン
-            ElevatedButton(
-              onPressed: () {
-                DebugConfig.toggleAllDebugFeatures();
-                setState(() {});
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      DebugConfig.isDebugMode 
-                        ? 'デバッグモードを有効にしました' 
-                        : 'デバッグモードを無効にしました'
-                    ),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: DebugConfig.isDebugMode ? Colors.orange : null,
-              ),
-              child: Text(
-                DebugConfig.isDebugMode ? 'デバッグモード: ON' : 'デバッグモード: OFF'
-              ),
-            ),
-
           ],
         ),
       ),

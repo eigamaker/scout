@@ -8,8 +8,7 @@ import '../services/scouting/accuracy_calculator.dart';
 import '../services/scouting/scout_analysis_service.dart';
 import '../services/data_service.dart';
 import '../services/game_manager.dart';
-import '../config/debug_config.dart';
-import 'debug_player_detail_screen.dart';
+
 
 // カテゴリ状況の判定
 enum CategoryStatus { complete, partial, unknown }
@@ -330,10 +329,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
   /// ポテンシャル値を取得
   int? _getPotentialValue(String abilityName) {
-    if (!DebugConfig.showPotentials || widget.player.individualPotentials == null) {
-    return null;
-  }
-      return widget.player.individualPotentials![abilityName];
+    return widget.player.individualPotentials?[abilityName];
   }
 
   /// 技術面能力値のデータベースカラム名を取得
@@ -488,10 +484,6 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
   /// 表示用性格を取得
   String _getDisplayPersonality() {
-    if (DebugConfig.showTrueValues) {
-      return widget.player.personality;
-    }
-    
     // 保存された分析データがある場合はそれを使用
     if (_basicInfoAnalysisData != null && _basicInfoAnalysisData!['personality'] != null) {
       return _basicInfoAnalysisData!['personality'] as String;
@@ -519,10 +511,6 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
   /// 表示用才能ランクを取得
   String _getDisplayTalent() {
-    if (DebugConfig.showTrueValues) {
-      return 'ランク${widget.player.talent}';
-    }
-    
     // 保存された分析データがある場合はそれを使用
     if (_basicInfoAnalysisData != null && _basicInfoAnalysisData!['talent'] != null) {
       return _basicInfoAnalysisData!['talent'] as String;
@@ -549,10 +537,6 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
   /// 表示用成長タイプを取得
   String _getDisplayGrowthType() {
-    if (DebugConfig.showTrueValues) {
-      return widget.player.growthType;
-    }
-    
     // 保存された分析データがある場合はそれを使用
     if (_basicInfoAnalysisData != null && _basicInfoAnalysisData!['growth'] != null) {
       return _basicInfoAnalysisData!['growth'] as String;
@@ -579,10 +563,6 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
   /// 表示用精神力を取得
   String _getDisplayMentalGrit() {
-    if (DebugConfig.showTrueValues) {
-      return '${(widget.player.mentalGrit * 100).round()}%';
-    }
-    
     // 保存された分析データがある場合はそれを使用
     if (_basicInfoAnalysisData != null && _basicInfoAnalysisData!['mental_grit'] != null) {
       return _basicInfoAnalysisData!['mental_grit'] as String;
@@ -610,10 +590,6 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
   /// 表示用ポテンシャルを取得
   String _getDisplayPeakAbility() {
-    if (DebugConfig.showTrueValues) {
-      return '${widget.player.peakAbility}';
-    }
-    
     // 保存された分析データがある場合はそれを使用
     if (_basicInfoAnalysisData != null && _basicInfoAnalysisData!['potential'] != null) {
       return _basicInfoAnalysisData!['potential'] as String;
@@ -686,21 +662,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         ),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        actions: [
-          if (DebugConfig.isDebugMode)
-            IconButton(
-              icon: const Icon(Icons.bug_report),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => DebugPlayerDetailScreen(player: widget.player),
-                  ),
-                );
-              },
-              tooltip: 'デバッグ画面',
-            ),
-        ],
+        actions: [],
       ),
       backgroundColor: Colors.black,
       body: Stack(
@@ -1277,13 +1239,9 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       displayColor = textColor;
     }
     
-    // デバッグモードの場合、真の値も表示
-    final debugInfo = DebugConfig.showTrueValues ? 
-      (isFastball ? ' (真の球速: ${widget.player.getFastballVelocityKmh()}km/h)' : ' (真の値: ${_getTrueAbilityValueFromLabel(label)})') : '';
-    
     // ポテンシャル値を取得
     int? potentialValue;
-    if (DebugConfig.showPotentials && widget.player.individualPotentials != null) {
+    if (widget.player.individualPotentials != null) {
       final abilityName = _getAbilityNameFromLabel(label);
       if (isFastball) {
         potentialValue = widget.player.individualPotentials!['fastballVelo'];
@@ -1342,17 +1300,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                   ),
                 ),
               ),
-              if (DebugConfig.showTrueValues) ...[
-                const SizedBox(width: 8),
-                Text(
-                  debugInfo,
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontSize: 10,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
+
             ],
           ),
         ),
@@ -1370,44 +1318,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
             ),
           ),
         ],
-        // デバッグモードでポテンシャルを表示
-        if (DebugConfig.showPotentials && potentialValue != null) ...[
-          Padding(
-            padding: const EdgeInsets.only(left: 120, right: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.purple.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: potentialValue / 100.0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.purple,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'ポテンシャル: $potentialValue',
-                  style: TextStyle(
-                    color: Colors.purple,
-                    fontSize: 10,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+
       ],
     );
   }

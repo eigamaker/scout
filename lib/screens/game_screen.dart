@@ -26,22 +26,15 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    print('GameScreen: initState called');
   }
 
   @override
   Widget build(BuildContext context) {
-    print('GameScreen: build called');
     final gameManager = Provider.of<GameManager>(context);
     final newsService = Provider.of<NewsService>(context);
     final game = gameManager.currentGame;
 
-    print('GameScreen: currentGame = ${game != null ? "loaded" : "null"}');
-    print('GameScreen: gameManager = ${gameManager}');
-    print('GameScreen: gameManager.currentGame = ${gameManager.currentGame}');
-
     if (game == null) {
-      print('GameScreen: No game loaded, showing error screen');
       return Scaffold(
         body: Center(
           child: Column(
@@ -321,6 +314,7 @@ class _GameScreenState extends State<GameScreen> {
       floatingActionButton: Consumer<GameManager>(
         builder: (context, gameManager, child) {
           final isProcessing = !gameManager.canAdvanceWeek;
+          final isAdvancingWeek = gameManager.isAdvancingWeek;
           final statusMessage = gameManager.growthStatusMessage;
           
           return Column(
@@ -341,6 +335,25 @@ class _GameScreenState extends State<GameScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.orange[800],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              // 週進行中のメッセージ
+              if (isAdvancingWeek)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[100],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.blue[300]!),
+                  ),
+                  child: Text(
+                    '週進行処理中...',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue[800],
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -381,11 +394,11 @@ class _GameScreenState extends State<GameScreen> {
                   );
                 },
                 icon: Icon(
-                  isProcessing ? Icons.hourglass_empty : Icons.skip_next,
+                  isAdvancingWeek ? Icons.hourglass_empty : (isProcessing ? Icons.hourglass_empty : Icons.skip_next),
                   color: isProcessing ? Colors.grey[400] : null,
                 ),
                 label: Text(
-                  isProcessing ? '処理中...' : '次の週へ進める',
+                  isAdvancingWeek ? '週進行中...' : (isProcessing ? '処理中...' : '次の週へ進める'),
                   style: TextStyle(
                     color: isProcessing ? Colors.grey[400] : null,
                   ),

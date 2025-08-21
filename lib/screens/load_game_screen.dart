@@ -55,17 +55,12 @@ class _LoadGameScreenState extends State<LoadGameScreen> {
                       onPressed: _hasData[index]
                           ? () async {
                               final slot = isAuto ? 'autosave' : (index + 1);
-                              print('ロード開始: スロット $slot');
                               final gameManager = Provider.of<GameManager>(context, listen: false);
                               final dataService = Provider.of<DataService>(context, listen: false);
                               final loaded = await gameManager.loadGame(slot, dataService);
-                              print('ロード結果: $loaded');
-                              print('ロード後のcurrentGame: ${gameManager.currentGame}');
                               if (loaded) {
-                                print('ゲーム画面に遷移します');
                                 Navigator.pushReplacementNamed(context, '/game');
                               } else {
-                                print('ロードに失敗しました');
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(content: Text('ロードに失敗しました')),
                                 );

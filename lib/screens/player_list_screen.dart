@@ -149,21 +149,6 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
     // 全学校の全選手を取得（注目選手を含むため）
     final List<Player> allPlayers = gameManager.getAllPlayers();
     
-         // デバッグ情報
-     final totalPlayers = allPlayers.length;
-     final publiclyKnownPlayers = allPlayers.where((p) => p.isPubliclyKnown).length;
-     final scoutFavoritePlayers = allPlayers.where((p) => p.isScoutFavorite).length;
-           final discoveredPlayers = allPlayers.where((p) => p.isDiscovered).length;
-     final isDiscoveredPlayers = allPlayers.where((p) => p.isDiscovered).length;
-     
-     print('選手リスト画面 デバッグ: 総選手数: $totalPlayers, 注目選手: $publiclyKnownPlayers, お気に入り: $scoutFavoritePlayers, 発掘済み: $discoveredPlayers, isDiscovered: $isDiscoveredPlayers');
-     
-     // 各選手の詳細な状態をログ出力
-     for (int i = 0; i < allPlayers.length && i < 5; i++) {
-       final player = allPlayers[i];
-       print('選手${i + 1}: ${player.name}, isPubliclyKnown: ${player.isPubliclyKnown}, isScoutFavorite: ${player.isScoutFavorite}, isDiscovered: ${player.isDiscovered}, allCategories: ${player.allCategories.map((c) => c.name).join(', ')}');
-     }
-    
     return Scaffold(
       appBar: AppBar(
         title: const Text('選手リスト'),
@@ -264,29 +249,6 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
                   ),
                 ],
               ),
-                             // デバッグ情報（開発中のみ表示）
-               if (title == '注目選手') ...[
-                 const SizedBox(height: 8),
-                 Container(
-                   padding: const EdgeInsets.all(8),
-                   color: Colors.orange[100],
-                   child: Text(
-                     'デバッグ: 選手数: ${players.length}名, 最初の選手: ${players.isNotEmpty ? players.first.name : "なし"}',
-                     style: const TextStyle(fontSize: 10, color: Colors.orange),
-                   ),
-                 ),
-               ],
-               if (title == '発掘済み選手') ...[
-                 const SizedBox(height: 8),
-                 Container(
-                   padding: const EdgeInsets.all(8),
-                   color: Colors.blue[100],
-                   child: Text(
-                     'デバッグ: 選手数: ${players.length}名, 最初の選手: ${players.isNotEmpty ? players.first.name : "なし"}',
-                     style: const TextStyle(fontSize: 10, color: Colors.blue),
-                   ),
-                 ),
-               ],
             ],
           ),
         ),

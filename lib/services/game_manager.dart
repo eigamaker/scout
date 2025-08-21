@@ -34,19 +34,27 @@ class GameManager {
   late final PlayerDataGenerator _playerDataGenerator;
   Scout? _currentScout;
   
-  // 成長処理状態の管理
+  // 週進行処理状態の管理
+  bool _isAdvancingWeek = false;
   bool _isProcessingGrowth = false;
   String _growthStatusMessage = '';
 
   Game? get currentGame => _currentGame;
   Scout? get currentScout => _currentScout;
   
-  // 成長処理状態のゲッター
+  // 週進行処理状態のゲッター
+  bool get isAdvancingWeek => _isAdvancingWeek;
   bool get isProcessingGrowth => _isProcessingGrowth;
   String get growthStatusMessage => _growthStatusMessage;
   
-  // 成長処理中は進行できないかチェック
-  bool get canAdvanceWeek => !_isProcessingGrowth;
+  // 週進行処理中または成長処理中は進行できないかチェック
+  bool get canAdvanceWeek => !_isAdvancingWeek && !_isProcessingGrowth;
+
+  // 週進行処理状態を更新するプライベートメソッド
+  void _updateAdvancingWeekStatus(bool isAdvancing) {
+    _isAdvancingWeek = isAdvancing;
+    print('GameManager: 週進行処理状態更新 - $isAdvancing');
+  }
 
   // 成長処理状態を更新するプライベートメソッド
   void _updateGrowthStatus(bool isProcessing, String message) {
@@ -1282,102 +1290,108 @@ class GameManager {
     final results = <String>[];
     if (_currentGame == null) return results;
     
+    // 週進行処理開始
+    _updateAdvancingWeekStatus(true);
+    
     print('GameManager.advanceWeekWithResults: 週送り処理開始');
     print('GameManager.advanceWeekWithResults: 現在の状態 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 年: ${_currentGame!.currentYear}');
     
-    // スカウトアクションを実行
-    print('GameManager.advanceWeekWithResults: スカウトアクション実行開始');
-    final scoutResults = await executeScoutActions(dataService);
-    results.addAll(scoutResults);
-    print('GameManager.advanceWeekWithResults: スカウトアクション実行完了 - 結果数: ${scoutResults.length}');
-    
-    // 週送り（週進行、AP/予算リセット、アクションリセット）
-    print('GameManager.advanceWeekWithResults: 週送り処理開始');
-    print('GameManager.advanceWeekWithResults: 週送り前 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}');
-    
-    _currentGame = _currentGame!
-      .advanceWeek()
-      .resetWeeklyResources(newAp: 15, newBudget: _currentGame!.budget)
-      .resetActions();
-    
-    print('GameManager.advanceWeekWithResults: 週送り後 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}');
-    print('GameManager.advanceWeekWithResults: 週送り処理完了');
-
-    // ペナントレースの進行
-    if (isPennantRaceActive) {
-      print('GameManager.advanceWeekWithResults: ペナントレース進行開始');
-      _advancePennantRace();
-      print('GameManager.advanceWeekWithResults: ペナントレース進行完了');
-    }
-    
-    // 高校野球大会の初期化と進行
-    print('GameManager.advanceWeekWithResults: 高校野球大会処理開始');
-    _initializeHighSchoolTournaments();
-    _advanceHighSchoolTournaments();
-    print('GameManager.advanceWeekWithResults: 高校野球大会処理完了');
-    
-    // 3月1週（年度末）に卒業処理
-    final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 1;
-    final graduationWeek = _calculateCurrentWeek(_currentGame!.currentMonth, _currentGame!.currentWeekOfMonth);
-    print('GameManager.advanceWeekWithResults: 卒業処理判定 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 卒業処理: $isGraduation, 総週数: $graduationWeek');
-    
-    if (isGraduation) {
-      // 卒業処理が既に実行済みかチェック（重複実行を防ぐ）
-      final hasGraduationProcessed = _currentGame!.schools.any((school) => 
-        school.players.any((player) => player.isGraduated)
-      );
+    try {
+      // スカウトアクションを実行
+      print('GameManager.advanceWeekWithResults: スカウトアクション実行開始');
+      final scoutResults = await executeScoutActions(dataService);
+      results.addAll(scoutResults);
+      print('GameManager.advanceWeekWithResults: スカウトアクション実行完了 - 結果数: ${scoutResults.length}');
       
-      if (hasGraduationProcessed) {
-        print('GameManager.advanceWeekWithResults: 卒業処理は既に実行済みです。スキップします。');
-        results.add('卒業処理は既に完了しています。');
-      } else {
-        print('GameManager.advanceWeekWithResults: 卒業処理開始');
-        _updateGrowthStatus(true, '3年生の卒業処理を実行中...');
+      // 週送り（週進行、AP/予算リセット、アクションリセット）
+      print('GameManager.advanceWeekWithResults: 週送り処理開始');
+      print('GameManager.advanceWeekWithResults: 週送り前 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}');
+      
+      _currentGame = _currentGame!
+        .advanceWeek()
+        .resetWeeklyResources(newAp: 15, newBudget: _currentGame!.budget)
+        .resetActions();
+      
+      print('GameManager.advanceWeekWithResults: 週送り後 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}');
+      print('GameManager.advanceWeekWithResults: 週送り処理完了');
+
+      // ペナントレースの進行
+      if (isPennantRaceActive) {
+        print('GameManager.advanceWeekWithResults: ペナントレース進行開始');
+        _advancePennantRace();
+        print('GameManager.advanceWeekWithResults: ペナントレース進行完了');
+      }
+      
+      // 高校野球大会の初期化と進行
+      print('GameManager.advanceWeekWithResults: 高校野球大会処理開始');
+      _initializeHighSchoolTournaments();
+      _advanceHighSchoolTournaments();
+      print('GameManager.advanceWeekWithResults: 高校野球大会処理完了');
+      
+      // 3月1週（年度末）に卒業処理
+      final isGraduation = _currentGame!.currentMonth == 3 && _currentGame!.currentWeekOfMonth == 1;
+      final graduationWeek = _calculateCurrentWeek(_currentGame!.currentMonth, _currentGame!.currentWeekOfMonth);
+      print('GameManager.advanceWeekWithResults: 卒業処理判定 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 卒業処理: $isGraduation, 総週数: $graduationWeek');
+      
+      if (isGraduation) {
+        // 卒業処理が既に実行済みかチェック（重複実行を防ぐ）
+        final hasGraduationProcessed = _currentGame!.schools.any((school) => 
+          school.players.any((player) => player.isGraduated)
+        );
         
-        try {
-          await graduateThirdYearStudents(dataService);
-          await _refreshPlayersFromDb(dataService);
+        if (hasGraduationProcessed) {
+          print('GameManager.advanceWeekWithResults: 卒業処理は既に実行済みです。スキップします。');
+          results.add('卒業処理は既に完了しています。');
+        } else {
+          print('GameManager.advanceWeekWithResults: 卒業処理開始');
+          _updateGrowthStatus(true, '3年生の卒業処理を実行中...');
           
-          // 卒業生数を計算
-          int totalGraduated = 0;
-          for (final school in _currentGame!.schools) {
-            totalGraduated += school.players.where((p) => p.isGraduated).length;
+          try {
+            await graduateThirdYearStudents(dataService);
+            await _refreshPlayersFromDb(dataService);
+            
+            // 卒業生数を計算
+            int totalGraduated = 0;
+            for (final school in _currentGame!.schools) {
+              totalGraduated += school.players.where((p) => p.isGraduated).length;
+            }
+            
+            // 卒業ニュースを生成
+            newsService.generateGraduationNews(
+              year: _currentGame!.currentYear,
+              month: _currentGame!.currentMonth,
+              weekOfMonth: _currentGame!.currentWeekOfMonth,
+              totalGraduated: totalGraduated,
+            );
+            
+            results.add('3年生${totalGraduated}名が卒業しました。卒業生は卒業フラグが設定され、今後の成長を追跡できます。');
+            print('GameManager.advanceWeekWithResults: 卒業処理完了');
+          } catch (e) {
+            print('GameManager.advanceWeekWithResults: 卒業処理でエラーが発生しました: $e');
+            _updateGrowthStatus(false, '卒業処理でエラーが発生しました');
+            // 週進行処理状態をリセット
+            _updateAdvancingWeekStatus(false);
+            rethrow;
           }
-          
-          // 卒業ニュースを生成
-          newsService.generateGraduationNews(
-            year: _currentGame!.currentYear,
-            month: _currentGame!.currentMonth,
-            weekOfMonth: _currentGame!.currentWeekOfMonth,
-            totalGraduated: totalGraduated,
-          );
-          
-          results.add('3年生${totalGraduated}名が卒業しました。卒業生は卒業フラグが設定され、今後の成長を追跡できます。');
-          print('GameManager.advanceWeekWithResults: 卒業処理完了');
-        } catch (e) {
-          print('GameManager.advanceWeekWithResults: 卒業処理でエラーが発生しました: $e');
-          _updateGrowthStatus(false, '卒業処理でエラーが発生しました');
-          rethrow;
         }
       }
-    }
-    
-    // 4月1週の開始時に学年アップ＋新入生生成
-    final isNewYear = _currentGame!.currentMonth == 4 && _currentGame!.currentWeekOfMonth == 1;
-    print('GameManager.advanceWeekWithResults: 新年度処理判定 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 新年度処理: $isNewYear');
-    
-    if (isNewYear) {
-      // 新年度処理が既に実行済みかチェック（重複実行を防ぐ）
-      final hasNewYearProcessed = _currentGame!.schools.any((school) => 
-        school.players.any((player) => player.grade == 1 && player.age == 15)
-      );
       
-      if (hasNewYearProcessed) {
-        print('GameManager.advanceWeekWithResults: 新年度処理は既に実行済みです。スキップします。');
-        results.add('新年度処理は既に完了しています。');
-      } else {
-        print('GameManager.advanceWeekWithResults: 新年度処理開始');
-        _updateGrowthStatus(true, '新年度処理を実行中...');
+      // 4月1週の開始時に学年アップ＋新入生生成
+      final isNewYear = _currentGame!.currentMonth == 4 && _currentGame!.currentWeekOfMonth == 1;
+      print('GameManager.advanceWeekWithResults: 新年度処理判定 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 新年度処理: $isNewYear');
+      
+      if (isNewYear) {
+        // 新年度処理が既に実行済みかチェック（重複実行を防ぐ）
+        final hasNewYearProcessed = _currentGame!.schools.any((school) => 
+          school.players.any((player) => player.grade == 1 && player.age == 15)
+        );
+        
+        if (hasNewYearProcessed) {
+          print('GameManager.advanceWeekWithResults: 新年度処理は既に実行済みです。スキップします。');
+          results.add('新年度処理は既に完了しています。');
+        } else {
+          print('GameManager.advanceWeekWithResults: 新年度処理開始');
+          _updateGrowthStatus(true, '新年度処理を実行中...');
         
         try {
           // 学年アップ処理
@@ -1463,8 +1477,33 @@ class GameManager {
       } catch (e) {
         _updateGrowthStatus(false, '成長処理でエラーが発生しました');
         print('GameManager.advanceWeek: 成長処理でエラーが発生しました: $e');
+        // 週進行処理状態をリセット
+        _updateAdvancingWeekStatus(false);
         rethrow;
       }
+    }
+    
+    } catch (e) {
+      print('GameManager.advanceWeekWithResults: 週進行処理でエラーが発生しました: $e');
+      // 週進行処理状態をリセット
+      _updateAdvancingWeekStatus(false);
+      rethrow;
+    }
+    
+    // 週送り時のニュース生成（毎週）
+    print('GameManager.advanceWeekWithResults: ニュース生成開始');
+    _generateWeeklyNews(newsService);
+    print('GameManager.advanceWeekWithResults: ニュース生成完了');
+    
+    // スカウトのAPを最大値まで回復
+    if (_currentScout != null) {
+      print('GameManager.advanceWeekWithResults: スカウトAP回復処理開始');
+      _currentScout = _currentScout!.restoreActionPoints(_currentScout!.maxActionPoints);
+      // GameインスタンスのAPも更新
+      _currentGame = _currentGame!.copyWith(
+        ap: _currentScout!.actionPoints,
+      );
+      print('GameManager.advanceWeekWithResults: スカウトAP回復処理完了 - 現在AP: ${_currentScout!.actionPoints}');
     }
     
     // 週送り時のニュース生成（毎週）
@@ -1495,6 +1534,10 @@ class GameManager {
     print('GameManager.advanceWeekWithResults: オートセーブ完了');
     
     print('GameManager.advanceWeekWithResults: 週送り処理完了');
+    
+    // 週進行処理完了
+    _updateAdvancingWeekStatus(false);
+    
     return results;
   }
 
