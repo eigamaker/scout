@@ -46,6 +46,31 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       // スロット用DBでニューゲーム開始
       final db = await dataService.getDatabaseWithSlot(slot);
       await gameManager.startNewGameWithDb('あなた', dataService);
+      
+      // デバッグ: ニューゲーム開始後の状態を確認
+      print('MainMenuScreen._startNewGame: ニューゲーム開始後の状態確認');
+      print('MainMenuScreen._startNewGame: gameManager.currentGame = ${gameManager.currentGame != null ? "loaded" : "null"}');
+      if (gameManager.currentGame != null) {
+        print('MainMenuScreen._startNewGame: 学校数: ${gameManager.currentGame!.schools.length}');
+        print('MainMenuScreen._startNewGame: 発掘選手数: ${gameManager.currentGame!.discoveredPlayers.length}');
+      }
+      
+      // Providerの状態を強制的に更新
+      if (context.mounted) {
+        setState(() {});
+      }
+      
+      // 少し待機してからゲーム画面に遷移
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+    } catch (e) {
+      print('MainMenuScreen._startNewGame: ニューゲーム開始でエラーが発生しました: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ゲームの開始に失敗しました: $e')),
+        );
+      }
+      return;
     } finally {
       // 確実にダイアログを閉じる
       if (context.mounted) {
@@ -64,6 +89,19 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         setState(() {});
       }
     });
+    
+    // ゲームの状態を最終確認
+    if (gameManager.currentGame == null) {
+      print('MainMenuScreen._startNewGame: エラー - ゲームが開始されていません');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ゲームの開始に失敗しました。もう一度お試しください。')),
+        );
+      }
+      return;
+    }
+    
+    print('MainMenuScreen._startNewGame: ゲーム画面に遷移開始');
     
     // 前の画面スタックをクリアしてゲーム画面に遷移
     Navigator.pushAndRemoveUntil(

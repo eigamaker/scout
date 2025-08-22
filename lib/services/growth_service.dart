@@ -72,6 +72,8 @@ class GrowthService {
     // 5月1週、8月1週、11月1週、2月1週で成長
     final isGrowthWeek = _isGrowthWeek(currentWeek);
     
+    print('GrowthService.shouldGrow: 週$currentWeek - 成長週か: $isGrowthWeek');
+    
     return isGrowthWeek;
   }
 
@@ -79,11 +81,19 @@ class GrowthService {
   static bool _isGrowthWeek(int week) {
     // 4週固定の場合の成長週
     // 5月1週：週5、8月1週：週17、11月1週：週29、2月1週：週41
-    return week == 5 || week == 17 || week == 29 || week == 41;
+    final isGrowth = week == 5 || week == 17 || week == 29 || week == 41;
+    print('GrowthService._isGrowthWeek: 週$week - 成長週か: $isGrowth (5,17,29,41のいずれか)');
+    return isGrowth;
   }
 
   // 選手の成長処理
   static Player growPlayer(Player player) {
+    // デフォルト選手は成長しない
+    if (player.isDefaultPlayer) {
+      print('GrowthService.growPlayer: デフォルト選手 ${player.name} は成長処理をスキップ');
+      return player;
+    }
+    
     final random = Random();
     
     // 各能力値を成長させる

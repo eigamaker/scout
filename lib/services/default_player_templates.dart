@@ -11,15 +11,15 @@ class DefaultPlayerTemplate {
   static final Player weakTemplate = Player(
     name: 'デフォルト選手',
     school: '', // 学校名は動的に設定
-    grade: 1,
+    grade: 2, // 2年生として固定（卒業しない）
     position: '投手', // ポジションは何でもOK
     personality: '真面目',
     fame: 0,
     isPubliclyKnown: false,
     isScoutFavorite: false,
     isGraduated: false,
-            discoveredBy: null,
-        scoutedDates: [],
+    discoveredBy: null,
+    scoutedDates: [],
     abilityKnowledge: <String, int>{},
     type: PlayerType.highSchool,
     yearsAfterGraduation: 0,
@@ -30,13 +30,14 @@ class DefaultPlayerTemplate {
     mentalAbilities: _createAllMentalAbilities(45),
     physicalAbilities: _createAllPhysicalAbilities(45),
     mentalGrit: 0.5,
-    growthRate: 1.0,
-    peakAbility: 55,
+    growthRate: 0.0, // 成長しないように設定
+    peakAbility: 45, // 現在値と同じ（成長しない）
     positionFit: _createDefaultPositionFit('投手'),
     talent: 1, // デフォルト選手は才能ランク1
     growthType: 'normal',
     individualPotentials: _createDefaultPotentials(45),
     scoutAnalysisData: null,
+    isDefaultPlayer: true, // デフォルト選手フラグ
   );
 
   /// 中堅校用デフォルト選手（全能力50）
@@ -44,7 +45,7 @@ class DefaultPlayerTemplate {
     technicalAbilities: _createAllAbilities(50),
     mentalAbilities: _createAllMentalAbilities(50),
     physicalAbilities: _createAllPhysicalAbilities(50),
-    peakAbility: 60,
+    peakAbility: 50, // 現在値と同じ（成長しない）
     individualPotentials: _createDefaultPotentials(50),
   );
 
@@ -53,7 +54,7 @@ class DefaultPlayerTemplate {
     technicalAbilities: _createAllAbilities(55),
     mentalAbilities: _createAllMentalAbilities(55),
     physicalAbilities: _createAllPhysicalAbilities(55),
-    peakAbility: 65,
+    peakAbility: 55, // 現在値と同じ（成長しない）
     individualPotentials: _createDefaultPotentials(55),
   );
 
@@ -62,22 +63,30 @@ class DefaultPlayerTemplate {
     technicalAbilities: _createAllAbilities(60),
     mentalAbilities: _createAllMentalAbilities(60),
     physicalAbilities: _createAllPhysicalAbilities(60),
-    peakAbility: 70,
+    peakAbility: 60, // 現在値と同じ（成長しない）
     individualPotentials: _createDefaultPotentials(60),
   );
 
   /// 学校ランクに応じたデフォルト選手テンプレートを取得
-  static Player getTemplateByRank(SchoolRank rank) {
+  static Player getTemplateByRank(SchoolRank rank, String schoolName) {
+    Player template;
     switch (rank) {
       case SchoolRank.elite:
-        return eliteTemplate;
+        template = eliteTemplate;
+        break;
       case SchoolRank.strong:
-        return strongTemplate;
+        template = strongTemplate;
+        break;
       case SchoolRank.average:
-        return averageTemplate;
+        template = averageTemplate;
+        break;
       case SchoolRank.weak:
-        return weakTemplate;
+        template = weakTemplate;
+        break;
     }
+    
+    // 学校名を設定して返す
+    return template.copyWith(school: schoolName);
   }
 
   /// 全技術面能力値を指定値で作成

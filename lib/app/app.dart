@@ -12,7 +12,7 @@ import '../screens/team_requests_screen.dart';
 import '../screens/professional_teams_screen.dart';
 import '../screens/team_detail_screen.dart';
 import '../screens/pennant_race_screen.dart';
-import '../widgets/tournament_list_widget.dart';
+import '../screens/tournament_screen.dart';
 
 import 'theme.dart';
 import '../models/player/player.dart';
@@ -55,8 +55,14 @@ class ScoutGameApp extends StatelessWidget {
           );
         }
         if (settings.name == '/tournaments') {
+          // トーナメント画面はゲーム画面から直接ナビゲートする必要があります
+          // データなしでの直接アクセスはサポートしていません
           return MaterialPageRoute(
-            builder: (context) => const TournamentListWidget(),
+            builder: (context) => const Scaffold(
+              body: Center(
+                child: Text('トーナメント画面はゲーム画面からアクセスしてください。'),
+              ),
+            ),
           );
         }
         return null;

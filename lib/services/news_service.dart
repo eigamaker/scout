@@ -536,6 +536,9 @@ class NewsService {
     int highAbilityPlayers = 0;
     int highFamePlayers = 0;
     
+    // 重複を防ぐため、既に処理済みの選手IDを記録
+    final processedPlayerIds = <String>{};
+    
     for (final school in schools) {
       for (final player in school.players) {
         totalPlayers++;
@@ -544,8 +547,18 @@ class NewsService {
         
         // 高能力選手（70以上）または高知名度選手（fame >= 60）のニュース生成
         if (player.trueTotalAbility >= 70 || player.fame >= 60) {
+          // 重複チェック：同じ選手IDが既に処理済みの場合はスキップ
+          final playerKey = '${player.id}_${player.name}_${school.id}';
+          if (processedPlayerIds.contains(playerKey)) {
+            print('NewsService: 重複選手をスキップ - ${player.name} (ID: ${player.id})');
+            continue;
+          }
+          
           print('NewsService: 選手ニュース生成対象 - ${player.name} (能力: ${player.trueTotalAbility}, 知名度: ${player.fame})');
           generatePlayerNews(player, school, year: year, month: month, weekOfMonth: weekOfMonth);
+          
+          // 処理済みとして記録
+          processedPlayerIds.add(playerKey);
         }
       }
     }
@@ -594,10 +607,20 @@ class NewsService {
     // 高能力選手（60以上に下げる）からランダムに選択してニュース生成
     final highAbilityPlayers = <Player>[];
     
+    // 重複を防ぐため、既に処理済みの選手IDを記録
+    final processedPlayerIds = <String>{};
+    
     for (final school in schools) {
       for (final player in school.players) {
         if (player.trueTotalAbility >= 60) {
+          // 重複チェック：同じ選手IDが既に処理済みの場合はスキップ
+          final playerKey = '${player.id}_${player.name}_${school.id}';
+          if (processedPlayerIds.contains(playerKey)) {
+            continue;
+          }
+          
           highAbilityPlayers.add(player);
+          processedPlayerIds.add(playerKey);
         }
       }
     }

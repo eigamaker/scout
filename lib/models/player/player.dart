@@ -84,6 +84,9 @@ class Player {
   String? scoutEvaluation; // スカウトの個人評価
   String? scoutNotes; // スカウトのメモ
   
+  // デフォルト選手フラグ
+  final bool isDefaultPlayer; // デフォルト選手かどうか（成長・卒業処理をスキップ）
+  
   // 実績システム
   final List<Achievement> achievements; // 実績リスト
   final int totalFamePoints; // 総知名度ポイント
@@ -132,6 +135,7 @@ class Player {
     Map<String, int>? abilityKnowledge,
     List<Achievement>? achievements,
     this.scoutAnalysisData,
+    this.isDefaultPlayer = false,
   }) :
     age = age ?? (type == PlayerType.highSchool ? (15 + (grade - 1)) : 18), // 高校生は学年から年齢を計算、プロ選手は18歳以上
     scoutedDates = scoutedDates ?? [],
@@ -171,11 +175,24 @@ class Player {
     };
   }
   
-  // メンタル面能力値の初期化
+  // メンタル面能力値の初期化（データベースに存在するカラムのみ）
   static Map<MentalAbility, int> _initializeMentalAbilities() {
     return {
-      for (var ability in MentalAbility.values)
-        ability: 25, // 基本値25
+      // データベースに存在するカラムのみ
+      MentalAbility.concentration: 25,
+      MentalAbility.anticipation: 25,
+      MentalAbility.vision: 25,
+      MentalAbility.composure: 25,
+      MentalAbility.aggression: 25,
+      MentalAbility.bravery: 25,
+      MentalAbility.leadership: 25,
+      MentalAbility.workRate: 25,
+      MentalAbility.selfDiscipline: 25,
+      MentalAbility.ambition: 25,
+      MentalAbility.teamwork: 25,
+      MentalAbility.positioning: 25,
+      MentalAbility.pressureHandling: 25,
+      MentalAbility.clutchAbility: 25,
     };
   }
   
@@ -195,11 +212,24 @@ class Player {
     };
   }
   
-  // メンタル面能力値ポテンシャルの初期化
+  // メンタル面能力値ポテンシャルの初期化（データベースに存在するカラムのみ）
   static Map<MentalAbility, int> _initializeMentalPotentials() {
     return {
-      for (var ability in MentalAbility.values)
-        ability: 50, // 基本ポテンシャル50
+      // データベースに存在するカラムのみ
+      MentalAbility.concentration: 50,
+      MentalAbility.anticipation: 50,
+      MentalAbility.vision: 50,
+      MentalAbility.composure: 50,
+      MentalAbility.aggression: 50,
+      MentalAbility.bravery: 50,
+      MentalAbility.leadership: 50,
+      MentalAbility.workRate: 50,
+      MentalAbility.selfDiscipline: 50,
+      MentalAbility.ambition: 50,
+      MentalAbility.teamwork: 50,
+      MentalAbility.positioning: 50,
+      MentalAbility.pressureHandling: 50,
+      MentalAbility.clutchAbility: 50,
     };
   }
   
@@ -209,6 +239,26 @@ class Player {
       for (var ability in PhysicalAbility.values)
         ability: 50, // 基本ポテンシャル50
     };
+  }
+
+  // 有効なメンタル能力値かどうかを判定
+  static bool _isValidMentalAbility(String abilityName) {
+    return [
+      'concentration',
+      'anticipation',
+      'vision',
+      'composure',
+      'aggression',
+      'bravery',
+      'leadership',
+      'workRate',
+      'selfDiscipline',
+      'ambition',
+      'teamwork',
+      'positioning',
+      'pressureHandling',
+      'clutchAbility',
+    ].contains(abilityName);
   }
   
   // 投手かどうか
@@ -616,6 +666,8 @@ class Player {
   
   // 選手の成長
   void grow() {
+    if (isDefaultPlayer) return; // デフォルト選手は成長しない
+
     final growthChance = (mentalGrit + 0.15) * growthRate * 0.1;
     
     if (Random().nextDouble() < growthChance) {
@@ -786,7 +838,11 @@ class Player {
     'professionalTeamId': professionalTeamId,
     'pitches': pitches?.map((p) => p.toJson()).toList(),
     'technicalAbilities': technicalAbilities.map((key, value) => MapEntry(key.name, value)),
-    'mentalAbilities': mentalAbilities.map((key, value) => MapEntry(key.name, value)),
+    'mentalAbilities': Map.fromEntries(
+        mentalAbilities.entries
+            .where((entry) => _isValidMentalAbility(entry.key.name))
+            .map((entry) => MapEntry(entry.key.name, entry.value))
+    ),
     'physicalAbilities': physicalAbilities.map((key, value) => MapEntry(key.name, value)),
     'mentalGrit': mentalGrit,
     'growthRate': growthRate,
@@ -798,6 +854,7 @@ class Player {
     'scoutEvaluation': scoutEvaluation,
     'scoutNotes': scoutNotes,
     'scoutAnalysisData': scoutAnalysisData,
+    'isDefaultPlayer': isDefaultPlayer,
   };
 
   factory Player.fromJson(Map<String, dynamic> json) => Player(
@@ -841,9 +898,9 @@ class Player {
       : null,
     mentalAbilities: json['mentalAbilities'] != null
       ? Map.fromEntries(
-          (json['mentalAbilities'] as Map<String, dynamic>).entries.map(
-            (entry) => MapEntry(MentalAbility.values.firstWhere((e) => e.name == entry.key), entry.value as int)
-          )
+          (json['mentalAbilities'] as Map<String, dynamic>).entries
+            .where((entry) => _isValidMentalAbility(entry.key)) // 有効な能力値のみ
+            .map((entry) => MapEntry(MentalAbility.values.firstWhere((e) => e.name == entry.key), entry.value as int))
         )
       : null,
     physicalAbilities: json['physicalAbilities'] != null
@@ -867,6 +924,7 @@ class Player {
     scoutAnalysisData: json['scoutAnalysisData'] != null
       ? Map<String, int>.from(json['scoutAnalysisData'])
       : null,
+    isDefaultPlayer: json['isDefaultPlayer'] ?? false,
   );
 
   Player copyWith({
@@ -908,6 +966,7 @@ class Player {
     DateTime? retiredAt,
     bool? isDrafted,
     String? professionalTeamId,
+    bool? isDefaultPlayer,
   }) {
     return Player(
       id: id ?? this.id,
@@ -936,7 +995,11 @@ class Player {
       professionalTeamId: professionalTeamId ?? this.professionalTeamId,
       pitches: pitches ?? this.pitches,
       technicalAbilities: technicalAbilities ?? Map<TechnicalAbility, int>.from(this.technicalAbilities),
-      mentalAbilities: mentalAbilities ?? Map<MentalAbility, int>.from(this.mentalAbilities),
+      mentalAbilities: mentalAbilities ?? Map<MentalAbility, int>.fromEntries(
+          this.mentalAbilities.entries
+              .where((entry) => _isValidMentalAbility(entry.key.name))
+              .map((entry) => MapEntry(entry.key, entry.value))
+      ),
       physicalAbilities: physicalAbilities ?? Map<PhysicalAbility, int>.from(this.physicalAbilities),
       mentalGrit: mentalGrit ?? this.mentalGrit,
       growthRate: growthRate ?? this.growthRate,
@@ -948,6 +1011,7 @@ class Player {
       scoutEvaluation: scoutEvaluation ?? this.scoutEvaluation,
       scoutNotes: scoutNotes ?? this.scoutNotes,
       scoutAnalysisData: scoutAnalysisData ?? this.scoutAnalysisData,
+      isDefaultPlayer: isDefaultPlayer ?? this.isDefaultPlayer,
     );
   }
 } 

@@ -300,6 +300,331 @@ class HighSchoolTournamentService {
     );
   }
 
+  /// トーナメントの進行状況を取得
+  static TournamentProgress getTournamentProgress(HighSchoolTournament tournament) {
+    final allGames = tournament.games;
+    final completedGames = allGames.where((game) => game.isCompleted).toList();
+    final uncompletedGames = allGames.where((game) => !game.isCompleted).toList();
+    
+    // 現在のラウンドを特定
+    GameRound? currentRound;
+    GameRound? nextRound;
+    
+    if (uncompletedGames.isNotEmpty) {
+      // 未完了の試合のうち、最も早いラウンドが現在のラウンド
+      final earliestUncompletedRound = uncompletedGames
+          .map((game) => game.round)
+          .reduce((a, b) => a.index < b.index ? a : b);
+      currentRound = earliestUncompletedRound;
+      
+      // 次のラウンドを特定
+      final roundOrder = [
+        GameRound.firstRound,
+        GameRound.secondRound,
+        GameRound.thirdRound,
+        GameRound.quarterFinal,
+        GameRound.semiFinal,
+        GameRound.championship,
+      ];
+      
+      final currentIndex = roundOrder.indexOf(currentRound);
+      if (currentIndex < roundOrder.length - 1) {
+        nextRound = roundOrder[currentIndex + 1];
+      }
+    }
+    
+    // 各ラウンドの進行状況を計算
+    final roundProgress = <GameRound, RoundProgress>{};
+    for (final round in GameRound.values) {
+      final roundGames = allGames.where((game) => game.round == round).toList();
+      final completedRoundGames = roundGames.where((game) => game.isCompleted).toList();
+      
+      roundProgress[round] = RoundProgress(
+        round: round,
+        totalGames: roundGames.length,
+        completedGames: completedRoundGames.length,
+        isCompleted: completedRoundGames.length == roundGames.length,
+        remainingGames: roundGames.length - completedRoundGames.length,
+      );
+    }
+    
+    // 次の試合予定を取得
+    final nextGames = <TournamentGame>[];
+    if (uncompletedGames.isNotEmpty) {
+      // 日付順でソートして、最も早い未完了試合を取得
+      final sortedUncompleted = List<TournamentGame>.from(uncompletedGames);
+      sortedUncompleted.sort((a, b) {
+        if (a.month != b.month) return a.month.compareTo(b.month);
+        if (a.week != b.week) return a.week.compareTo(b.week);
+        return a.dayOfWeek.compareTo(b.dayOfWeek);
+      });
+      
+      // 次の3試合を取得
+      nextGames.addAll(sortedUncompleted.take(3));
+    }
+    
+    return TournamentProgress(
+      currentRound: currentRound,
+      nextRound: nextRound,
+      totalGames: allGames.length,
+      completedGames: completedGames.length,
+      remainingGames: uncompletedGames.length,
+      roundProgress: roundProgress,
+      nextGames: nextGames,
+      isCompleted: tournament.isCompleted,
+      championSchoolId: tournament.championSchoolId,
+      runnerUpSchoolId: tournament.runnerUpSchoolId,
+    );
+  }
+
+  /// 指定ラウンドの進行状況を取得
+  static RoundProgress getRoundProgress(HighSchoolTournament tournament, GameRound round) {
+    final roundGames = tournament.games.where((game) => game.round == round).toList();
+    final completedGames = roundGames.where((game) => game.isCompleted).toList();
+    
+    return RoundProgress(
+      round: round,
+      totalGames: roundGames.length,
+      completedGames: completedGames.length,
+      isCompleted: completedGames.length == roundGames.length,
+      remainingGames: roundGames.length - completedGames.length,
+    );
+  }
+
+  /// 次の試合予定を取得
+  static List<TournamentGame> getNextGames(HighSchoolTournament tournament, {int limit = 5}) {
+    final uncompletedGames = tournament.games.where((game) => !game.isCompleted).toList();
+    
+    if (uncompletedGames.isEmpty) return [];
+    
+    // 日付順でソート
+    final sortedGames = List<TournamentGame>.from(uncompletedGames);
+    sortedGames.sort((a, b) {
+      if (a.month != b.month) return a.month.compareTo(b.month);
+      if (a.week != b.week) return a.week.compareTo(b.week);
+      return a.dayOfWeek.compareTo(b.dayOfWeek);
+    });
+    
+    return sortedGames.take(limit).toList();
+  }
+
+  /// 大会の完了予定日を取得
+  static DateTime? getEstimatedCompletionDate(HighSchoolTournament tournament) {
+    final uncompletedGames = tournament.games.where((game) => !game.isCompleted).toList();
+    
+    if (uncompletedGames.isEmpty) return null;
+    
+    // 最も遅い未完了試合の日付を取得
+    final latestGame = uncompletedGames.reduce((a, b) {
+      if (a.month != b.month) return a.month > b.month ? a : b;
+      if (a.week != b.week) return a.week > b.week ? a : b;
+      return a.dayOfWeek > b.dayOfWeek ? a : b;
+    });
+    
+    // 仮の年を設定（実際のゲーム年を使用）
+    final year = tournament.year;
+    final month = latestGame.month;
+    final week = latestGame.week;
+    
+    // 週の開始日を計算（簡易的な計算）
+    final daysFromStart = (month - 1) * 28 + (week - 1) * 7;
+    return DateTime(year, 1, 1).add(Duration(days: daysFromStart));
+  }
+
+  /// 大会の進行状況を予測
+  static TournamentProgressPrediction predictTournamentProgress(
+    HighSchoolTournament tournament,
+    int currentMonth,
+    int currentWeek,
+  ) {
+    final progress = getTournamentProgress(tournament);
+    final uncompletedGames = tournament.games.where((game) => !game.isCompleted).toList();
+    
+    if (uncompletedGames.isEmpty) {
+      return TournamentProgressPrediction(
+        estimatedCompletionMonth: currentMonth,
+        estimatedCompletionWeek: currentWeek,
+        estimatedRemainingWeeks: 0,
+        isOnSchedule: true,
+        recommendedActions: [],
+      );
+    }
+    
+    // 未完了試合を日付順でソート
+    final sortedGames = List<TournamentGame>.from(uncompletedGames);
+    sortedGames.sort((a, b) {
+      if (a.month != b.month) return a.month.compareTo(b.month);
+      if (a.week != b.week) return a.week.compareTo(b.week);
+      return a.dayOfWeek.compareTo(b.dayOfWeek);
+    });
+    
+    // 最も遅い試合の予定日を取得
+    final latestGame = sortedGames.last;
+    final estimatedCompletionMonth = latestGame.month;
+    final estimatedCompletionWeek = latestGame.week;
+    
+    // 現在から完了予定までの週数を計算
+    final currentTotalWeeks = (currentMonth - 1) * 4 + currentWeek;
+    final completionTotalWeeks = (estimatedCompletionMonth - 1) * 4 + estimatedCompletionWeek;
+    final estimatedRemainingWeeks = completionTotalWeeks - currentTotalWeeks;
+    
+    // スケジュール通りに進行しているかチェック
+    final isOnSchedule = estimatedRemainingWeeks >= 0;
+    
+    // 推奨アクションを生成
+    final recommendedActions = <String>[];
+    
+    if (!isOnSchedule) {
+      recommendedActions.add('進行が遅れています。今週の試合を集中して実行してください。');
+    }
+    
+    if (estimatedRemainingWeeks > 4) {
+      recommendedActions.add('大会完了まで${estimatedRemainingWeeks}週かかります。');
+    }
+    
+    // 現在のラウンドが長期間停滞している場合
+    if (progress.currentRound != null) {
+      final currentRoundProgress = progress.getRoundProgress(progress.currentRound!);
+      if (currentRoundProgress != null && currentRoundProgress.remainingGames > 0) {
+        final weeksInCurrentRound = _estimateWeeksInRound(progress.currentRound!);
+        if (weeksInCurrentRound > 2) {
+          recommendedActions.add('${progress.currentRoundName}が長期間停滞しています。');
+        }
+      }
+    }
+    
+    return TournamentProgressPrediction(
+      estimatedCompletionMonth: estimatedCompletionMonth,
+      estimatedCompletionWeek: estimatedCompletionWeek,
+      estimatedRemainingWeeks: estimatedRemainingWeeks,
+      isOnSchedule: isOnSchedule,
+      recommendedActions: recommendedActions,
+    );
+  }
+
+  /// ラウンドに必要な週数を推定
+  static int _estimateWeeksInRound(GameRound round) {
+    switch (round) {
+      case GameRound.firstRound:
+        return 2; // 1回戦は2週程度
+      case GameRound.secondRound:
+        return 2; // 2回戦は2週程度
+      case GameRound.thirdRound:
+        return 1; // 3回戦は1週程度
+      case GameRound.quarterFinal:
+        return 1; // 準々決勝は1週程度
+      case GameRound.semiFinal:
+        return 1; // 準決勝は1週程度
+      case GameRound.championship:
+        return 1; // 決勝は1週程度
+    }
+  }
+
+  /// 進行が遅れている大会を自動調整
+  static HighSchoolTournament autoAdjustSlowTournament(
+    HighSchoolTournament tournament,
+    int currentMonth,
+    int currentWeek,
+  ) {
+    final prediction = predictTournamentProgress(tournament, currentMonth, currentWeek);
+    
+    if (prediction.isOnSchedule) {
+      return tournament; // 調整不要
+    }
+    
+    print('HighSchoolTournamentService.autoAdjustSlowTournament: 進行遅延を検出 - 完了予定: ${prediction.estimatedCompletionMonth}月${prediction.estimatedCompletionWeek}週');
+    
+    // 未完了試合を現在の週に集中させる
+    final uncompletedGames = tournament.games.where((game) => !game.isCompleted).toList();
+    final adjustedGames = <TournamentGame>[];
+    
+    for (final game in tournament.games) {
+      if (game.isCompleted) {
+        adjustedGames.add(game);
+      } else {
+        // 未完了試合を現在の週に移動
+        final adjustedGame = game.copyWith(
+          month: currentMonth,
+          week: currentWeek,
+          dayOfWeek: (adjustedGames.length % 7) + 1, // 曜日を分散
+        );
+        adjustedGames.add(adjustedGame);
+      }
+    }
+    
+    return tournament.copyWith(
+      games: adjustedGames,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  /// 大会の進行効率を評価
+  static TournamentEfficiencyRating evaluateTournamentEfficiency(
+    HighSchoolTournament tournament,
+    int currentMonth,
+    int currentWeek,
+  ) {
+    final progress = getTournamentProgress(tournament);
+    final prediction = predictTournamentProgress(tournament, currentMonth, currentWeek);
+    
+    // 効率性スコアを計算（0.0 ~ 1.0）
+    double efficiencyScore = 1.0;
+    
+    // 進行率に基づくスコア
+    efficiencyScore *= progress.overallProgressRate;
+    
+    // スケジュール遵守度に基づくスコア
+    if (prediction.isOnSchedule) {
+      efficiencyScore *= 1.0;
+    } else {
+      efficiencyScore *= 0.5; // 遅延している場合は減点
+    }
+    
+    // ラウンド進行の効率性
+    final roundEfficiency = _calculateRoundEfficiency(progress);
+    efficiencyScore *= roundEfficiency;
+    
+    // 効率性レベルを判定
+    String efficiencyLevel;
+    if (efficiencyScore >= 0.8) {
+      efficiencyLevel = '優秀';
+    } else if (efficiencyScore >= 0.6) {
+      efficiencyLevel = '良好';
+    } else if (efficiencyScore >= 0.4) {
+      efficiencyLevel = '普通';
+    } else if (efficiencyScore >= 0.2) {
+      efficiencyLevel = '要改善';
+    } else {
+      efficiencyLevel = '問題あり';
+    }
+    
+    return TournamentEfficiencyRating(
+      efficiencyScore: efficiencyScore,
+      efficiencyLevel: efficiencyLevel,
+      overallProgressRate: progress.overallProgressPercentage,
+      isOnSchedule: prediction.isOnSchedule,
+      estimatedRemainingWeeks: prediction.estimatedRemainingWeeks,
+      recommendations: prediction.recommendedActions,
+    );
+  }
+
+  /// ラウンド進行の効率性を計算
+  static double _calculateRoundEfficiency(TournamentProgress progress) {
+    if (progress.roundProgress.isEmpty) return 1.0;
+    
+    double totalEfficiency = 0.0;
+    int roundCount = 0;
+    
+    for (final roundProgress in progress.roundProgress.values) {
+      if (roundProgress.totalGames > 0) {
+        totalEfficiency += roundProgress.progressRate;
+        roundCount++;
+      }
+    }
+    
+    return roundCount > 0 ? totalEfficiency / roundCount : 1.0;
+  }
+
   /// 出場校を選択
   static List<School> _selectParticipatingSchools(List<School> schools, int maxSchools) {
     // 学校のランクに基づいて選択
@@ -333,21 +658,50 @@ class HighSchoolTournamentService {
     int currentWeek = week;
     int currentMonth = month;
     
-    for (final round in rounds) {
-      final roundGames = _generateRoundGames(
-        round,
-        schools,
-        currentMonth,
-        currentWeek,
-        random,
-      );
-      games.addAll(roundGames);
-      
-      // 次の週に進む
-      currentWeek++;
-      if (currentWeek > 4) {
-        currentWeek = 1;
-        currentMonth++;
+    // 春の大会の場合は、より早く終了するようにスケジュールを調整
+    if (type == TournamentType.spring) {
+      // 春の大会: 4月3週～5月1週で終了
+      // 1回戦: 4月3週, 2回戦: 4月4週, 3回戦: 5月1週
+      // 準々決勝以降は5月1週に集中
+      for (int i = 0; i < rounds.length; i++) {
+        final round = rounds[i];
+        final roundGames = _generateRoundGames(
+          round,
+          schools,
+          currentMonth,
+          currentWeek,
+          random,
+        );
+        games.addAll(roundGames);
+        
+        // 春の大会の場合は、準々決勝以降は同じ週に配置
+        if (i < 3) { // 1回戦、2回戦、3回戦
+          currentWeek++;
+          if (currentWeek > 4) {
+            currentWeek = 1;
+            currentMonth++;
+          }
+        }
+        // 準々決勝以降は5月1週に集中（同じ週に複数試合）
+      }
+    } else {
+      // その他の大会は従来通りのスケジュール
+      for (final round in rounds) {
+        final roundGames = _generateRoundGames(
+          round,
+          schools,
+          currentMonth,
+          currentWeek,
+          random,
+        );
+        games.addAll(roundGames);
+        
+        // 次の週に進む
+        currentWeek++;
+        if (currentWeek > 4) {
+          currentWeek = 1;
+          currentMonth++;
+        }
       }
     }
     
@@ -756,17 +1110,6 @@ class HighSchoolTournamentService {
     standings[awayStanding.schoolId] = updatedAwayStanding
         .updateWinningPercentage()
         .updateRunDifferential();
-  }
-
-  /// 大会の進行状況を取得
-  static String getTournamentProgress(HighSchoolTournament tournament) {
-    if (tournament.isCompleted) return '大会終了';
-    
-    final totalGames = tournament.games.length;
-    final completedGames = tournament.completedGames.length;
-    final progress = (completedGames / totalGames * 100).round();
-    
-    return '$progress% ($completedGames/$totalGames試合)';
   }
 
   /// 大会が進行中かチェック

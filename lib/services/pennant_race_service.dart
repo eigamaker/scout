@@ -575,12 +575,12 @@ class PennantRaceService {
     return '$progress% ($currentWeek/$totalWeeks週)';
   }
 
-  /// 総週数を計算
+  /// 総週数を計算（4週固定）
   static int _calculateTotalWeeks() {
     int totalWeeks = 0;
     for (int month = _seasonStartMonth; month <= _seasonEndMonth; month++) {
       if (month == _seasonStartMonth) {
-        totalWeeks += (5 - _seasonStartWeek + 1); // 4月は開始週から
+        totalWeeks += (4 - _seasonStartWeek + 1); // 4月は開始週から
       } else if (month == _seasonEndMonth) {
         totalWeeks += _seasonEndWeek; // 10月は終了週まで
       } else {
@@ -590,12 +590,12 @@ class PennantRaceService {
     return totalWeeks;
   }
 
-  /// 現在の週数を計算
+  /// 現在の週数を計算（4週固定）
   static int _calculateCurrentWeek(int month, int week) {
     int currentWeek = 0;
     for (int m = _seasonStartMonth; m < month; m++) {
       if (m == _seasonStartMonth) {
-        currentWeek += (5 - _seasonStartWeek + 1);
+        currentWeek += (4 - _seasonStartWeek + 1);
       } else {
         currentWeek += 4;
       }

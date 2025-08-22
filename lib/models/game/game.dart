@@ -66,7 +66,7 @@ class Game {
   final int scoutSkill; // スカウトスキル 0-100
   final int currentYear; // 現在の年
   final int currentMonth; // 現在の月（1-12）
-  final int currentWeekOfMonth; // 現在の月内の週（1-5）
+  final int currentWeekOfMonth; // 現在の月内の週（1-4）
   final GameState state; // ゲーム状態
   final List<School> schools; // 学校リスト
   final List<Player> discoveredPlayers; // 発掘した選手リスト
@@ -110,37 +110,10 @@ class Game {
     this.highSchoolTournaments = const [],
   });
 
-  // 月ごとの最大週数を返す
+  // 月ごとの最大週数を返す（1か月4週、1年間48週）
   int getMaxWeeksOfMonth(int month) {
-    // より現実的な週の配分
-    switch (month) {
-      case 2:  // 2月は4週
-        return 4;
-      case 3:  // 3月は5週（年度末）
-        return 5;
-      case 4:  // 4月は4週
-        return 4;
-      case 5:  // 5月は5週
-        return 5;
-      case 6:  // 6月は4週
-        return 4;
-      case 7:  // 7月は4週
-        return 4;
-      case 8:  // 8月は5週（夏休み期間）
-        return 5;
-      case 9:  // 9月は4週
-        return 4;
-      case 10: // 10月は4週
-        return 4;
-      case 11: // 11月は4週
-        return 4;
-      case 12: // 12月は5週（年末）
-        return 5;
-      case 1:  // 1月は4週
-        return 4;
-      default:
-        return 4;
-    }
+    // すべての月を4週に統一
+    return 4;
   }
 
   // 週を進める
@@ -154,12 +127,7 @@ class Game {
       newMonth += 1;
       if (newMonth > 12) {
         newMonth = 1;
-      }
-      // 年度切り替え（3月5週→4月1週）
-      if (currentMonth == 3 && currentWeekOfMonth == 5) {
-        newYear += 1;
-        newMonth = 4;
-        newWeek = 1;
+        newYear += 1; // 年が変わる
       }
     }
     return copyWith(

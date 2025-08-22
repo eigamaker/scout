@@ -6,6 +6,15 @@ import '../services/data_service.dart';
 import '../models/game/game.dart';
 import '../models/game/high_school_tournament.dart';
 import '../models/professional/professional_team.dart';
+import '../models/school/school.dart';
+import '../models/player/player.dart';
+import '../models/news/news_item.dart';
+import '../models/game/pennant_race.dart';
+import '../widgets/player_list_card.dart';
+import '../widgets/news_card.dart';
+import '../widgets/tournament_bracket_widget.dart';
+import '../widgets/tournament_list_widget.dart';
+import '../screens/tournament_screen.dart';
 
 
 class GameScreen extends StatefulWidget {
@@ -30,9 +39,19 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final gameManager = Provider.of<GameManager>(context);
-    final newsService = Provider.of<NewsService>(context);
+    final gameManager = Provider.of<GameManager>(context, listen: false);
+    final newsService = Provider.of<NewsService>(context, listen: false);
     final game = gameManager.currentGame;
+
+    // デバッグ: ゲームの状態を詳しく確認
+    print('GameScreen.build: ゲーム状態確認');
+    print('GameScreen.build: gameManager = ${gameManager != null ? "loaded" : "null"}');
+    print('GameScreen.build: game = ${game != null ? "loaded" : "null"}');
+    if (game != null) {
+      print('GameScreen.build: 学校数: ${game.schools.length}');
+      print('GameScreen.build: 発掘選手数: ${game.discoveredPlayers.length}');
+      print('GameScreen.build: スカウト名: ${game.scoutName}');
+    }
 
     if (game == null) {
       return Scaffold(
@@ -101,7 +120,15 @@ class _GameScreenState extends State<GameScreen> {
             ListTile(
               leading: const Icon(Icons.sports_baseball),
               title: const Text('高校野球大会'),
-              onTap: () => Navigator.pushNamed(context, '/tournaments'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TournamentScreen(
+                    tournaments: game.highSchoolTournaments,
+                    schools: game.schools,
+                  ),
+                ),
+              ),
             ),
             const Divider(),
             ListTile(
@@ -217,7 +244,15 @@ class _GameScreenState extends State<GameScreen> {
                     icon: Icons.sports_baseball,
                     title: '高校野球大会',
                     isExpanded: false,
-                    onTap: () => Navigator.pushNamed(context, '/tournaments'),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TournamentScreen(
+                          tournaments: game.highSchoolTournaments,
+                          schools: game.schools,
+                        ),
+                      ),
+                    ),
                     child: _buildTournamentContent(game),
                   ),
                 const SizedBox(height: 8),
@@ -361,37 +396,62 @@ class _GameScreenState extends State<GameScreen> {
               // 週送りボタン
               FloatingActionButton.extended(
                 onPressed: isProcessing ? null : () async {
-                  final newsService = Provider.of<NewsService>(context, listen: false);
-                  final dataService = Provider.of<DataService>(context, listen: false);
-                  final results = await gameManager.advanceWeekWithResults(newsService, dataService);
-                  setState(() {
-                    _weekLogs.insert(0, results);
-                    // 履歴を最新20週分に制限
-                    if (_weekLogs.length > 20) {
-                      _weekLogs.removeRange(20, _weekLogs.length);
+                  // 処理中はボタンを無効化
+                  if (gameManager.isAdvancingWeek) {
+                    print('週送り処理が既に進行中のため、処理をスキップします');
+                    return;
+                  }
+                  
+                  try {
+                    final newsService = Provider.of<NewsService>(context, listen: false);
+                    final dataService = Provider.of<DataService>(context, listen: false);
+                    final results = await gameManager.advanceWeekWithResults(newsService, dataService);
+                    
+                    // 処理完了後にUIを更新
+                    if (mounted) {
+                      setState(() {
+                        _weekLogs.insert(0, results);
+                        // 履歴を最新20週分に制限
+                        if (_weekLogs.length > 20) {
+                          _weekLogs.removeRange(20, _weekLogs.length);
+                        }
+                      });
+                      
+                      // 結果ダイアログを表示
+                      await showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('今週の行動リザルト'),
+                          content: SizedBox(
+                            width: 300,
+                            child: ListView(
+                              shrinkWrap: true,
+                              children: results.isEmpty
+                                ? [const Text('今週は行動がありませんでした')] 
+                                : results.map((r) => Text(r)).toList(),
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
                     }
-                  });
-                  await showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('今週の行動リザルト'),
-                      content: SizedBox(
-                        width: 300,
-                        child: ListView(
-                          shrinkWrap: true,
-                          children: results.isEmpty
-                            ? [const Text('今週は行動がありませんでした')] 
-                            : results.map((r) => Text(r)).toList(),
+                  } catch (e) {
+                    // エラーが発生した場合の処理
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('週送り処理中にエラーが発生しました: $e'),
+                          backgroundColor: Colors.red,
                         ),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('OK'),
-                        ),
-                      ],
-                    ),
-                  );
+                      );
+                    }
+                    print('週送り処理でエラーが発生しました: $e');
+                  }
                 },
                 icon: Icon(
                   isAdvancingWeek ? Icons.hourglass_empty : (isProcessing ? Icons.hourglass_empty : Icons.skip_next),
@@ -667,7 +727,15 @@ class _GameScreenState extends State<GameScreen> {
         ],
         const SizedBox(height: 8),
         ElevatedButton(
-          onPressed: () => Navigator.pushNamed(context, '/tournaments'),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TournamentScreen(
+                tournaments: game.highSchoolTournaments,
+                schools: game.schools,
+              ),
+            ),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red[700],
             foregroundColor: Colors.white,

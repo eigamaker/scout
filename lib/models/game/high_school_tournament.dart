@@ -1,4 +1,4 @@
-
+import 'package:flutter/material.dart';
 
 // 大会の種類
 enum TournamentType {
@@ -608,5 +608,285 @@ class TournamentSchedule {
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );
+  }
+}
+
+/// ラウンドの進行状況を表すクラス
+class RoundProgress {
+  final GameRound round;
+  final int totalGames;
+  final int completedGames;
+  final bool isCompleted;
+  final int remainingGames;
+
+  const RoundProgress({
+    required this.round,
+    required this.totalGames,
+    required this.completedGames,
+    required this.isCompleted,
+    required this.remainingGames,
+  });
+
+  /// 進行率を取得（0.0 ~ 1.0）
+  double get progressRate {
+    if (totalGames == 0) return 0.0;
+    return completedGames / totalGames;
+  }
+
+  /// 進行率をパーセンテージで取得
+  int get progressPercentage {
+    return (progressRate * 100).round();
+  }
+
+  /// ラウンド名を日本語で取得
+  String get roundName {
+    switch (round) {
+      case GameRound.firstRound:
+        return '1回戦';
+      case GameRound.secondRound:
+        return '2回戦';
+      case GameRound.thirdRound:
+        return '3回戦';
+      case GameRound.quarterFinal:
+        return '準々決勝';
+      case GameRound.semiFinal:
+        return '準決勝';
+      case GameRound.championship:
+        return '決勝';
+    }
+  }
+
+  /// 進行状況の説明文を取得
+  String get progressDescription {
+    if (isCompleted) {
+      return '$roundName完了';
+    }
+    return '$roundName: $completedGames/$totalGames試合完了';
+  }
+}
+
+/// トーナメント全体の進行状況を表すクラス
+class TournamentProgress {
+  final GameRound? currentRound;
+  final GameRound? nextRound;
+  final int totalGames;
+  final int completedGames;
+  final int remainingGames;
+  final Map<GameRound, RoundProgress> roundProgress;
+  final List<TournamentGame> nextGames;
+  final bool isCompleted;
+  final String? championSchoolId;
+  final String? runnerUpSchoolId;
+
+  const TournamentProgress({
+    this.currentRound,
+    this.nextRound,
+    required this.totalGames,
+    required this.completedGames,
+    required this.remainingGames,
+    required this.roundProgress,
+    required this.nextGames,
+    required this.isCompleted,
+    this.championSchoolId,
+    this.runnerUpSchoolId,
+  });
+
+  /// 全体の進行率を取得（0.0 ~ 1.0）
+  double get overallProgressRate {
+    if (totalGames == 0) return 0.0;
+    return completedGames / totalGames;
+  }
+
+  /// 全体の進行率をパーセンテージで取得
+  int get overallProgressPercentage {
+    return (overallProgressRate * 100).round();
+  }
+
+  /// 現在のラウンド名を日本語で取得
+  String get currentRoundName {
+    if (currentRound == null) return '未開始';
+    return _getRoundName(currentRound!);
+  }
+
+  /// 次のラウンド名を日本語で取得
+  String get nextRoundName {
+    if (nextRound == null) return 'なし';
+    return _getRoundName(nextRound!);
+  }
+
+  /// 進行状況の概要説明を取得
+  String get progressSummary {
+    if (isCompleted) {
+      return '大会完了';
+    }
+    if (currentRound == null) {
+      return '大会未開始';
+    }
+    return '現在: $currentRoundName (${overallProgressPercentage}%完了)';
+  }
+
+  /// 次の試合予定の説明を取得
+  String get nextGamesDescription {
+    if (nextGames.isEmpty) {
+      return '次の試合予定なし';
+    }
+    if (nextGames.length == 1) {
+      final game = nextGames.first;
+      return '次戦: ${game.month}月${game.week}週';
+    }
+    return '次戦: ${nextGames.first.month}月${nextGames.first.week}週 (他${nextGames.length - 1}試合予定)';
+  }
+
+  /// ラウンド名を日本語で取得（内部用）
+  String _getRoundName(GameRound round) {
+    switch (round) {
+      case GameRound.firstRound:
+        return '1回戦';
+      case GameRound.secondRound:
+        return '2回戦';
+      case GameRound.thirdRound:
+        return '3回戦';
+      case GameRound.quarterFinal:
+        return '準々決勝';
+      case GameRound.semiFinal:
+        return '準決勝';
+      case GameRound.championship:
+        return '決勝';
+    }
+  }
+
+  /// 指定ラウンドの進行状況を取得
+  RoundProgress? getRoundProgress(GameRound round) {
+    return roundProgress[round];
+  }
+
+  /// 完了したラウンドのリストを取得
+  List<GameRound> get completedRounds {
+    return roundProgress.entries
+        .where((entry) => entry.value.isCompleted)
+        .map((entry) => entry.key)
+        .toList();
+  }
+
+  /// 進行中のラウンドのリストを取得
+  List<GameRound> get inProgressRounds {
+    return roundProgress.entries
+        .where((entry) => !entry.value.isCompleted && entry.value.completedGames > 0)
+        .map((entry) => entry.key)
+        .toList();
+  }
+
+  /// 未開始のラウンドのリストを取得
+  List<GameRound> get notStartedRounds {
+    return roundProgress.entries
+        .where((entry) => entry.value.completedGames == 0)
+        .map((entry) => entry.key)
+        .toList();
+  }
+}
+
+/// トーナメント進行の予測情報を表すクラス
+class TournamentProgressPrediction {
+  final int estimatedCompletionMonth;
+  final int estimatedCompletionWeek;
+  final int estimatedRemainingWeeks;
+  final bool isOnSchedule;
+  final List<String> recommendedActions;
+
+  const TournamentProgressPrediction({
+    required this.estimatedCompletionMonth,
+    required this.estimatedCompletionWeek,
+    required this.estimatedRemainingWeeks,
+    required this.isOnSchedule,
+    required this.recommendedActions,
+  });
+
+  /// 完了予定日を文字列で取得
+  String get estimatedCompletionDate {
+    return '${estimatedCompletionMonth}月${estimatedCompletionWeek}週';
+  }
+
+  /// 残り週数を文字列で取得
+  String get remainingWeeksText {
+    if (estimatedRemainingWeeks == 0) return '今週完了予定';
+    if (estimatedRemainingWeeks < 0) return '${estimatedRemainingWeeks.abs()}週遅延';
+    return 'あと${estimatedRemainingWeeks}週';
+  }
+
+  /// スケジュール状況を文字列で取得
+  String get scheduleStatus {
+    if (isOnSchedule) return 'スケジュール通り';
+    return 'スケジュール遅延';
+  }
+
+  /// 推奨アクションを文字列で取得
+  String get recommendationsText {
+    if (recommendedActions.isEmpty) return '特になし';
+    return recommendedActions.join(', ');
+  }
+}
+
+/// トーナメントの効率性評価を表すクラス
+class TournamentEfficiencyRating {
+  final double efficiencyScore;
+  final String efficiencyLevel;
+  final int overallProgressRate;
+  final bool isOnSchedule;
+  final int estimatedRemainingWeeks;
+  final List<String> recommendations;
+
+  const TournamentEfficiencyRating({
+    required this.efficiencyScore,
+    required this.efficiencyLevel,
+    required this.overallProgressRate,
+    required this.isOnSchedule,
+    required this.estimatedRemainingWeeks,
+    required this.recommendations,
+  });
+
+  /// 効率性スコアをパーセンテージで取得
+  int get efficiencyScorePercentage {
+    return (efficiencyScore * 100).round();
+  }
+
+  /// 効率性レベルの色を取得
+  Color get efficiencyLevelColor {
+    switch (efficiencyLevel) {
+      case '優秀':
+        return Colors.green;
+      case '良好':
+        return Colors.blue;
+      case '普通':
+        return Colors.orange;
+      case '要改善':
+        return Colors.red;
+      case '問題あり':
+        return Colors.red[700]!;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  /// 効率性の説明文を取得
+  String get efficiencyDescription {
+    return '$efficiencyLevel (${efficiencyScorePercentage}点)';
+  }
+
+  /// 推奨アクションを文字列で取得
+  String get recommendationsText {
+    if (recommendations.isEmpty) return '特になし';
+    return recommendations.join(', ');
+  }
+
+  /// 効率性の詳細分析を取得
+  String get detailedAnalysis {
+    final analysis = <String>[];
+    
+    analysis.add('進行率: ${overallProgressRate}%');
+    analysis.add('スケジュール: ${isOnSchedule ? "順調" : "遅延"}');
+    analysis.add('残り週数: ${estimatedRemainingWeeks}週');
+    analysis.add('効率性: $efficiencyLevel');
+    
+    return analysis.join(' | ');
   }
 }

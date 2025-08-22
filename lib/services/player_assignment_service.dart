@@ -16,35 +16,45 @@ class PlayerAssignmentService {
 
   /// 選手を学校に配属
   Future<void> assignPlayersToSchools(List<School> schools, List<Player> talentedPlayers) async {
+    print('PlayerAssignmentService.assignPlayersToSchools: 開始 - 学校数: ${schools.length}, 才能選手数: ${talentedPlayers.length}');
+    
     try {
-      // 1. デフォルト選手を各学校に配属
-      for (final school in schools) {
-        await _assignDefaultPlayersToSchool(school);
-      }
+      // 1. 各学校にデフォルト選手を配置
+      await _assignDefaultPlayersToSchools(schools);
       
-      // 2. 才能のある選手を学校に配属（指定された確率で）
+      // 2. 才能のある選手を学校に配属
       await _assignTalentedPlayersToSchools(schools, talentedPlayers);
       
-      // 3. 学校の選手リストを更新
-      await _updateSchoolPlayerLists(schools);
-      
-      print('選手の配属が完了しました');
+      print('PlayerAssignmentService.assignPlayersToSchools: 完了');
     } catch (e) {
-      print('選手配属でエラー: $e');
+      print('PlayerAssignmentService.assignPlayersToSchools: エラーが発生しました: $e');
       rethrow;
     }
   }
 
-  /// デフォルト選手を学校に配属（テンプレートから1人だけ）
-  Future<void> _assignDefaultPlayersToSchool(School school) async {
-    // 学校ランクに応じたデフォルト選手テンプレートを取得
-    final template = DefaultPlayerTemplate.getTemplateByRank(school.rank);
+  /// 各学校にデフォルト選手を配置
+  Future<void> _assignDefaultPlayersToSchools(List<School> schools) async {
+    print('PlayerAssignmentService._assignDefaultPlayersToSchools: 開始 - 学校数: ${schools.length}');
     
-    // 学校名を設定して選手を作成
-    final defaultPlayer = template.copyWith(school: school.name);
+    for (final school in schools) {
+      try {
+        // 学校ランクに応じたデフォルト選手を生成
+        final defaultPlayer = DefaultPlayerTemplate.getTemplateByRank(school.rank, school.name);
+        
+        // 学校の選手リストに追加
+        school.players.add(defaultPlayer);
+        
+        // データベースに保存
+        await _savePlayerToDatabase(defaultPlayer, school);
+        
+        print('PlayerAssignmentService._assignDefaultPlayersToSchools: ${school.name}にデフォルト選手を配置完了');
+      } catch (e) {
+        print('PlayerAssignmentService._assignDefaultPlayersToSchools: ${school.name}でエラー: $e');
+        // エラーが発生しても処理を継続
+      }
+    }
     
-    // 学校の選手リストに追加
-    school.players.add(defaultPlayer);
+    print('PlayerAssignmentService._assignDefaultPlayersToSchools: 完了');
   }
 
   /// 才能のある選手を学校に配属（指定された確率で）
@@ -150,6 +160,7 @@ class PlayerAssignmentService {
         'fame': player.fame,
         'is_publicly_known': player.isPubliclyKnown ? 1 : 0,
         'is_scout_favorite': player.isScoutFavorite ? 1 : 0,
+        'is_default_player': player.isDefaultPlayer ? 1 : 0, // デフォルト選手フラグ
         'growth_rate': player.growthRate,
         'talent': player.talent,
         'growth_type': player.growthType,

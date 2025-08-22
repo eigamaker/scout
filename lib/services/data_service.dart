@@ -12,6 +12,8 @@ class DataService {
 
   static Database? _db;
 
+  static const int _databaseVersion = 37;
+
   String _currentSlot = 'セーブ1'; // デフォルト
   set currentSlot(String slot) {
     _currentSlot = slot;
@@ -30,7 +32,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
               path,
-        version: 34, // バージョンを34に更新
+        version: _databaseVersion, // バージョンを37に更新
         onCreate: (db, version) async {
           // 既存のテーブル作成処理を流用
           await _createAllTables(db);
@@ -185,7 +187,7 @@ class DataService {
     final path = join(dbPath, dbName);
     return await openDatabase(
               path,
-        version: 34, // バージョンを34に更新
+        version: _databaseVersion, // バージョンを37に更新
         onCreate: (db, version) async {
           // 既存のテーブル作成処理を流用
           await _createAllTables(db);
@@ -242,6 +244,28 @@ class DataService {
         print('バージョン34のアップグレードでエラー: $e');
       }
     }
+    
+    if (oldVersion < 35) {
+      // バージョン35ではPlayerテーブルにisDefaultPlayerカラムを追加
+      print('データベーススキーマを更新中（バージョン35）: PlayerテーブルにisDefaultPlayerカラムを追加...');
+      try {
+        await db.execute('ALTER TABLE Player ADD COLUMN is_default_player INTEGER DEFAULT 0');
+        print('PlayerテーブルにisDefaultPlayerカラムを追加しました');
+      } catch (e) {
+        print('バージョン35のアップグレードでエラー: $e');
+      }
+    }
+    
+    if (oldVersion < 36) {
+      // バージョン36では文字列として保存されている数値データを修正
+      print('データベーススキーマを更新中（バージョン36）: 数値データの型を修正...');
+      try {
+        await _repairNumericData(db);
+        print('数値データの型を修正しました');
+      } catch (e) {
+        print('バージョン36のアップグレードでエラー: $e');
+      }
+    }
 
       },
     );
@@ -261,6 +285,89 @@ class DataService {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'scout_game.db');
     await deleteDatabaseAtPath(path);
+  }
+  
+  // 数値データの型を修正するメソッド（内部用）
+  Future<void> _repairNumericData(Database db) async {
+    print('_repairNumericData: 数値データの型修正を開始...');
+    
+    // Playerテーブルの数値カラムを修正
+    final numericColumns = [
+      'grade', 'age', 'fame', 'growth_rate', 'talent', 'mental_grit', 'peak_ability',
+      'contact', 'power', 'plate_discipline', 'bunt', 'opposite_field_hitting', 'pull_hitting',
+      'bat_control', 'swing_speed', 'fielding', 'throwing', 'catcher_ability', 'control',
+      'fastball', 'breaking_ball', 'pitch_movement', 'concentration', 'anticipation',
+      'vision', 'composure', 'aggression', 'bravery', 'leadership', 'work_rate',
+      'self_discipline', 'ambition', 'teamwork', 'positioning', 'pressure_handling',
+      'clutch_ability', 'acceleration', 'agility', 'balance', 'jumping_reach',
+      'natural_fitness', 'injury_proneness', 'stamina', 'strength', 'pace', 'flexibility'
+    ];
+    
+    for (final column in numericColumns) {
+      try {
+        // 文字列として保存されている数値を整数に変換
+        await db.execute('''
+          UPDATE Player 
+          SET $column = CAST($column AS INTEGER) 
+          WHERE typeof($column) = 'text' AND $column IS NOT NULL
+        ''');
+        
+        // 変換できなかった場合は0に設定
+        await db.execute('''
+          UPDATE Player 
+          SET $column = 0 
+          WHERE $column IS NULL OR $column = ''
+        ''');
+        
+        print('_repairNumericData: $columnカラムを修正しました');
+      } catch (e) {
+        print('_repairNumericData: $columnカラムの修正でエラー: $e');
+      }
+    }
+    
+    print('_repairNumericData: 数値データの型修正が完了しました');
+  }
+  
+  // 数値データの型を修正するメソッド（外部から呼び出し可能）
+  Future<void> repairNumericData() async {
+    try {
+      print('_repairNumericData: 数値データの型修正を開始...');
+      final db = await database;
+      
+      // 重複選手を削除
+      await removeDuplicatePlayers();
+      
+      // 数値カラムの型を修正
+      final numericColumns = [
+        'grade', 'age', 'fame', 'growth_rate', 'talent', 'mental_grit', 'peak_ability',
+        'contact', 'power', 'plate_discipline', 'bunt', 'opposite_field_hitting', 'pull_hitting',
+        'bat_control', 'swing_speed', 'fielding', 'throwing', 'catcher_ability',
+        'control', 'fastball', 'breaking_ball', 'pitch_movement',
+        'concentration', 'anticipation', 'vision', 'composure', 'aggression', 'bravery',
+        'leadership', 'work_rate', 'self_discipline', 'ambition', 'teamwork',
+        'positioning', 'pressure_handling', 'clutch_ability',
+        'acceleration', 'agility', 'balance', 'jumping_reach', 'flexibility',
+        'natural_fitness', 'injury_proneness', 'stamina', 'strength', 'pace'
+      ];
+      
+      for (final column in numericColumns) {
+        try {
+          await db.execute('''
+            UPDATE Player 
+            SET $column = CAST($column AS INTEGER) 
+            WHERE $column IS NOT NULL AND $column != ''
+          ''');
+          print('_repairNumericData: ${column}カラムを修正しました');
+        } catch (e) {
+          print('_repairNumericData: ${column}カラムの修正でエラー: $e');
+        }
+      }
+      
+      print('_repairNumericData: 数値データの型修正完了');
+    } catch (e) {
+      print('_repairNumericData: エラーが発生しました: $e');
+      rethrow;
+    }
   }
 
   // 指定されたパスのデータベースファイルを削除
@@ -942,6 +1049,99 @@ class DataService {
     }
   }
   
+  if (oldVersion < 37) {
+    // バージョン37: 重複選手の削除とユニーク制約の適用
+    print('データベーススキーマを更新中（バージョン37）: 重複選手の削除とユニーク制約の適用...');
+    
+    try {
+      // 重複選手を削除
+      await removeDuplicatePlayers();
+      
+      // 既存のテーブルを削除して再作成（ユニーク制約を適用するため）
+      await db.execute('DROP TABLE IF EXISTS Player');
+      
+      // Playerテーブルを再作成（ユニーク制約付き）
+      await db.execute('''
+        CREATE TABLE Player (
+          id INTEGER PRIMARY KEY,
+          person_id INTEGER NOT NULL,
+          school_id INTEGER,
+          school TEXT,
+          grade INTEGER,
+          age INTEGER DEFAULT 15,
+          position TEXT NOT NULL,
+          fame INTEGER DEFAULT 0,
+          is_publicly_known INTEGER DEFAULT 0,
+          is_scout_favorite INTEGER DEFAULT 0,
+          is_discovered INTEGER DEFAULT 0,
+          is_graduated INTEGER DEFAULT 0,
+          graduated_at TEXT,
+          is_retired INTEGER DEFAULT 0,
+          retired_at TEXT,
+          is_default_player INTEGER DEFAULT 0,
+          status TEXT DEFAULT 'active',
+          growth_rate REAL DEFAULT 1.0,
+          talent INTEGER DEFAULT 3,
+          growth_type TEXT DEFAULT 'normal',
+          mental_grit REAL DEFAULT 0.0,
+          peak_ability INTEGER DEFAULT 100,
+          -- Technical（技術面）能力値
+          contact INTEGER DEFAULT 50,
+          power INTEGER DEFAULT 50,
+          plate_discipline INTEGER DEFAULT 50,
+          bunt INTEGER DEFAULT 50,
+          opposite_field_hitting INTEGER DEFAULT 50,
+          pull_hitting INTEGER DEFAULT 50,
+          bat_control INTEGER DEFAULT 50,
+          swing_speed INTEGER DEFAULT 50,
+          fielding INTEGER DEFAULT 50,
+          throwing INTEGER DEFAULT 50,
+          catcher_ability INTEGER DEFAULT 50,
+          control INTEGER DEFAULT 50,
+          fastball INTEGER DEFAULT 50,
+          breaking_ball INTEGER DEFAULT 50,
+          pitch_movement INTEGER DEFAULT 50,
+          -- Mental（メンタル面）能力値
+          concentration INTEGER DEFAULT 50,
+          anticipation INTEGER DEFAULT 50,
+          vision INTEGER DEFAULT 50,
+          composure INTEGER DEFAULT 50,
+          aggression INTEGER DEFAULT 50,
+          bravery INTEGER DEFAULT 50,
+          leadership INTEGER DEFAULT 50,
+          work_rate INTEGER DEFAULT 50,
+          self_discipline INTEGER DEFAULT 50,
+          ambition INTEGER DEFAULT 50,
+          teamwork INTEGER DEFAULT 50,
+          positioning INTEGER DEFAULT 50,
+          pressure_handling INTEGER DEFAULT 50,
+          clutch_ability INTEGER DEFAULT 50,
+          -- Physical（フィジカル面）能力値
+          acceleration INTEGER DEFAULT 50,
+          agility INTEGER DEFAULT 50,
+          balance INTEGER DEFAULT 50,
+          jumping_reach INTEGER DEFAULT 50,
+          flexibility INTEGER DEFAULT 50,
+          natural_fitness INTEGER DEFAULT 50,
+          injury_proneness INTEGER DEFAULT 50,
+          stamina INTEGER DEFAULT 50,
+          strength INTEGER DEFAULT 50,
+          pace INTEGER DEFAULT 50,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (person_id) REFERENCES Person (id),
+          FOREIGN KEY (school_id) REFERENCES School (id),
+          UNIQUE(person_id, school_id, grade)
+        )
+      ''');
+      
+      print('バージョン37のマイグレーション完了: 重複選手の削除とユニーク制約の適用');
+    } catch (e) {
+      print('バージョン37のマイグレーションでエラー: $e');
+      rethrow;
+    }
+  }
+  
   print('データベーススキーマのアップグレード完了');
   }
 
@@ -1000,6 +1200,7 @@ class DataService {
         graduated_at TEXT,
         is_retired INTEGER DEFAULT 0,
         retired_at TEXT,
+        is_default_player INTEGER DEFAULT 0, -- デフォルト選手フラグ
         status TEXT DEFAULT 'active', -- active, graduated, retired, professional
         growth_rate REAL DEFAULT 1.0,
         talent INTEGER DEFAULT 3,
@@ -1037,32 +1238,22 @@ class DataService {
         positioning INTEGER DEFAULT 50,
         pressure_handling INTEGER DEFAULT 50,
         clutch_ability INTEGER DEFAULT 50,
-        motivation INTEGER DEFAULT 50,
-        pressure INTEGER DEFAULT 50,
-        adaptability INTEGER DEFAULT 50,
-        consistency INTEGER DEFAULT 50,
-        clutch INTEGER DEFAULT 50,
-        work_ethic INTEGER DEFAULT 50,
         -- Physical（フィジカル面）能力値
         acceleration INTEGER DEFAULT 50,
         agility INTEGER DEFAULT 50,
         balance INTEGER DEFAULT 50,
         jumping_reach INTEGER DEFAULT 50,
+        flexibility INTEGER DEFAULT 50,
         natural_fitness INTEGER DEFAULT 50,
         injury_proneness INTEGER DEFAULT 50,
         stamina INTEGER DEFAULT 50,
         strength INTEGER DEFAULT 50,
         pace INTEGER DEFAULT 50,
-        flexibility INTEGER DEFAULT 50,
-        -- 総合能力値指標
-        overall_ability INTEGER DEFAULT 50,
-        technical_ability INTEGER DEFAULT 50,
-        physical_ability INTEGER DEFAULT 50,
-        mental_ability INTEGER DEFAULT 50,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (person_id) REFERENCES Person (id),
-        FOREIGN KEY (school_id) REFERENCES School (id)
+        FOREIGN KEY (school_id) REFERENCES School (id),
+        UNIQUE(person_id, school_id, grade) -- 同じ人物が同じ学校の同じ学年に重複して存在することを防ぐ
       )
     ''');
 
@@ -1646,12 +1837,6 @@ class DataService {
             'positioning': _generateProPlayerAbility(targetAbility, peakAbility, random),
             'pressure_handling': _generateProPlayerAbility(targetAbility, peakAbility, random),
             'clutch_ability': _generateProPlayerAbility(targetAbility, peakAbility, random),
-            'motivation': _generateProPlayerAbility(targetAbility, peakAbility, random),
-            'pressure': _generateProPlayerAbility(targetAbility, peakAbility, random),
-            'adaptability': _generateProPlayerAbility(targetAbility, peakAbility, random),
-            'consistency': _generateProPlayerAbility(targetAbility, peakAbility, random),
-            'clutch': _generateProPlayerAbility(targetAbility, peakAbility, random),
-            'work_ethic': _generateProPlayerAbility(targetAbility, peakAbility, random),
             // 身体的能力値（peak_abilityの95%前後で生成、上限はpeak_ability+10）
             'acceleration': _generateProPlayerAbility(targetAbility, peakAbility, random),
             'agility': _generateProPlayerAbility(targetAbility, peakAbility, random),
@@ -1668,11 +1853,6 @@ class DataService {
           // PlayerPotentialsテーブルに挿入
           await db.insert('PlayerPotentials', {
             'player_id': playerId,
-            // 総合ポテンシャル指標
-            'overall_potential': peakAbility,
-            'technical_potential': peakAbility,
-            'physical_potential': peakAbility,
-            'mental_potential': peakAbility,
             // 技術的ポテンシャル（peak_abilityを基準に生成、上限はpeak_ability+15）
             'contact_potential': _generateProPlayerPotential(peakAbility, random),
             'power_potential': _generateProPlayerPotential(peakAbility, random),
@@ -1704,13 +1884,8 @@ class DataService {
             'positioning_potential': _generateProPlayerPotential(peakAbility, random),
             'pressure_handling_potential': _generateProPlayerPotential(peakAbility, random),
             'clutch_ability_potential': _generateProPlayerPotential(peakAbility, random),
-            'motivation_potential': _generateProPlayerPotential(peakAbility, random),
-            'pressure_potential': _generateProPlayerPotential(peakAbility, random),
-            'adaptability_potential': _generateProPlayerPotential(peakAbility, random),
-            'consistency_potential': _generateProPlayerPotential(peakAbility, random),
-            'clutch_potential': _generateProPlayerPotential(peakAbility, random),
-            'work_ethic_potential': _generateProPlayerPotential(peakAbility, random),
             // 身体的ポテンシャル（peak_abilityを基準に生成、上限はpeak_ability+15）
+            'acceleration_potential': _generateProPlayerPotential(peakAbility, random),
             'agility_potential': _generateProPlayerPotential(peakAbility, random),
             'balance_potential': _generateProPlayerPotential(peakAbility, random),
             'jumping_reach_potential': _generateProPlayerPotential(peakAbility, random),
@@ -1737,8 +1912,7 @@ class DataService {
             'left_at': null,
           });
           
-          // 総合能力値指標を計算・更新
-          await _updatePlayerOverallAbilities(db, playerId);
+          // 総合能力値指標の計算・更新は不要（高校野球選手と同様）
         }
       }
     }
@@ -1865,12 +2039,6 @@ class DataService {
         (playerData['positioning'] as int? ?? 50) * 1.0, // ポジショニング
         (playerData['pressure_handling'] as int? ?? 50) * 1.2, // プレッシャー処理
         (playerData['clutch_ability'] as int? ?? 50) * 1.2, // 勝負強さ
-        (playerData['motivation'] as int? ?? 50) * 1.1, // モチベーション
-        (playerData['pressure'] as int? ?? 50) * 1.0, // プレッシャー
-        (playerData['adaptability'] as int? ?? 50) * 1.0, // 適応力
-        (playerData['consistency'] as int? ?? 50) * 1.1, // 安定性
-        (playerData['clutch'] as int? ?? 50) * 1.2, // 勝負強さ
-        (playerData['work_ethic'] as int? ?? 50) * 1.2, // 練習熱心
       ];
       
       final mentalAbility = (mentalAbilities.reduce((a, b) => a + b) / mentalAbilities.length).round();
@@ -1946,13 +2114,7 @@ class DataService {
       
       // ログ削除（リリース用に抑制）
       
-      // データベースを更新
-      await db.update('Player', {
-        'overall_ability': overallAbility,
-        'technical_ability': technicalAbility,
-        'physical_ability': physicalAbility,
-        'mental_ability': mentalAbility,
-      }, where: 'id = ?', whereArgs: [playerId]);
+      // データベース更新は不要（高校野球選手と同様、総合能力値指標は使用しない）
       
       // ログ削除（リリース用に抑制）
       
@@ -2152,4 +2314,91 @@ class DataService {
       print('引退判定エラー: $e');
     }
   }
+
+  /// 重複選手を検出・削除する（データベース修復用）
+  Future<void> removeDuplicatePlayers() async {
+    try {
+      print('重複選手の検出・削除を開始...');
+      final db = await database;
+      
+      // 重複選手を検出（同じ名前、学校、学年の組み合わせで重複を判定）
+      final duplicateQuery = '''
+        SELECT p1.id, p1.person_id, p1.school_id, p1.grade, per.name, s.name as school_name
+        FROM Player p1
+        INNER JOIN Person per ON p1.person_id = per.id
+        INNER JOIN School s ON p1.school_id = s.id
+        WHERE EXISTS (
+          SELECT 1 FROM Player p2
+          INNER JOIN Person per2 ON p2.person_id = per2.id
+          WHERE per2.name = per.name 
+          AND p2.school_id = p1.school_id 
+          AND p2.grade = p1.grade
+          AND p2.id < p1.id
+        )
+        ORDER BY per.name, s.name, p1.grade, p1.id
+      ''';
+      
+      final duplicates = await db.rawQuery(duplicateQuery);
+      print('重複選手数: ${duplicates.length}');
+      
+      if (duplicates.isNotEmpty) {
+        print('重複選手の詳細:');
+        for (final dup in duplicates) {
+          print('  ID: ${dup['id']}, 名前: ${dup['name']}, 学校: ${dup['school_name']}, 学年: ${dup['grade']}');
+        }
+        
+        // 重複選手を削除（IDが大きい方を削除）
+        int deletedCount = 0;
+        for (final dup in duplicates) {
+          final playerId = dup['id'] as int;
+          final personId = dup['person_id'] as int;
+          
+          // 関連テーブルからも削除
+          try {
+            await db.delete('PlayerPotentials', where: 'player_id = ?', whereArgs: [playerId]);
+          } catch (e) {
+            // テーブルが存在しない場合は無視
+          }
+          
+          try {
+            await db.delete('ScoutAnalysis', where: 'player_id = ?', whereArgs: [playerId]);
+          } catch (e) {
+            // テーブルが存在しない場合は無視
+          }
+          
+          try {
+            await db.delete('ScoutBasicInfoAnalysis', where: 'player_id = ?', whereArgs: [playerId]);
+          } catch (e) {
+            // テーブルが存在しない場合は無視
+          }
+          
+          // Playerテーブルから削除
+          await db.delete('Player', where: 'id = ?', whereArgs: [playerId]);
+          
+          // Personテーブルからも削除（他のPlayerで使用されていない場合）
+          final remainingPlayers = await db.query('Player', where: 'person_id = ?', whereArgs: [personId]);
+          if (remainingPlayers.isEmpty) {
+            await db.delete('Person', where: 'id = ?', whereArgs: [personId]);
+          }
+          
+          deletedCount++;
+        }
+        
+        print('重複選手の削除完了: $deletedCount件');
+      } else {
+        print('重複選手は見つかりませんでした');
+      }
+      
+      // データベースの整合性を確認
+      final totalPlayers = await db.query('Player');
+      final totalPersons = await db.query('Person');
+      print('修復後の選手数: ${totalPlayers.length}, 人物数: ${totalPersons.length}');
+      
+    } catch (e) {
+      print('重複選手削除でエラーが発生しました: $e');
+      rethrow;
+    }
+  }
+
+
 } 

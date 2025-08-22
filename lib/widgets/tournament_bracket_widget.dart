@@ -76,16 +76,18 @@ class TournamentBracketWidget extends StatelessWidget {
     ];
 
     return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: rounds.map((round) {
-          return SizedBox(
-            width: 160, // 幅を小さく
-            child: _buildRoundColumn(round),
-          );
-        }).toList(),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: rounds.map((round) {
+            return SizedBox(
+              width: 160, // 幅を小さく
+              child: _buildRoundColumn(round),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

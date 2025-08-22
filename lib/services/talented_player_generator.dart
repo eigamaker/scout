@@ -116,7 +116,7 @@ class TalentedPlayerGenerator {
       physicalAbilities: physicalAbilities,
       mentalGrit: mentalGrit,
       growthRate: growthRate,
-      peakAbility: _getMaxPotentialByTalent(talentRank),
+      peakAbility: _getMinPotentialByTalent(talentRank) + _random.nextInt(_getMaxPotentialByTalent(talentRank) - _getMinPotentialByTalent(talentRank) + 1),
       positionFit: positionFit,
       talent: talentRank,
       growthType: growthType,
@@ -184,11 +184,11 @@ class TalentedPlayerGenerator {
   /// 平均ポテンシャルを才能ランクに基づいて取得
   int _getAveragePotentialByTalent(int talentRank) {
     switch (talentRank) {
-      case 3: return 55;
-      case 4: return 65;
-      case 5: return 75;
-      case 6: return 85;
-      default: return 50;
+      case 3: return 90;
+      case 4: return 100;
+      case 5: return 120;
+      case 6: return 140;
+      default: return 90;
     }
   }
 
@@ -209,32 +209,32 @@ class TalentedPlayerGenerator {
   int _getVariationRangeByTalent(int talentRank) {
     switch (talentRank) {
       case 3: return 10;
-      case 4: return 8;
-      case 5: return 6;
-      case 6: return 4;
-      default: return 15;
+      case 4: return 10;
+      case 5: return 10;
+      case 6: return 10;
+      default: return 10;
     }
   }
 
   /// 才能ランクに応じた最小ポテンシャルを取得
   int _getMinPotentialByTalent(int talentRank) {
     switch (talentRank) {
-      case 3: return 45;
-      case 4: return 55;
-      case 5: return 65;
-      case 6: return 75;
-      default: return 40;
+      case 3: return 80;
+      case 4: return 90;
+      case 5: return 110;
+      case 6: return 130;
+      default: return 80;
     }
   }
 
   /// 才能ランクに応じた最大ポテンシャルを取得
   int _getMaxPotentialByTalent(int talentRank) {
     switch (talentRank) {
-      case 3: return 70;
-      case 4: return 80;
-      case 5: return 90;
-      case 6: return 95;
-      default: return 65;
+      case 3: return 100;
+      case 4: return 110;
+      case 5: return 130;
+      case 6: return 150;
+      default: return 100;
     }
   }
 

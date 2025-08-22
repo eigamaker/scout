@@ -66,11 +66,17 @@ class GameStateManager {
     return game;
   }
 
-  // 全選手の成長処理（半年ごと - 2月末週から3月1週、8月末週から9月1週）
+  // 全選手の成長処理（3ヶ月ごと - 5月1週、8月1週、11月1週、2月1週）
   static Game growAllPlayers(Game game) {
     print('GameStateManager.growAllPlayers: 全選手の成長処理開始');
     final updatedSchools = game.schools.map((school) {
       final grownPlayers = school.players.map((p) {
+        // デフォルト選手は成長処理をスキップ
+        if (p.isDefaultPlayer) {
+          print('GameStateManager.growAllPlayers: 選手ID ${p.id} (${p.name}) はデフォルト選手のため成長処理をスキップ');
+          return p;
+        }
+        
         print('GameStateManager.growAllPlayers: 選手ID ${p.id} (${p.name}) の成長処理');
         // GrowthServiceを使用して適切な成長処理を実行
         final grownPlayer = GrowthService.growPlayer(p);
@@ -80,7 +86,7 @@ class GameStateManager {
       return school.copyWith(players: grownPlayers);
     }).toList();
     
-    print('GameStateManager.growAllPlayers: 全選手の成長処理完了');
+    print('GameStateManager.growAllPlayers: 全選手の成長処理完了（デフォルト選手除く）');
     return game.copyWith(schools: updatedSchools);
   }
 } 
