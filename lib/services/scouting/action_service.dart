@@ -959,6 +959,9 @@ class ActionService {
         print('基本情報分析データ新規挿入完了: プレイヤーID $actualPlayerId');
       }
       
+      // スカウト分析の総合評価を更新
+      await dataService.updateScoutAnalysisOverallEvaluations(actualPlayerId!);
+      
     } catch (e) {
       print('メンタル面スカウト分析データ生成エラー: $e');
     }
@@ -1123,6 +1126,9 @@ class ActionService {
         print('フィジカル面スカウト分析データ新規挿入完了: プレイヤーID $actualPlayerId');
       }
       
+      // スカウト分析の総合評価を更新
+      await dataService.updateScoutAnalysisOverallEvaluations(actualPlayerId!);
+      
     } catch (e) {
       print('フィジカル面スカウト分析データ生成エラー: $e');
     }
@@ -1283,6 +1289,9 @@ class ActionService {
         await db.insert('ScoutAnalysis', insertData);
         print('技術面スカウト分析データ新規挿入完了: プレイヤーID $actualPlayerId');
       }
+      
+      // スカウト分析の総合評価を更新
+      await dataService.updateScoutAnalysisOverallEvaluations(actualPlayerId!);
       
     } catch (e) {
       print('技術面スカウト分析データ生成エラー: $e');
@@ -1977,11 +1986,11 @@ class ActionService {
         'positioning_scouted': _generateScoutedValue(player['positioning'] as int? ?? 50, accuracy),
         'pressure_handling_scouted': _generateScoutedValue(player['pressure_handling'] as int? ?? 50, accuracy),
         'clutch_ability_scouted': _generateScoutedValue(player['clutch_ability'] as int? ?? 50, accuracy),
-        // 以下の能力値はデータベースに存在しないため除外
-        // 'motivation_scouted': _generateScoutedValue(player['motivation'] as int? ?? 50, accuracy),
+        // 追加された能力値
+        'motivation_scouted': _generateScoutedValue(player['motivation'] as int? ?? 50, accuracy),
         'pressure_scouted': _generateScoutedValue(player['pressure'] as int? ?? 50, accuracy),
-        // 'adaptability_scouted': _generateScoutedValue(player['adaptability'] as int? ?? 50, accuracy),
-        // 'consistency_scouted': _generateScoutedValue(player['consistency'] as int? ?? 50, accuracy),
+        'adaptability_scouted': _generateScoutedValue(player['adaptability'] as int? ?? 50, accuracy),
+        'consistency_scouted': _generateScoutedValue(player['consistency'] as int? ?? 50, accuracy),
         'clutch_scouted': _generateScoutedValue(player['clutch'] as int? ?? 50, accuracy),
         'work_ethic_scouted': _generateScoutedValue(player['work_ethic'] as int? ?? 50, accuracy),
         // 身体的能力値評価（簡易版）
@@ -2033,6 +2042,10 @@ class ActionService {
       }
       
       print('スカウト分析データ保存完了: プレイヤーID $playerId');
+      
+      // スカウト分析の総合評価を更新
+      final dataServiceForUpdate = DataService();
+      await dataServiceForUpdate.updateScoutAnalysisOverallEvaluations(int.tryParse(playerId) ?? 0);
       
     } catch (e) {
       print('スカウト分析データ保存エラー: $e');
@@ -2129,11 +2142,11 @@ class ActionService {
       (player['positioning'] as int? ?? 50) * 1.0,
       (player['pressure_handling'] as int? ?? 50) * 1.2,
       (player['clutch_ability'] as int? ?? 50) * 1.2,
-      // 以下の能力値はデータベースに存在しないため除外
-      // (player['motivation'] as int? ?? 50) * 1.1,
+      // 追加された能力値
+      (player['motivation'] as int? ?? 50) * 1.1,
       (player['pressure'] as int? ?? 50) * 1.0,
-      // (player['adaptability'] as int? ?? 50) * 1.0,
-      // (player['consistency'] as int? ?? 50) * 1.1,
+      (player['adaptability'] as int? ?? 50) * 1.1,
+      (player['consistency'] as int? ?? 50) * 1.1,
       (player['clutch'] as int? ?? 50) * 1.2,
       (player['work_ethic'] as int? ?? 50) * 1.2,
     ];
@@ -2412,7 +2425,11 @@ class ActionService {
       
       await db.insert('ScoutAnalysis', insertData);
       
-
+      // スカウト分析の総合評価を更新
+      if (targetPlayer.id != null) {
+        await dataService.updateScoutAnalysisOverallEvaluations(targetPlayer.id!);
+      }
+      
     } catch (e) {
       print('技術面・フィジカル面スカウト分析データ生成エラー: $e');
     }

@@ -12,7 +12,7 @@ class DataService {
 
   static Database? _db;
 
-  static const int _databaseVersion = 38;
+  static const int _databaseVersion = 39;
 
   String _currentSlot = 'セーブ1'; // デフォルト
   set currentSlot(String slot) {
@@ -32,7 +32,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
               path,
-        version: _databaseVersion, // バージョンを37に更新
+        version: _databaseVersion, // バージョンを39に更新
         onCreate: (db, version) async {
           // 既存のテーブル作成処理を流用
           await _createAllTables(db);
@@ -187,7 +187,7 @@ class DataService {
     final path = join(dbPath, dbName);
     return await openDatabase(
               path,
-        version: _databaseVersion, // バージョンを37に更新
+        version: _databaseVersion, // バージョンを39に更新
         onCreate: (db, version) async {
           // 既存のテーブル作成処理を流用
           await _createAllTables(db);
@@ -817,6 +817,12 @@ class DataService {
         await db.execute('ALTER TABLE Player ADD COLUMN clutch INTEGER DEFAULT 50');
         await db.execute('ALTER TABLE Player ADD COLUMN work_ethic INTEGER DEFAULT 50');
         
+        // 総合能力値カラムを追加
+        await db.execute('ALTER TABLE Player ADD COLUMN overall INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE Player ADD COLUMN technical INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE Player ADD COLUMN physical INTEGER DEFAULT 50');
+        await db.execute('ALTER TABLE Player ADD COLUMN mental INTEGER DEFAULT 50');
+        
         // PlayerPotentialsテーブルに不足しているカラムを追加
         await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN motivation_potential INTEGER DEFAULT 50');
         await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN pressure_potential INTEGER DEFAULT 50');
@@ -828,6 +834,32 @@ class DataService {
         print('不足している能力値カラムの追加完了');
       } catch (e) {
         print('能力値カラム追加エラー: $e');
+      }
+    }
+    
+    if (oldVersion < 23) {
+      // バージョン23: データベースの完全再構築（新しいスキーマを適用）
+      print('データベーススキーマを更新中（バージョン23）: 完全再構築...');
+      
+      try {
+        // 既存のテーブルを削除して再作成
+        await db.execute('DROP TABLE IF EXISTS Player');
+        await db.execute('DROP TABLE IF EXISTS PlayerPotentials');
+        await db.execute('DROP TABLE IF EXISTS Person');
+        await db.execute('DROP TABLE IF EXISTS ProfessionalTeam');
+        await db.execute('DROP TABLE IF EXISTS ProfessionalPlayer');
+        await db.execute('DROP TABLE IF EXISTS PlayerStats');
+        await db.execute('DROP TABLE IF EXISTS TeamHistory');
+        
+        // 新しいテーブルを作成
+        await _createAllTables(db);
+        
+        // プロ野球団の初期データを挿入
+        await _insertProfessionalTeams(db);
+        
+        print('データベーススキーマの完全再構築完了');
+      } catch (e) {
+        print('データベース再構築エラー: $e');
       }
     }
     
@@ -1431,6 +1463,18 @@ class DataService {
         stamina INTEGER DEFAULT 50,
         strength INTEGER DEFAULT 50,
         pace INTEGER DEFAULT 50,
+        -- 追加された能力値カラム
+        motivation INTEGER DEFAULT 50,
+        pressure INTEGER DEFAULT 50,
+        adaptability INTEGER DEFAULT 50,
+        consistency INTEGER DEFAULT 50,
+        clutch INTEGER DEFAULT 50,
+        work_ethic INTEGER DEFAULT 50,
+        -- 総合能力値カラム
+        overall INTEGER DEFAULT 50,
+        technical INTEGER DEFAULT 50,
+        physical INTEGER DEFAULT 50,
+        mental INTEGER DEFAULT 50,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (person_id) REFERENCES Person (id),
@@ -2221,6 +2265,13 @@ class DataService {
         (playerData['positioning'] as int? ?? 50) * 1.0, // ポジショニング
         (playerData['pressure_handling'] as int? ?? 50) * 1.2, // プレッシャー処理
         (playerData['clutch_ability'] as int? ?? 50) * 1.2, // 勝負強さ
+        // 追加された能力値
+        (playerData['motivation'] as int? ?? 50) * 1.1, // 動機・目標
+        (playerData['pressure'] as int? ?? 50) * 1.0, // プレッシャー耐性
+        (playerData['adaptability'] as int? ?? 50) * 1.1, // 適応力
+        (playerData['consistency'] as int? ?? 50) * 1.1, // 安定性
+        (playerData['clutch'] as int? ?? 50) * 1.2, // 勝負強さ
+        (playerData['work_ethic'] as int? ?? 50) * 1.2, // 仕事への取り組み
       ];
       
       final mentalAbility = (mentalAbilities.reduce((a, b) => a + b) / mentalAbilities.length).round();
@@ -2294,14 +2345,229 @@ class DataService {
         ).round();
       }
       
-      // ログ削除（リリース用に抑制）
+      // 総合能力値をデータベースに保存
+      await db.update('Player', {
+        'overall': overallAbility,
+        'technical': technicalAbility,
+        'physical': physicalAbility,
+        'mental': mentalAbility,
+      }, where: 'id = ?', whereArgs: [playerId]);
       
-      // データベース更新は不要（高校野球選手と同様、総合能力値指標は使用しない）
-      
-      // ログ削除（リリース用に抑制）
+      print('選手ID $playerId の総合能力値を更新: overall=$overallAbility, technical=$technicalAbility, physical=$physicalAbility, mental=$mentalAbility');
       
     } catch (e) {
       print('総合能力値指標の計算・更新でエラー: $e');
+    }
+  }
+
+  /// スカウト分析の総合評価を更新
+  Future<void> updateScoutAnalysisOverallEvaluations(int playerId) async {
+    try {
+      final db = await database;
+      
+      // スカウト分析データを取得
+      final scoutAnalysisData = await db.query(
+        'ScoutAnalysis',
+        where: 'player_id = ?',
+        whereArgs: [playerId],
+        orderBy: 'analysis_date DESC',
+      );
+      
+      if (scoutAnalysisData.isEmpty) return;
+      
+      // 最新のスカウト分析データを使用
+      final latestAnalysis = scoutAnalysisData.first;
+      
+      // 各カテゴリの評価を計算
+      final technicalEvaluation = _calculateScoutTechnicalEvaluation(latestAnalysis);
+      final physicalEvaluation = _calculateScoutPhysicalEvaluation(latestAnalysis);
+      final mentalEvaluation = _calculateScoutMentalEvaluation(latestAnalysis);
+      final overallEvaluation = _calculateScoutOverallEvaluation(
+        technicalEvaluation, 
+        physicalEvaluation, 
+        mentalEvaluation,
+        latestAnalysis['position'] as String? ?? '投手'
+      );
+      
+      // 最新のスカウト分析データを更新
+      await db.update(
+        'ScoutAnalysis',
+        {
+          'overall_evaluation': overallEvaluation,
+          'technical_evaluation': technicalEvaluation,
+          'physical_evaluation': physicalEvaluation,
+          'mental_evaluation': mentalEvaluation,
+        },
+        where: 'id = ?',
+        whereArgs: [latestAnalysis['id']],
+      );
+      
+      print('スカウト分析総合評価を更新: playerId=$playerId, overall=$overallEvaluation, technical=$technicalEvaluation, physical=$physicalEvaluation, mental=$mentalEvaluation');
+      
+    } catch (e) {
+      print('スカウト分析総合評価更新エラー: $e');
+    }
+  }
+  
+  /// スカウト分析の技術面評価を計算
+  int _calculateScoutTechnicalEvaluation(Map<String, dynamic> analysis) {
+    final position = analysis['position'] as String? ?? '投手';
+    
+    if (position == '投手') {
+      final pitchingAbilities = [
+        analysis['control_scouted'] as int? ?? 50,
+        analysis['fastball_scouted'] as int? ?? 50,
+        analysis['breaking_ball_scouted'] as int? ?? 50,
+        analysis['pitch_movement_scouted'] as int? ?? 50,
+      ];
+      final fieldingAbilities = [
+        analysis['fielding_scouted'] as int? ?? 50,
+        analysis['throwing_scouted'] as int? ?? 50,
+      ];
+      final battingAbilities = [
+        analysis['contact_scouted'] as int? ?? 50,
+        analysis['power_scouted'] as int? ?? 50,
+        analysis['plate_discipline_scouted'] as int? ?? 50,
+        analysis['bunt_scouted'] as int? ?? 50,
+      ];
+      
+      // 投手能力: 投球関連60%、守備関連25%、打撃関連15%
+      final pitchingAvg = pitchingAbilities.reduce((a, b) => a + b) / pitchingAbilities.length;
+      final fieldingAvg = fieldingAbilities.reduce((a, b) => a + b) / fieldingAbilities.length;
+      final battingAvg = battingAbilities.reduce((a, b) => a + b) / battingAbilities.length;
+      
+      return (
+        (pitchingAvg * 0.6) +
+        (fieldingAvg * 0.25) +
+        (battingAvg * 0.15)
+      ).round();
+    } else {
+      // 野手は打撃・守備関連能力値を重視
+      final battingAbilities = [
+        analysis['contact_scouted'] as int? ?? 50,
+        analysis['power_scouted'] as int? ?? 50,
+        analysis['plate_discipline_scouted'] as int? ?? 50,
+        analysis['bunt_scouted'] as int? ?? 50,
+        analysis['opposite_field_hitting_scouted'] as int? ?? 50,
+        analysis['pull_hitting_scouted'] as int? ?? 50,
+        analysis['bat_control_scouted'] as int? ?? 50,
+        analysis['swing_speed_scouted'] as int? ?? 50,
+      ];
+      final fieldingAbilities = [
+        analysis['fielding_scouted'] as int? ?? 50,
+        analysis['throwing_scouted'] as int? ?? 50,
+      ];
+      
+      // 野手能力: 打撃関連70%、守備関連30%
+      final battingAvg = battingAbilities.reduce((a, b) => a + b) / battingAbilities.length;
+      final fieldingAvg = fieldingAbilities.reduce((a, b) => a + b) / fieldingAbilities.length;
+      
+      return (
+        (battingAvg * 0.7) +
+        (fieldingAvg * 0.3)
+      ).round();
+    }
+  }
+  
+  /// スカウト分析のフィジカル面評価を計算
+  int _calculateScoutPhysicalEvaluation(Map<String, dynamic> analysis) {
+    final position = analysis['position'] as String? ?? '投手';
+    
+    if (position == '投手') {
+      // 投手は持久力と筋力を重視
+      final staminaAbilities = [
+        (analysis['stamina_scouted'] as int? ?? 50) * 1.3,
+        (analysis['strength_scouted'] as int? ?? 50) * 1.2,
+        (analysis['natural_fitness_scouted'] as int? ?? 50) * 1.1,
+      ];
+      final otherAbilities = [
+        analysis['agility_scouted'] as int? ?? 50,
+        analysis['balance_scouted'] as int? ?? 50,
+        analysis['jumping_reach_scouted'] as int? ?? 50,
+        analysis['injury_proneness_scouted'] as int? ?? 50,
+        analysis['pace_scouted'] as int? ?? 50,
+        analysis['flexibility_scouted'] as int? ?? 50,
+      ];
+      
+      final staminaAvg = staminaAbilities.reduce((a, b) => a + b) / staminaAbilities.length;
+      final otherAvg = otherAbilities.reduce((a, b) => a + b) / otherAbilities.length;
+      
+      return (
+        (staminaAvg * 0.6) +
+        (otherAvg * 0.4)
+      ).round();
+    } else {
+      // 野手は敏捷性と加速力を重視
+      final speedAbilities = [
+        (analysis['agility_scouted'] as int? ?? 50) * 1.2,
+        (analysis['acceleration_scouted'] as int? ?? 50) * 1.2,
+      ];
+      final otherAbilities = [
+        analysis['balance_scouted'] as int? ?? 50,
+        analysis['jumping_reach_scouted'] as int? ?? 50,
+        analysis['natural_fitness_scouted'] as int? ?? 50,
+        analysis['injury_proneness_scouted'] as int? ?? 50,
+        analysis['stamina_scouted'] as int? ?? 50,
+        analysis['strength_scouted'] as int? ?? 50,
+        analysis['pace_scouted'] as int? ?? 50,
+        analysis['flexibility_scouted'] as int? ?? 50,
+      ];
+      
+      final speedAvg = speedAbilities.reduce((a, b) => a + b) / speedAbilities.length;
+      final otherAvg = otherAbilities.reduce((a, b) => a + b) / otherAbilities.length;
+      
+      return (
+        (speedAvg * 0.5) +
+        (otherAvg * 0.5)
+      ).round();
+    }
+  }
+  
+  /// スカウト分析のメンタル面評価を計算
+  int _calculateScoutMentalEvaluation(Map<String, dynamic> analysis) {
+    final mentalAbilities = [
+      (analysis['concentration_scouted'] as int? ?? 50) * 1.2,
+      (analysis['anticipation_scouted'] as int? ?? 50) * 1.1,
+      (analysis['vision_scouted'] as int? ?? 50) * 1.1,
+      (analysis['composure_scouted'] as int? ?? 50) * 1.2,
+      (analysis['aggression_scouted'] as int? ?? 50) * 1.0,
+      (analysis['bravery_scouted'] as int? ?? 50) * 1.0,
+      (analysis['leadership_scouted'] as int? ?? 50) * 1.1,
+      (analysis['work_rate_scouted'] as int? ?? 50) * 1.2,
+      (analysis['self_discipline_scouted'] as int? ?? 50) * 1.1,
+      (analysis['ambition_scouted'] as int? ?? 50) * 1.0,
+      (analysis['teamwork_scouted'] as int? ?? 50) * 1.1,
+      (analysis['positioning_scouted'] as int? ?? 50) * 1.0,
+      (analysis['pressure_handling_scouted'] as int? ?? 50) * 1.2,
+      (analysis['clutch_ability_scouted'] as int? ?? 50) * 1.2,
+      // 追加された能力値
+      (analysis['motivation_scouted'] as int? ?? 50) * 1.1,
+      (analysis['pressure_scouted'] as int? ?? 50) * 1.0,
+      (analysis['adaptability_scouted'] as int? ?? 50) * 1.1,
+      (analysis['consistency_scouted'] as int? ?? 50) * 1.1,
+      (analysis['clutch_scouted'] as int? ?? 50) * 1.2,
+      (analysis['work_ethic_scouted'] as int? ?? 50) * 1.2,
+    ];
+    
+    return (mentalAbilities.reduce((a, b) => a + b) / mentalAbilities.length).round();
+  }
+  
+  /// スカウト分析の総合評価を計算
+  int _calculateScoutOverallEvaluation(int technical, int physical, int mental, String position) {
+    if (position == '投手') {
+      // 投手: 技術50%、精神30%、身体20%
+      return (
+        (technical * 0.5) +
+        (mental * 0.3) +
+        (physical * 0.2)
+      ).round();
+    } else {
+      // 野手: 技術40%、精神25%、身体35%
+      return (
+        (technical * 0.4) +
+        (mental * 0.25) +
+        (physical * 0.35)
+      ).round();
     }
   }
 

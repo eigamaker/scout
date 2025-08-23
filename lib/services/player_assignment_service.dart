@@ -208,6 +208,18 @@ class PlayerAssignmentService {
         'strength': player.physicalAbilities[PhysicalAbility.strength] ?? 25,
         'pace': player.physicalAbilities[PhysicalAbility.pace] ?? 25,
         'flexibility': player.physicalAbilities[PhysicalAbility.flexibility] ?? 25,
+        // 追加された能力値
+        'motivation': player.motivationAbility,
+        'pressure': player.pressureAbility,
+        'adaptability': player.adaptabilityAbility,
+        'consistency': player.consistencyAbility,
+        'clutch': player.clutchAbility,
+        'work_ethic': player.workEthicAbility,
+        // 総合能力値（後で計算して更新）
+        'overall': 50,
+        'technical': 50,
+        'physical': 50,
+        'mental': 50,
       });
       
       // ポテンシャルデータを保存
@@ -228,7 +240,6 @@ class PlayerAssignmentService {
   Future<void> _savePlayerPotentials(int playerId, Map<String, int> potentials, Database db) async {
     final potentialData = <String, dynamic>{
       'player_id': playerId,
-      'overall_potential': potentials.values.reduce((a, b) => a + b) ~/ potentials.length,
     };
     
     // 各能力値のポテンシャルを追加
@@ -244,6 +255,78 @@ class PlayerAssignmentService {
       
       potentialData['${snakeKey}_potential'] = value;
     }
+    
+    // 追加された能力値のポテンシャルも設定（デフォルト値）
+    potentialData['motivation_potential'] = 50;
+    potentialData['pressure_potential'] = 50;
+    potentialData['adaptability_potential'] = 50;
+    potentialData['consistency_potential'] = 50;
+    potentialData['clutch_potential'] = 50;
+    potentialData['work_ethic_potential'] = 50;
+    
+    // 総合ポテンシャルを計算
+    final allPotentials = potentialData.values.where((v) => v is int && v != playerId).cast<int>();
+    final overallPotential = allPotentials.reduce((a, b) => a + b) ~/ allPotentials.length;
+    
+    // カテゴリ別ポテンシャルを計算
+    final technicalPotentials = [
+      potentialData['contact_potential'] ?? 50,
+      potentialData['power_potential'] ?? 50,
+      potentialData['plate_discipline_potential'] ?? 50,
+      potentialData['bunt_potential'] ?? 50,
+      potentialData['opposite_field_hitting_potential'] ?? 50,
+      potentialData['pull_hitting_potential'] ?? 50,
+      potentialData['bat_control_potential'] ?? 50,
+      potentialData['swing_speed_potential'] ?? 50,
+      potentialData['fielding_potential'] ?? 50,
+      potentialData['throwing_potential'] ?? 50,
+      potentialData['catcher_ability_potential'] ?? 50,
+      potentialData['control_potential'] ?? 50,
+      potentialData['fastball_potential'] ?? 50,
+      potentialData['breaking_ball_potential'] ?? 50,
+      potentialData['pitch_movement_potential'] ?? 50,
+    ];
+    
+    final mentalPotentials = [
+      potentialData['concentration_potential'] ?? 50,
+      potentialData['anticipation_potential'] ?? 50,
+      potentialData['vision_potential'] ?? 50,
+      potentialData['composure_potential'] ?? 50,
+      potentialData['aggression_potential'] ?? 50,
+      potentialData['bravery_potential'] ?? 50,
+      potentialData['leadership_potential'] ?? 50,
+      potentialData['work_rate_potential'] ?? 50,
+      potentialData['self_discipline_potential'] ?? 50,
+      potentialData['ambition_potential'] ?? 50,
+      potentialData['teamwork_potential'] ?? 50,
+      potentialData['positioning_potential'] ?? 50,
+      potentialData['pressure_handling_potential'] ?? 50,
+      potentialData['clutch_ability_potential'] ?? 50,
+      potentialData['motivation_potential'] ?? 50,
+      potentialData['pressure_potential'] ?? 50,
+      potentialData['adaptability_potential'] ?? 50,
+      potentialData['consistency_potential'] ?? 50,
+      potentialData['clutch_potential'] ?? 50,
+      potentialData['work_ethic_potential'] ?? 50,
+    ];
+    
+    final physicalPotentials = [
+      potentialData['acceleration_potential'] ?? 50,
+      potentialData['agility_potential'] ?? 50,
+      potentialData['balance_potential'] ?? 50,
+      potentialData['jumping_reach_potential'] ?? 50,
+      potentialData['natural_fitness_potential'] ?? 50,
+      potentialData['injury_proneness_potential'] ?? 50,
+      potentialData['stamina_potential'] ?? 50,
+      potentialData['strength_potential'] ?? 50,
+      potentialData['pace_potential'] ?? 50,
+      potentialData['flexibility_potential'] ?? 50,
+    ];
+    
+    potentialData['overall_potential'] = overallPotential;
+    potentialData['technical_potential'] = technicalPotentials.reduce((a, b) => a + b) ~/ technicalPotentials.length;
+    potentialData['mental_potential'] = mentalPotentials.reduce((a, b) => a + b) ~/ mentalPotentials.length;
+    potentialData['physical_potential'] = physicalPotentials.reduce((a, b) => a + b) ~/ physicalPotentials.length;
     
     await db.insert('PlayerPotentials', potentialData);
   }

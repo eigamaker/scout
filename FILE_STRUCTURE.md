@@ -25,7 +25,7 @@ scout_game/
 │   │   ├── game_manager.dart      # ゲーム管理（オーケストレーション）
 │   │   ├── game_data_manager.dart # ゲームデータ永続化
 │   │   ├── game_state_manager.dart # ゲーム状態管理
-│   │   ├── player_data_generator.dart # 選手データ生成
+
 │   │   ├── data_service.dart      # データベース操作
 │   │   ├── news_service.dart      # ニュース管理
 │   │   └── scouting/              # スカウト関連サービス
@@ -89,7 +89,7 @@ scout_game/
   - 選手の成長処理
 
 #### 選手関連
-- **player_data_generator.dart**: 選手データの生成
+
   - 選手の能力値生成
   - ポテンシャル生成
   - ポジション決定

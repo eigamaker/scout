@@ -82,6 +82,9 @@ class TalentedPlayerGenerator {
     final mentalAbilities = _generateMentalAbilities(talentRank, grade);
     final physicalAbilities = _generatePhysicalAbilities(talentRank, position, grade);
     
+    // 追加された能力値を生成
+    final additionalAbilities = _generateAdditionalAbilities(talentRank, grade);
+    
     // その他の属性を生成
     final pitches = _generatePitches(position);
     final growthType = _generateGrowthType();
@@ -129,6 +132,12 @@ class TalentedPlayerGenerator {
       growthType: growthType,
       individualPotentials: individualPotentials,
       scoutAnalysisData: null,
+      motivationAbility: additionalAbilities['motivation'] ?? 50,
+      pressureAbility: additionalAbilities['pressure'] ?? 50,
+      adaptabilityAbility: additionalAbilities['adaptability'] ?? 50,
+      consistencyAbility: additionalAbilities['consistency'] ?? 50,
+      clutchAbility: additionalAbilities['clutch'] ?? 50,
+      workEthicAbility: additionalAbilities['work_ethic'] ?? 50,
     );
     
     // 総合能力値を更新
@@ -142,8 +151,8 @@ class TalentedPlayerGenerator {
     final rand = _random.nextDouble();
     
     if (rand < 0.80) return 3;      // 80% - ランク3
-    if (rand < 0.99) return 4;      // 19% - ランク4
-    if (rand < 0.9999) return 5;    // 1% - ランク5
+    if (rand < 0.98) return 4;      // 18% - ランク4
+    if (rand < 0.9999) return 5;    // 2% - ランク5
     return 6;                        // 0.01% - ランク6
   }
 
@@ -551,6 +560,38 @@ class TalentedPlayerGenerator {
     if (talentRank >= 4) return _random.nextDouble() < 0.7; // 70%
     if (talentRank >= 3) return _random.nextDouble() < 0.3; // 30%
     return false;
+  }
+
+  /// 追加された能力値を生成
+  Map<String, int> _generateAdditionalAbilities(int talentRank, int grade) {
+    final abilities = <String, int>{};
+    
+    // 才能ランクに基づく基本能力値を決定
+    final baseAbility = _getBasePotentialByTalent(talentRank);
+    
+    // 各能力値を生成
+    abilities['motivation'] = baseAbility + _random.nextInt(31) - 15;
+    abilities['pressure'] = baseAbility + _random.nextInt(31) - 15;
+    abilities['adaptability'] = baseAbility + _random.nextInt(31) - 15;
+    abilities['consistency'] = baseAbility + _random.nextInt(31) - 15;
+    abilities['clutch'] = baseAbility + _random.nextInt(31) - 15;
+    abilities['work_ethic'] = baseAbility + _random.nextInt(31) - 15;
+    
+    // 学年による微調整
+    for (final entry in abilities.entries) {
+      int adjustedValue = entry.value;
+      if (grade == 1) {
+        adjustedValue += _random.nextInt(4) - 2; // -2から+1の絶対値調整
+      } else if (grade == 2) {
+        adjustedValue += _random.nextInt(3) - 1; // -1から+1の絶対値調整
+      } else { // grade == 3
+        adjustedValue += _random.nextInt(2) - 1; // -1から+0の絶対値調整
+      }
+      
+      abilities[entry.key] = adjustedValue.clamp(45, 150);
+    }
+    
+    return abilities;
   }
 
   /// 選手の総合能力値を更新

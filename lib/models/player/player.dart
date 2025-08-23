@@ -65,6 +65,20 @@ class Player {
   final Map<MentalAbility, int> mentalAbilities; // メンタル面能力値
   final Map<PhysicalAbility, int> physicalAbilities; // フィジカル面能力値
   
+  // 追加された能力値
+  final int motivationAbility; // 動機・目標（能力値）
+  final int pressureAbility; // プレッシャー耐性（能力値）
+  final int adaptabilityAbility; // 適応力（能力値）
+  final int consistencyAbility; // 安定性（能力値）
+  final int clutchAbility; // 勝負強さ（能力値）
+  final int workEthicAbility; // 仕事への取り組み（能力値）
+  
+  // 総合能力値
+  final int overall; // 総合能力値
+  final int technical; // 技術面総合
+  final int physical; // フィジカル面総合
+  final int mental; // メンタル面総合
+  
   // スカウト分析データ（UIで表示される能力値）
   final Map<String, int>? scoutAnalysisData; // スカウトが分析した能力値
   
@@ -136,6 +150,16 @@ class Player {
     List<Achievement>? achievements,
     this.scoutAnalysisData,
     this.isDefaultPlayer = false,
+    this.motivationAbility = 50,
+    this.pressureAbility = 50,
+    this.adaptabilityAbility = 50,
+    this.consistencyAbility = 50,
+    this.clutchAbility = 50,
+    this.workEthicAbility = 50,
+    this.overall = 50,
+    this.technical = 50,
+    this.physical = 50,
+    this.mental = 50,
   }) :
     age = age ?? (type == PlayerType.highSchool ? (15 + (grade - 1)) : 18), // 高校生は学年から年齢を計算、プロ選手は18歳以上
     scoutedDates = scoutedDates ?? [],

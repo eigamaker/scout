@@ -1172,7 +1172,7 @@ class GameManager {
             // null値と空文字のカラム名を除外
             final cleanUpdates = <String, dynamic>{};
             for (final entry in updates.entries) {
-              if (entry.value != null && entry.key.isNotEmpty) {
+              if (entry.value != null && entry.key.isNotEmpty && entry.key != '') {
                 cleanUpdates[entry.key] = entry.value;
               }
             }
