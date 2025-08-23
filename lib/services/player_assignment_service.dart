@@ -47,7 +47,7 @@ class PlayerAssignmentService {
         // データベースに保存
         await _savePlayerToDatabase(defaultPlayer, school);
         
-        print('PlayerAssignmentService._assignDefaultPlayersToSchools: ${school.name}にデフォルト選手を配置完了');
+        // 個別の学校への配置ログは削除
       } catch (e) {
         print('PlayerAssignmentService._assignDefaultPlayersToSchools: ${school.name}でエラー: $e');
         // エラーが発生しても処理を継続

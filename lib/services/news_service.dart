@@ -542,11 +542,11 @@ class NewsService {
     for (final school in schools) {
       for (final player in school.players) {
         totalPlayers++;
-        if (player.trueTotalAbility >= 70) highAbilityPlayers++;
+        if (player.trueTotalAbility >= 70 && !player.isDefaultPlayer) highAbilityPlayers++;
         if (player.fame >= 60) highFamePlayers++;
         
         // 高能力選手（70以上）または高知名度選手（fame >= 60）のニュース生成
-        if (player.trueTotalAbility >= 70 || player.fame >= 60) {
+        if ((player.trueTotalAbility >= 70 && !player.isDefaultPlayer) || player.fame >= 60) {
           // 重複チェック：同じ選手IDが既に処理済みの場合はスキップ
           final playerKey = '${player.id}_${player.name}_${school.id}';
           if (processedPlayerIds.contains(playerKey)) {
@@ -604,7 +604,7 @@ class NewsService {
 
   /// 週送り時の選手ニュース生成
   void _generateWeeklyPlayerNews(List<School> schools, Random random, {int? year, int? month, int? weekOfMonth}) {
-    // 高能力選手（60以上に下げる）からランダムに選択してニュース生成
+    // 高能力選手（70以上）からランダムに選択してニュース生成
     final highAbilityPlayers = <Player>[];
     
     // 重複を防ぐため、既に処理済みの選手IDを記録
@@ -612,7 +612,7 @@ class NewsService {
     
     for (final school in schools) {
       for (final player in school.players) {
-        if (player.trueTotalAbility >= 60) {
+        if (player.trueTotalAbility >= 70 && !player.isDefaultPlayer) {
           // 重複チェック：同じ選手IDが既に処理済みの場合はスキップ
           final playerKey = '${player.id}_${player.name}_${school.id}';
           if (processedPlayerIds.contains(playerKey)) {

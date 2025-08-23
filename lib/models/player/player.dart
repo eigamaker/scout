@@ -399,22 +399,17 @@ class Player {
     return technicalAbilities[ability] ?? 25;
   }
   
-  // 球速を実際のkm/hに変換（高校生最大100、生涯最大150のルールに統一）
+  // 球速を実際のkm/hに変換（全選手共通の計算式）
   int getFastballVelocityKmh() {
     final fastballAbility = getTechnicalAbility(TechnicalAbility.fastball);
     
-    // 高校生の場合（能力値25-100 → 球速125-155km/h）
-    if (isHighSchoolStudent) {
-      return 125 + ((fastballAbility - 25) * 30 / 75).round();
-    }
-    
-    // 大学生・社会人の場合（能力値25-150 → 球速125-170km/h）
-    // 高校生レベル（100）までは同じ計算、それ以上は生涯最大170km/hまで
+    // 全選手共通の計算式（能力値25-150 → 球速125-165km/h）
     if (fastballAbility <= 100) {
+      // 100以下: 125-155km/h（高校生レベル）
       return 125 + ((fastballAbility - 25) * 30 / 75).round();
     } else {
-      // 100を超える場合、155-170km/hの範囲で計算
-      return 155 + ((fastballAbility - 100) * 15 / 50).round();
+      // 100超: 155-165km/h（プロ選手レベル）
+      return 155 + ((fastballAbility - 100) * 10 / 50).round();
     }
   }
   

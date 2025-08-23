@@ -434,109 +434,139 @@ class PlayerGenerator {
     else return 'シニア型';
   }
   
-  // プロ野球選手用の技術面能力値生成（既存メソッドを活用）
+  // プロ野球選手用の技術面能力値生成（ポテンシャルの90%程度で生成）
   static Map<TechnicalAbility, int> _generateProfessionalTechnicalAbilities(int talent, String position, String ageGroup, String experienceLevel) {
-    // 既存の高校生用メソッドを呼び出し
-    final baseAbilities = generateTechnicalAbilities(talent, position);
+    // ポテンシャル値を先に生成
+    final potentials = generateTechnicalPotentials(talent, position);
     final random = Random();
     
-    // 年齢と経験に基づいて能力値を調整
-    for (final entry in baseAbilities.entries) {
+    // ポテンシャルの90%程度で能力値を生成
+    final abilities = <TechnicalAbility, int>{};
+    for (final entry in potentials.entries) {
       final ability = entry.key;
-      int value = entry.value;
+      final potential = entry.value;
       
-      // プロ野球選手レベルに調整（基本値+50-70）
-      value += 50 + random.nextInt(21); // 50-70の追加
+      // ポテンシャルの85-95%の範囲で能力値を設定
+      final baseValue = (potential * (0.85 + random.nextDouble() * 0.1)).round();
       
-      // 年齢グループによる調整
+      // 年齢グループによる微調整
+      int adjustedValue = baseValue;
       if (ageGroup == 'young') {
-        value += random.nextInt(10); // 若手は能力値が若干高め
+        adjustedValue += random.nextInt(6) - 3; // -3から+2の変動
       } else if (ageGroup == 'prime') {
-        value += random.nextInt(5); // 全盛期は能力値が若干低め
+        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
+      } else if (ageGroup == 'veteran') {
+        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
+      } else { // senior
+        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
       }
       
-      // 経験レベルによる調整
+      // 経験レベルによる微調整
       if (experienceLevel == 'rookie') {
-        value += random.nextInt(10); // ルーキーは能力値が若干高め
+        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
       } else if (experienceLevel == 'developing') {
-        value += random.nextInt(5); // 成長期は能力値が若干低め
+        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
+      } else if (experienceLevel == 'established') {
+        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
+      } else { // mature
+        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
       }
       
-      // NPB選手レベルに制限（95-120）
-      baseAbilities[ability] = value.clamp(95, 120);
+      // 最終的な能力値を設定（ポテンシャル値を超えないように）
+      abilities[ability] = adjustedValue.clamp(25, potential);
     }
     
-    return baseAbilities;
+    return abilities;
   }
   
-  // プロ野球選手用のメンタル面能力値生成（既存メソッドを活用）
+  // プロ野球選手用のメンタル面能力値生成（ポテンシャルの90%程度で生成）
   static Map<MentalAbility, int> _generateProfessionalMentalAbilities(int talent, String ageGroup, String experienceLevel) {
-    // 既存の高校生用メソッドを呼び出し
-    final baseAbilities = generateMentalAbilities(talent);
+    // ポテンシャル値を先に生成
+    final potentials = generateMentalPotentials(talent);
     final random = Random();
     
-    // 年齢と経験に基づいて能力値を調整
-    for (final entry in baseAbilities.entries) {
+    // ポテンシャルの90%程度で能力値を生成
+    final abilities = <MentalAbility, int>{};
+    for (final entry in potentials.entries) {
       final ability = entry.key;
-      int value = entry.value;
+      final potential = entry.value;
       
-      // プロ野球選手レベルに調整（基本値+50-70）
-      value += 50 + random.nextInt(21); // 50-70の追加
+      // ポテンシャルの85-95%の範囲で能力値を設定
+      final baseValue = (potential * (0.85 + random.nextDouble() * 0.1)).round();
       
-      // 年齢グループによる調整
+      // 年齢グループによる微調整
+      int adjustedValue = baseValue;
       if (ageGroup == 'young') {
-        value += random.nextInt(10); // 若手は能力値が若干高め
+        adjustedValue += random.nextInt(6) - 3; // -3から+2の変動
       } else if (ageGroup == 'prime') {
-        value += random.nextInt(5); // 全盛期は能力値が若干低め
+        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
+      } else if (ageGroup == 'veteran') {
+        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
+      } else { // senior
+        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
       }
       
-      // 経験レベルによる調整
+      // 経験レベルによる微調整
       if (experienceLevel == 'rookie') {
-        value += random.nextInt(10); // ルーキーは能力値が若干高め
+        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
       } else if (experienceLevel == 'developing') {
-        value += random.nextInt(5); // 成長期は能力値が若干低め
+        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
+      } else if (experienceLevel == 'established') {
+        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
+      } else { // mature
+        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
       }
       
-      // NPB選手レベルに制限（95-120）
-      baseAbilities[ability] = value.clamp(95, 120);
+      // 最終的な能力値を設定（ポテンシャル値を超えないように）
+      abilities[ability] = adjustedValue.clamp(25, potential);
     }
     
-    return baseAbilities;
+    return abilities;
   }
   
-  // プロ野球選手用のフィジカル面能力値生成（既存メソッドを活用）
+  // プロ野球選手用のフィジカル面能力値生成（ポテンシャルの90%程度で生成）
   static Map<PhysicalAbility, int> _generateProfessionalPhysicalAbilities(int talent, String position, String ageGroup, String experienceLevel) {
-    // 既存の高校生用メソッドを呼び出し
-    final baseAbilities = generatePhysicalAbilities(talent, position);
+    // ポテンシャル値を先に生成
+    final potentials = generatePhysicalPotentials(talent, position);
     final random = Random();
     
-    // 年齢と経験に基づいて能力値を調整
-    for (final entry in baseAbilities.entries) {
+    // ポテンシャルの90%程度で能力値を生成
+    final abilities = <PhysicalAbility, int>{};
+    for (final entry in potentials.entries) {
       final ability = entry.key;
-      int value = entry.value;
+      final potential = entry.value;
       
-      // プロ野球選手レベルに調整（基本値+50-70）
-      value += 50 + random.nextInt(21); // 50-70の追加
+      // ポテンシャルの85-95%の範囲で能力値を設定
+      final baseValue = (potential * (0.85 + random.nextDouble() * 0.1)).round();
       
-      // 年齢グループによる調整
+      // 年齢グループによる微調整
+      int adjustedValue = baseValue;
       if (ageGroup == 'young') {
-        value += random.nextInt(10); // 若手は能力値が若干高め
+        adjustedValue += random.nextInt(6) - 3; // -3から+2の変動
       } else if (ageGroup == 'prime') {
-        value += random.nextInt(5); // 全盛期は能力値が若干低め
+        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
+      } else if (ageGroup == 'veteran') {
+        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
+      } else { // senior
+        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
       }
       
-      // 経験レベルによる調整
+      // 経験レベルによる微調整
       if (experienceLevel == 'rookie') {
-        value += random.nextInt(10); // ルーキーは能力値が若干高め
+        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
       } else if (experienceLevel == 'developing') {
-        value += random.nextInt(5); // 成長期は能力値が若干低め
+        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
+      } else if (experienceLevel == 'established') {
+        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
+      } else { // mature
+        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
       }
       
-      // NPB選手レベルに制限（95-120）
-      baseAbilities[ability] = value.clamp(95, 120);
+      // 最終的な能力値を設定（ポテンシャル値を超えないように）
+      abilities[ability] = adjustedValue.clamp(25, potential);
     }
     
-    return baseAbilities;
+    return abilities;
   }
   
   // プロ野球選手用の個別ポテンシャル生成（既存メソッドを活用）

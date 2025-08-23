@@ -344,12 +344,13 @@ class PlayerDataGenerator {
     }
   }
 
-  /// 個別ポテンシャル生成システム
+  /// 個別ポテンシャル生成システム（最高値100として才能ランクに応じて設定）
   Map<String, int> _generateIndividualPotentials(int talentRank, Random random) {
-    // 才能ランクに基づく平均ポテンシャルを決定
-    final averagePotential = _getAveragePotentialByTalent(talentRank, random);
+    // 才能ランクに基づく基本ポテンシャル
+    final basePotential = _getBasePotentialByTalent(talentRank);
+    final variationRange = 5; // ±5の変動
     
-    // 各能力値のポテンシャルを生成（全選手共通）
+    // 各能力値のポテンシャルを生成
     final potentials = <String, int>{};
     
     // Technical（技術面）能力値
@@ -364,8 +365,6 @@ class PlayerDataGenerator {
       'concentration', 'anticipation', 'vision', 'composure', 'aggression', 
       'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
       'teamwork', 'positioning', 'pressureHandling', 'clutchAbility',
-      // 以下の能力値はデータベースに存在しないため除外
-      // 'motivation', 'adaptability', 'consistency'
     ];
     
     // Physical（フィジカル面）能力値
@@ -376,18 +375,37 @@ class PlayerDataGenerator {
     
     // 各カテゴリのポテンシャルを生成
     for (final ability in technicalAbilities) {
-      potentials[ability] = _generateAbilityPotential(averagePotential, talentRank, random);
+      final variation = random.nextInt(variationRange * 2 + 1) - variationRange;
+      final potential = (basePotential + variation).clamp(50, 100);
+      potentials[ability] = potential;
     }
     
     for (final ability in mentalAbilities) {
-      potentials[ability] = _generateAbilityPotential(averagePotential, talentRank, random);
+      final variation = random.nextInt(variationRange * 2 + 1) - variationRange;
+      final potential = (basePotential + variation).clamp(50, 100);
+      potentials[ability] = potential;
     }
     
     for (final ability in physicalAbilities) {
-      potentials[ability] = _generateAbilityPotential(averagePotential, talentRank, random);
+      final variation = random.nextInt(variationRange * 2 + 1) - variationRange;
+      final potential = (basePotential + variation).clamp(50, 100);
+      potentials[ability] = potential;
     }
     
     return potentials;
+  }
+
+  // 才能ランクに基づく基本ポテンシャルを取得（最高値100）
+  int _getBasePotentialByTalent(int talentRank) {
+    switch (talentRank) {
+      case 1: return 55;  // ランク1: 50-60
+      case 2: return 65;  // ランク2: 60-70
+      case 3: return 65;  // ランク3: 60-70
+      case 4: return 75;  // ランク4: 70-80
+      case 5: return 85;  // ランク5: 80-90
+      case 6: return 95;  // ランク6: 90-100
+      default: return 65;
+    }
   }
 
   /// 才能ランクに基づく平均ポテンシャルを取得

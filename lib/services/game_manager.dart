@@ -11,7 +11,7 @@ import 'data_service.dart';
 
 import 'scouting/action_service.dart' as scouting;
 import 'game_data_manager.dart';
-import 'player_data_generator.dart';
+
 import 'game_state_manager.dart';
 import '../models/scouting/scout.dart';
 import '../models/scouting/team_request.dart';
@@ -32,13 +32,15 @@ import 'player_assignment_service.dart';
 class GameManager {
   Game? _currentGame;
   late final GameDataManager _gameDataManager;
-  late final PlayerDataGenerator _playerDataGenerator;
+
   Scout? _currentScout;
   
   // 週進行処理状態の管理
   bool _isAdvancingWeek = false;
   bool _isProcessingGrowth = false;
   String _growthStatusMessage = '';
+  
+  // デバッグ用カウンターは削除
 
   Game? get currentGame => _currentGame;
   Scout? get currentScout => _currentScout;
@@ -413,7 +415,7 @@ class GameManager {
 
   GameManager(DataService dataService) {
     _gameDataManager = GameDataManager(dataService);
-    _playerDataGenerator = PlayerDataGenerator(dataService);
+    
   }
 
   // 新しい選手生成・配属システム
@@ -557,25 +559,34 @@ class GameManager {
   // スカウト実行
   Future<Player?> scoutNewPlayer(NewsService newsService) async {
     if (_currentGame == null || _currentGame!.schools.isEmpty) return null;
-    // ランダムな学校を選択
-    final school = (_currentGame!.schools..shuffle()).first;
     
-    // PlayerDataGeneratorを使用して選手を生成
-    final newPlayer = await _playerDataGenerator.generatePlayer(school);
+    // 既存の未発掘選手からランダムに選択
+    final undiscoveredPlayers = <Player>[];
+    for (final school in _currentGame!.schools) {
+      undiscoveredPlayers.addAll(
+        school.players.where((p) => !p.isDiscovered && !p.isDefaultPlayer)
+      );
+    }
+    
+    if (undiscoveredPlayers.isEmpty) return null;
+    
+    // ランダムな未発掘選手を選択
+    final selectedPlayer = undiscoveredPlayers[Random().nextInt(undiscoveredPlayers.length)];
+    final school = _currentGame!.schools.firstWhere((s) => s.players.contains(selectedPlayer));
     
     // 発掘リストに追加
-    _currentGame = _currentGame!.discoverPlayer(newPlayer);
+    _currentGame = _currentGame!.discoverPlayer(selectedPlayer);
 
     // 選手に基づくニュース生成
     newsService.generatePlayerNews(
-      newPlayer, 
+      selectedPlayer, 
       school,
       year: _currentGame!.currentYear,
       month: _currentGame!.currentMonth,
       weekOfMonth: _currentGame!.currentWeekOfMonth,
     );
     
-    return newPlayer;
+    return selectedPlayer;
   }
 
   // 日付進行・イベント
@@ -589,27 +600,31 @@ class GameManager {
     if (_currentGame == null) return;
     
     try {
-      final db = await dataService.database;
-      final updatedSchools = <School>[];
+      print('GameManager.generateNewStudentsForAllSchoolsDb: 新年度新1年生生成開始');
       
+      // TalentedPlayerGeneratorを使用して新1年生を生成
+      final talentedPlayerGenerator = TalentedPlayerGenerator(dataService);
+      final newFirstYears = await talentedPlayerGenerator.generateTalentedPlayers();
+      
+      // 新1年生のみをフィルタリング（学年を1年生に設定）
+      final firstYearStudents = newFirstYears.take(2350).map((player) => 
+        player.copyWith(grade: 1)
+      ).toList();
+      
+      // 選手を学校に配属
+      final playerAssignmentService = PlayerAssignmentService(dataService);
+      await playerAssignmentService.assignPlayersToSchools(_currentGame!.schools, firstYearStudents);
+      
+      // 学校リストを更新
+      final updatedSchools = <School>[];
       for (final school in _currentGame!.schools) {
-        try {
-          // 新1年生を5人生成
-          final newFirstYears = await _playerDataGenerator.generatePlayersForSchool(school, 5);
-          
-          // 既存の選手と新入生を統合
-          final allPlayers = [...school.players, ...newFirstYears];
-          final updatedSchool = school.copyWith(players: allPlayers);
-          updatedSchools.add(updatedSchool);
-          
-        } catch (e) {
-          // エラーが発生しても既存の学校をそのまま追加
-          updatedSchools.add(school);
-        }
+        final schoolPlayers = firstYearStudents.where((p) => p.school == school.name).toList();
+        final allPlayers = [...school.players, ...schoolPlayers];
+        updatedSchools.add(school.copyWith(players: allPlayers));
       }
       
       _currentGame = _currentGame!.copyWith(schools: updatedSchools);
-  
+      print('GameManager.generateNewStudentsForAllSchoolsDb: 新年度新1年生生成完了 - ${firstYearStudents.length}名');
       
     } catch (e) {
       print('GameManager.generateNewStudentsForAllSchoolsDb: エラーが発生しました: $e');
@@ -1090,6 +1105,8 @@ class GameManager {
           // 年齢による能力値減退を適用
           final ageAdjustedPlayer = _applyAgeBasedDecline(grownPlayer);
           
+          // 個別の選手ログは削除
+          
           // 引退判定
           if (ageAdjustedPlayer.age >= 18) { // プロ選手は18歳以上
             final shouldRetire = _shouldPlayerRetire(ageAdjustedPlayer, ageAdjustedPlayer.age);
@@ -1127,7 +1144,7 @@ class GameManager {
           // 技術面能力値を収集
           for (final entry in ageAdjustedPlayer.technicalAbilities.entries) {
             final columnName = _getDatabaseColumnName(entry.key.name);
-            if (columnName.isNotEmpty) {
+            if (columnName.isNotEmpty && entry.value != null) {
               updates[columnName] = entry.value;
             }
           }
@@ -1135,7 +1152,7 @@ class GameManager {
           // メンタル面能力値を収集
           for (final entry in ageAdjustedPlayer.mentalAbilities.entries) {
             final columnName = _getDatabaseColumnName(entry.key.name);
-            if (columnName.isNotEmpty) {
+            if (columnName.isNotEmpty && entry.value != null) {
               updates[columnName] = entry.value;
             }
           }
@@ -1143,29 +1160,36 @@ class GameManager {
           // フィジカル面能力値を収集
           for (final entry in ageAdjustedPlayer.physicalAbilities.entries) {
             final columnName = _getDatabaseColumnName(entry.key.name);
-            if (columnName.isNotEmpty) {
+            if (columnName.isNotEmpty && entry.value != null) {
               updates[columnName] = entry.value;
             }
           }
           
+          // 個別の選手ログは削除
+          
           // バッチに更新を追加
           if (updates.isNotEmpty && player.id != null) {
-            // null値を除外
+            // null値と空文字のカラム名を除外
             final cleanUpdates = <String, dynamic>{};
             for (final entry in updates.entries) {
-              if (entry.value != null) {
+              if (entry.value != null && entry.key.isNotEmpty) {
                 cleanUpdates[entry.key] = entry.value;
               }
             }
             
             if (cleanUpdates.isNotEmpty) {
-              batch.update(
-                'Player',
-                cleanUpdates,
-                where: 'id = ?',
-                whereArgs: [player.id],
-              );
-              updateCount++;
+              try {
+                batch.update(
+                  'Player',
+                  cleanUpdates,
+                  where: 'id = ?',
+                  whereArgs: [player.id],
+                );
+                updateCount++;
+              } catch (e) {
+                print('GameManager._growProfessionalPlayers: 選手ID ${player.id} の更新でエラー: $e');
+                print('更新データ: $cleanUpdates');
+              }
             }
           }
         }
@@ -1173,7 +1197,13 @@ class GameManager {
       
       // バッチ更新を実行
       if (updateCount > 0) {
-        await batch.commit(noResult: true);
+        try {
+          await batch.commit(noResult: true);
+          print('GameManager._growProfessionalPlayers: バッチ更新完了 - 更新件数: $updateCount');
+        } catch (e) {
+          print('GameManager._growProfessionalPlayers: バッチ更新でエラー: $e');
+          rethrow;
+        }
       }
       
       print('GameManager._growProfessionalPlayers: プロ選手成長処理完了 - 総選手数: $totalPlayers, 更新件数: $updateCount');
@@ -1270,44 +1300,67 @@ class GameManager {
       final batch = db.batch();
       int updateCount = 0;
       
+      // 成長後の選手データを直接取得（_currentGame!.schoolsではなく、成長処理後のデータを使用）
+      final grownPlayers = <Player>[];
+      
+      // 各学校の選手を取得し、成長後のデータを収集
       for (final school in _currentGame!.schools) {
         for (final player in school.players) {
-          // 引退選手は成長処理をスキップ
-          if (player.isRetired) {
-            continue;
+          if (!player.isRetired && !player.isDefaultPlayer) {
+            // 成長処理を再度実行して、最新の能力値を取得
+            final grownPlayer = GrowthService.growPlayer(player);
+            grownPlayers.add(grownPlayer);
           }
-          
-          final updates = <String, dynamic>{};
-          
-          // 技術面能力値を収集
-          for (final entry in player.technicalAbilities.entries) {
-            final columnName = _getDatabaseColumnName(entry.key.name);
-            if (columnName.isNotEmpty) {
-              updates[columnName] = entry.value;
+        }
+      }
+      
+      // 成長後の選手データをデータベースに保存
+      for (final player in grownPlayers) {
+        final updates = <String, dynamic>{};
+        
+        // 技術面能力値を収集
+        for (final entry in player.technicalAbilities.entries) {
+          final columnName = _getDatabaseColumnName(entry.key.name);
+          if (columnName.isNotEmpty && entry.value != null) {
+            updates[columnName] = entry.value;
+          }
+        }
+        
+        // メンタル面能力値を収集
+        for (final entry in player.mentalAbilities.entries) {
+          final columnName = _getDatabaseColumnName(entry.key.name);
+          if (columnName.isNotEmpty && entry.value != null) {
+            updates[columnName] = entry.value;
+          }
+        }
+        
+        // フィジカル面能力値を収集
+        for (final entry in player.physicalAbilities.entries) {
+          final columnName = _getDatabaseColumnName(entry.key.name);
+          if (columnName.isNotEmpty && entry.value != null) {
+            updates[columnName] = entry.value;
+          }
+        }
+        
+        // デバッグ用：最初の選手の能力値を確認（個別ログ禁止のため最小限）
+        if (updateCount == 0) {
+          print('GameManager._saveGrownPlayersToDatabase: 成長後の選手能力値確認 - ${player.name}: bunt=${player.technicalAbilities[TechnicalAbility.bunt]}, contact=${player.technicalAbilities[TechnicalAbility.contact]}');
+        }
+        
+        // バッチに更新を追加
+        if (updates.isNotEmpty) {
+          // null値と空文字のカラム名を除外
+          final cleanUpdates = <String, dynamic>{};
+          for (final entry in updates.entries) {
+            if (entry.value != null && entry.key.isNotEmpty) {
+              cleanUpdates[entry.key] = entry.value;
             }
           }
           
-          // メンタル面能力値を収集
-          for (final entry in player.mentalAbilities.entries) {
-            final columnName = _getDatabaseColumnName(entry.key.name);
-            if (columnName.isNotEmpty) {
-              updates[columnName] = entry.value;
-            }
-          }
-          
-          // フィジカル面能力値を収集
-          for (final entry in player.physicalAbilities.entries) {
-            final columnName = _getDatabaseColumnName(entry.key.name);
-            if (columnName.isNotEmpty) {
-              updates[columnName] = entry.value;
-            }
-          }
-          
-          // バッチに更新を追加
-          if (updates.isNotEmpty) {
+          if (cleanUpdates.isNotEmpty) {
             batch.update(
               'Player',
-              updates,
+              cleanUpdates,
               where: 'id = ?',
               whereArgs: [player.id],
             );
@@ -1318,8 +1371,28 @@ class GameManager {
       
       // バッチ更新を実行
       print('GameManager: $updateCount件の選手データをバッチ更新で保存中...');
-      await batch.commit(noResult: true);
-      print('GameManager: 選手データのバッチ更新完了');
+      try {
+        await batch.commit(noResult: true);
+        print('GameManager: 選手データのバッチ更新完了');
+      } catch (e) {
+        print('GameManager: バッチ更新でエラー: $e');
+        rethrow;
+      }
+      
+      // デバッグ用：更新後のデータを確認
+      if (grownPlayers.isNotEmpty) {
+        final firstPlayer = grownPlayers.first;
+        final result = await db.query(
+          'Player',
+          columns: ['bunt', 'contact', 'power'],
+          where: 'id = ?',
+          whereArgs: [firstPlayer.id],
+        );
+        if (result.isNotEmpty) {
+          final dbData = result.first;
+          print('GameManager._saveGrownPlayersToDatabase: データベース確認 - ID: ${firstPlayer.id}, bunt: ${dbData['bunt']}, contact: ${dbData['contact']}, power: ${dbData['power']}');
+        }
+      }
       
     } catch (e) {
       print('GameManager: 選手データ保存中にエラーが発生しました: $e');
@@ -1331,7 +1404,7 @@ class GameManager {
     // 存在しないカラムを除外
     final excludedColumns = ['motivation', 'adaptability', 'consistency'];
     if (excludedColumns.contains(abilityName)) {
-      print('GameManager._getDatabaseColumnName: 除外されたカラム: $abilityName');
+      print('GameManager._getDatabaseColumnName: 除外された能力値: $abilityName');
       return ''; // 空文字を返して、後で除外されるようにする
     }
     
@@ -1360,10 +1433,17 @@ class GameManager {
     }
     
     // それ以外は通常のcamelCase → snake_case変換
-    return abilityName.replaceAllMapped(
+    final result = abilityName.replaceAllMapped(
       RegExp(r'([A-Z])'),
       (match) => '_${match.group(1)!.toLowerCase()}'
     );
+    
+    // デバッグ用：変換結果をログ出力
+    if (result.isEmpty) {
+      print('GameManager._getDatabaseColumnName: 変換結果が空: $abilityName');
+    }
+    
+    return result;
   }
 
   // スカウトスキル成長メソッド

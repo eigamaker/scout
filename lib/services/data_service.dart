@@ -12,7 +12,7 @@ class DataService {
 
   static Database? _db;
 
-  static const int _databaseVersion = 37;
+  static const int _databaseVersion = 38;
 
   String _currentSlot = 'セーブ1'; // デフォルト
   set currentSlot(String slot) {
@@ -266,6 +266,18 @@ class DataService {
         print('バージョン36のアップグレードでエラー: $e');
       }
     }
+    
+    if (oldVersion < 38) {
+      // バージョン38ではポテンシャル値の修正を実行
+      print('データベーススキーマを更新中（バージョン38）: ポテンシャル値の修正...');
+      try {
+        await _repairPotentialValues(db);
+        await _repairHighSchoolPotentials(db);
+        print('ポテンシャル値の修正が完了しました');
+      } catch (e) {
+        print('バージョン38のアップグレードでエラー: $e');
+      }
+    }
 
       },
     );
@@ -384,10 +396,159 @@ class DataService {
         }
       }
       
+      // ポテンシャル値の修正（現在の能力値より低い場合）
+      await _repairPotentialValues(db);
+      
+      // 高校生のポテンシャル値の修正
+      await _repairHighSchoolPotentials(db);
+      
       print('_repairNumericData: 数値データの型修正完了');
     } catch (e) {
       print('_repairNumericData: エラーが発生しました: $e');
       rethrow;
+    }
+  }
+
+  // ポテンシャル値の修正（現在の能力値より低い場合）
+  Future<void> _repairPotentialValues(Database db) async {
+    print('_repairPotentialValues: ポテンシャル値の修正を開始...');
+    
+    try {
+      // 能力値のリスト
+      final abilities = [
+        'contact', 'power', 'plate_discipline', 'bunt', 'opposite_field_hitting', 'pull_hitting',
+        'bat_control', 'swing_speed', 'fielding', 'throwing', 'catcher_ability',
+        'control', 'fastball', 'breaking_ball', 'pitch_movement',
+        'concentration', 'anticipation', 'vision', 'composure', 'aggression', 'bravery',
+        'leadership', 'work_rate', 'self_discipline', 'ambition', 'teamwork',
+        'positioning', 'pressure_handling', 'clutch_ability',
+        'acceleration', 'agility', 'balance', 'jumping_reach', 'flexibility',
+        'natural_fitness', 'injury_proneness', 'stamina', 'strength', 'pace'
+      ];
+      
+      for (final ability in abilities) {
+        final potentialColumn = '${ability}_potential';
+        
+        // 現在の能力値よりポテンシャル値が低い選手を取得
+        final lowPotentialPlayers = await db.rawQuery('''
+          SELECT pl.id, pl.$ability as current_value, pp.$potentialColumn as potential_value
+          FROM Player pl 
+          JOIN PlayerPotentials pp ON pl.id = pp.player_id 
+          WHERE pl.$ability > pp.$potentialColumn 
+          AND pl.is_default_player = 0
+        ''');
+        
+        if (lowPotentialPlayers.isNotEmpty) {
+          print('_repairPotentialValues: $ability で${lowPotentialPlayers.length}件の修正が必要');
+          
+          // ポテンシャル値を現在値 + 10〜30の範囲で設定
+          final batch = db.batch();
+          final random = Random();
+          
+          for (final player in lowPotentialPlayers) {
+            final playerId = player['id'] as int;
+            final currentValue = player['current_value'] as int;
+            final bonus = 10 + random.nextInt(21); // 10〜30のボーナス
+            final newPotential = (currentValue + bonus).clamp(25, 150);
+            
+            batch.update(
+              'PlayerPotentials',
+              {potentialColumn: newPotential},
+              where: 'player_id = ?',
+              whereArgs: [playerId],
+            );
+          }
+          
+          await batch.commit(noResult: true);
+          print('_repairPotentialValues: $ability のポテンシャル値を修正しました');
+        }
+      }
+      
+      print('_repairPotentialValues: ポテンシャル値の修正完了');
+      
+      // 高校生のポテンシャル値も修正
+      await _repairHighSchoolPotentials(db);
+    } catch (e) {
+      print('_repairPotentialValues: エラーが発生しました: $e');
+    }
+  }
+
+  // 高校生のポテンシャル値が低すぎる場合の修正
+  Future<void> _repairHighSchoolPotentials(Database db) async {
+    print('_repairHighSchoolPotentials: 高校生のポテンシャル値の修正を開始...');
+    
+    try {
+      // 高校生の選手を取得（プロ選手以外）
+      final highSchoolPlayers = await db.rawQuery('''
+        SELECT DISTINCT pl.id, pl.grade, pl.talent_rank
+        FROM Player pl 
+        LEFT JOIN ProfessionalPlayer pp ON pl.id = pp.player_id 
+        WHERE pp.player_id IS NULL 
+        AND pl.is_default_player = 0
+        AND pl.grade IS NOT NULL
+      ''');
+      
+      if (highSchoolPlayers.isNotEmpty) {
+        print('_repairHighSchoolPotentials: ${highSchoolPlayers.length}件の高校生選手のポテンシャル値を修正中...');
+        
+        final batch = db.batch();
+        final random = Random();
+        
+        for (final player in highSchoolPlayers) {
+          final playerId = player['id'] as int;
+          final grade = player['grade'] as int? ?? 1;
+          final talentRank = player['talent_rank'] as int? ?? 3;
+          
+          // 才能ランクに基づく適切なポテンシャル範囲を計算
+          final basePotential = _getHighSchoolBasePotential(talentRank);
+          final variationRange = 10;
+          final minPotential = basePotential - variationRange;
+          final maxPotential = basePotential + variationRange;
+          
+          // 各能力値のポテンシャルを適切な範囲で設定
+          final abilities = [
+            'contact', 'power', 'plate_discipline', 'bunt', 'opposite_field_hitting', 'pull_hitting',
+            'bat_control', 'swing_speed', 'fielding', 'throwing', 'catcher_ability',
+            'control', 'fastball', 'breaking_ball', 'pitch_movement',
+            'concentration', 'anticipation', 'vision', 'composure', 'aggression', 'bravery',
+            'leadership', 'work_rate', 'self_discipline', 'ambition', 'teamwork',
+            'positioning', 'pressure_handling', 'clutch_ability',
+            'acceleration', 'agility', 'balance', 'jumping_reach', 'flexibility',
+            'natural_fitness', 'injury_proneness', 'stamina', 'strength', 'pace'
+          ];
+          
+          for (final ability in abilities) {
+            final potentialColumn = '${ability}_potential';
+            final variation = random.nextInt(variationRange * 2 + 1) - variationRange;
+            final potential = (basePotential + variation).clamp(minPotential, maxPotential);
+            
+            batch.update(
+              'PlayerPotentials',
+              {potentialColumn: potential},
+              where: 'player_id = ?',
+              whereArgs: [playerId],
+            );
+          }
+        }
+        
+        await batch.commit(noResult: true);
+        print('_repairHighSchoolPotentials: 高校生のポテンシャル値を修正しました');
+      }
+      
+      print('_repairHighSchoolPotentials: 高校生のポテンシャル値の修正完了');
+    } catch (e) {
+      print('_repairHighSchoolPotentials: エラーが発生しました: $e');
+    }
+  }
+
+  // 高校生の才能ランクに基づく基本ポテンシャルを取得（最高値100）
+  int _getHighSchoolBasePotential(int talentRank) {
+    switch (talentRank) {
+      case 3: return 65;  // ランク3: 60-70
+      case 4: return 75;  // ランク4: 70-80
+      case 5: return 85;  // ランク5: 80-90
+      case 6: return 95;  // ランク6: 90-100
+      default: return 65;
     }
   }
 

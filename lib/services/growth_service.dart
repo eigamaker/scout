@@ -94,6 +94,8 @@ class GrowthService {
       return player;
     }
     
+    // 成長処理の実行確認は削除（個別ログ禁止）
+    
     final random = Random();
     
     // 各能力値を成長させる
