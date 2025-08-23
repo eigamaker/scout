@@ -166,8 +166,12 @@ class TalentedPlayerGenerator {
       potentials[ability.name] = basePotential;
     }
     
-    // メンタル面ポテンシャル
+    // メンタル面ポテンシャル（データベースに存在するカラムのみ）
     for (final ability in MentalAbility.values) {
+      // 存在しないカラムを除外
+      if (ability.name == 'motivation' || ability.name == 'adaptability' || ability.name == 'consistency') {
+        continue;
+      }
       final basePotential = 50 + _random.nextInt(31); // 50-80
       potentials[ability.name] = basePotential;
     }

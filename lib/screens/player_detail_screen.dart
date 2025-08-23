@@ -63,9 +63,10 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     'ポジショニング': 'positioning_scouted',
     'プレッシャー耐性': 'pressure_handling_scouted',
     '勝負強さ': 'clutch_ability_scouted',
-    'モチベーション': 'motivation_scouted',
-    '適応力': 'adaptability_scouted',
-    '安定性': 'consistency_scouted',
+    // 以下の能力値はデータベースに存在しないため除外
+    // 'モチベーション': 'motivation_scouted',
+    // '適応力': 'adaptability_scouted',
+    // '安定性': 'consistency_scouted',
     
     // Physical abilities
     '加速力': 'acceleration_scouted',
@@ -296,12 +297,13 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         return widget.player.getMentalAbility(MentalAbility.pressureHandling);
       case 'clutchAbility':
         return widget.player.getMentalAbility(MentalAbility.clutchAbility);
-      case 'motivation':
-        return widget.player.getMentalAbility(MentalAbility.motivation);
-      case 'adaptability':
-        return widget.player.getMentalAbility(MentalAbility.adaptability);
-      case 'consistency':
-        return widget.player.getMentalAbility(MentalAbility.consistency);
+      // 以下の能力値はデータベースに存在しないため除外
+      // case 'motivation':
+      //   return widget.player.getMentalAbility(MentalAbility.motivation);
+      // case 'adaptability':
+      //   return widget.player.getMentalAbility(MentalAbility.adaptability);
+      // case 'consistency':
+      //   return widget.player.getMentalAbility(MentalAbility.consistency);
       case 'acceleration':
         return widget.player.getPhysicalAbility(PhysicalAbility.acceleration);
       case 'agility':
@@ -370,9 +372,10 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       case MentalAbility.positioning: return 'positioning_scouted';
       case MentalAbility.pressureHandling: return 'pressure_handling_scouted';
       case MentalAbility.clutchAbility: return 'clutch_ability_scouted';
-      case MentalAbility.motivation: return 'motivation_scouted';
-      case MentalAbility.adaptability: return 'adaptability_scouted';
-      case MentalAbility.consistency: return 'consistency_scouted';
+      // 以下の能力値はデータベースに存在しないため除外
+      // case MentalAbility.motivation: return 'motivation_scouted';
+      // case MentalAbility.adaptability: return 'adaptability_scouted';
+      // case MentalAbility.consistency: return 'consistency_scouted';
     }
   }
 
@@ -1084,9 +1087,10 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
               categoryColor, 
               '成長・適応力', 
               [
-                MentalAbility.motivation,
-                MentalAbility.adaptability,
-                MentalAbility.consistency,
+                        // 以下の能力値はデータベースに存在しないため除外
+        // MentalAbility.motivation,
+        // MentalAbility.adaptability,
+        // MentalAbility.consistency,
               ].map((ability) => 
                 _buildAbilityRow(ability.displayName, _getDisplayMentalAbility(ability), textColor, categoryColor)
               ).toList(),
@@ -1628,7 +1632,8 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       'concentration', 'anticipation', 'vision', 'composure', 'aggression',
       'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
       'teamwork', 'positioning', 'pressureHandling', 'clutchAbility',
-      'motivation', 'adaptability', 'consistency'
+              // 以下の能力値はデータベースに存在しないため除外
+        // 'motivation', 'adaptability', 'consistency'
     ];
     
     for (final ability in mentalAbilities) {
@@ -1701,7 +1706,9 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       'concentration', 'anticipation', 'vision', 'composure',
       'aggression', 'bravery', 'leadership', 'workRate',
       'selfDiscipline', 'ambition', 'teamwork', 'positioning',
-      'pressureHandling', 'clutchAbility', 'motivation', 'adaptability', 'consistency'
+              'pressureHandling', 'clutchAbility'
+        // 以下の能力値はデータベースに存在しないため除外
+        // 'motivation', 'adaptability', 'consistency'
     ];
 
     int knownCount = 0;

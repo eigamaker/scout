@@ -69,7 +69,8 @@ class GrowthService {
 
   // 成長タイミングの判定（3ヶ月に1回）
   static bool shouldGrow(int currentWeek) {
-    // 5月1週、8月1週、11月1週、2月1週で成長
+    // 4週固定の場合の成長週判定
+    // 5月1週（週5）、8月1週（週17）、11月1週（週29）、2月1週（週41）で成長
     final isGrowthWeek = _isGrowthWeek(currentWeek);
     
     print('GrowthService.shouldGrow: 週$currentWeek - 成長週か: $isGrowthWeek');
@@ -90,7 +91,6 @@ class GrowthService {
   static Player growPlayer(Player player) {
     // デフォルト選手は成長しない
     if (player.isDefaultPlayer) {
-      print('GrowthService.growPlayer: デフォルト選手 ${player.name} は成長処理をスキップ');
       return player;
     }
     
@@ -123,8 +123,11 @@ class GrowthService {
       mentalAbilities: updatedMentalAbilities,
       physicalAbilities: updatedPhysicalAbilities,
     );
+    
     return grownPlayer;
   }
+
+
 
   // 能力値の成長計算
   static Map<T, int> _growAbilities<T>(
@@ -143,8 +146,15 @@ class GrowthService {
         final growthAmount = _calculateGrowthAmount(player, currentValue, potential);
         final newValue = (currentValue + growthAmount).clamp(25, potential);
         updatedAbilities[ability] = newValue;
+        
+        if (growthAmount > 0) {
+          // 成長あり
+        } else if (growthAmount < 0) {
+          // 減退あり
+        }
       } else {
         updatedAbilities[ability] = currentValue;
+        // 成長なし
       }
     }
     
@@ -172,9 +182,9 @@ class GrowthService {
   // 成長量の計算
   static int _calculateGrowthAmount(Player player, int currentValue, int potential) {
     final ageBasedFactor = _getAgeBasedGrowthFactor(player.age, player.growthType);
-    final growthRate = player.growthRate;
-    final mentalGritBonus = 0.8 + player.mentalGrit * 0.4; // 0.8-1.2
-    final talentBonus = _getTalentBonus(player.talent);
+    final growthRate = player.growthRate ?? 1.0; // nullの場合は1.0を使用
+    final mentalGritBonus = 0.8 + (player.mentalGrit ?? 1) * 0.4; // 0.8-1.2
+    final talentBonus = _getTalentBonus(player.talent ?? 1);
     final randomFactor = _getRandomFactor();
     final potentialPenalty = _getPotentialPenalty(currentValue, potential);
 

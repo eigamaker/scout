@@ -232,7 +232,8 @@ class School {
       'concentration', 'anticipation', 'vision', 'composure', 'aggression', 
       'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
       'teamwork', 'positioning', 'pressureHandling', 'clutchAbility',
-      'motivation', 'adaptability', 'consistency'
+              // 以下の能力値はデータベースに存在しないため除外
+        // 'motivation', 'adaptability', 'consistency'
     ];
     
     // Physical（フィジカル面）能力値ポテンシャル

@@ -860,9 +860,10 @@ class ActionService {
         {'key': 'positioning_scouted', 'ability': MentalAbility.positioning},
         {'key': 'pressure_handling_scouted', 'ability': MentalAbility.pressureHandling},
         {'key': 'clutch_ability_scouted', 'ability': MentalAbility.clutchAbility},
-        {'key': 'motivation_scouted', 'ability': MentalAbility.motivation},
-        {'key': 'adaptability_scouted', 'ability': MentalAbility.adaptability},
-        {'key': 'consistency_scouted', 'ability': MentalAbility.consistency},
+        // 以下の能力値はデータベースに存在しないため除外
+        // {'key': 'motivation_scouted', 'ability': MentalAbility.motivation},
+        // {'key': 'adaptability_scouted', 'ability': MentalAbility.adaptability},
+        // {'key': 'consistency_scouted', 'ability': MentalAbility.consistency},
       ];
       
       for (final abilityInfo in mentalAbilities) {
@@ -1514,9 +1515,10 @@ class ActionService {
         {'key': 'positioning_scouted', 'ability': MentalAbility.positioning},
         {'key': 'pressure_handling_scouted', 'ability': MentalAbility.pressureHandling},
         {'key': 'clutch_ability_scouted', 'ability': MentalAbility.clutchAbility},
-        {'key': 'motivation_scouted', 'ability': MentalAbility.motivation},
-        {'key': 'adaptability_scouted', 'ability': MentalAbility.adaptability},
-        {'key': 'consistency_scouted', 'ability': MentalAbility.consistency},
+        // 以下の能力値はデータベースに存在しないため除外
+        // {'key': 'motivation_scouted', 'ability': MentalAbility.motivation},
+        // {'key': 'adaptability_scouted', 'ability': MentalAbility.adaptability},
+        // {'key': 'consistency_scouted', 'ability': MentalAbility.consistency},
       ];
       
       for (final abilityInfo in mentalAbilities) {
@@ -1975,10 +1977,11 @@ class ActionService {
         'positioning_scouted': _generateScoutedValue(player['positioning'] as int? ?? 50, accuracy),
         'pressure_handling_scouted': _generateScoutedValue(player['pressure_handling'] as int? ?? 50, accuracy),
         'clutch_ability_scouted': _generateScoutedValue(player['clutch_ability'] as int? ?? 50, accuracy),
-        'motivation_scouted': _generateScoutedValue(player['motivation'] as int? ?? 50, accuracy),
+        // 以下の能力値はデータベースに存在しないため除外
+        // 'motivation_scouted': _generateScoutedValue(player['motivation'] as int? ?? 50, accuracy),
         'pressure_scouted': _generateScoutedValue(player['pressure'] as int? ?? 50, accuracy),
-        'adaptability_scouted': _generateScoutedValue(player['adaptability'] as int? ?? 50, accuracy),
-        'consistency_scouted': _generateScoutedValue(player['consistency'] as int? ?? 50, accuracy),
+        // 'adaptability_scouted': _generateScoutedValue(player['adaptability'] as int? ?? 50, accuracy),
+        // 'consistency_scouted': _generateScoutedValue(player['consistency'] as int? ?? 50, accuracy),
         'clutch_scouted': _generateScoutedValue(player['clutch'] as int? ?? 50, accuracy),
         'work_ethic_scouted': _generateScoutedValue(player['work_ethic'] as int? ?? 50, accuracy),
         // 身体的能力値評価（簡易版）
@@ -2126,10 +2129,11 @@ class ActionService {
       (player['positioning'] as int? ?? 50) * 1.0,
       (player['pressure_handling'] as int? ?? 50) * 1.2,
       (player['clutch_ability'] as int? ?? 50) * 1.2,
-      (player['motivation'] as int? ?? 50) * 1.1,
+      // 以下の能力値はデータベースに存在しないため除外
+      // (player['motivation'] as int? ?? 50) * 1.1,
       (player['pressure'] as int? ?? 50) * 1.0,
-      (player['adaptability'] as int? ?? 50) * 1.0,
-      (player['consistency'] as int? ?? 50) * 1.1,
+      // (player['adaptability'] as int? ?? 50) * 1.0,
+      // (player['consistency'] as int? ?? 50) * 1.1,
       (player['clutch'] as int? ?? 50) * 1.2,
       (player['work_ethic'] as int? ?? 50) * 1.2,
     ];

@@ -41,15 +41,12 @@ enum MentalAbility {
   workRate('勤勉さ', '練習への取り組み'),
   selfDiscipline('自己管理', '自己管理能力'),
   ambition('野心', '上昇志向'),
-  motivation('モチベーション', 'やる気と意欲'),
   
   // チームプレー
   teamwork('チームワーク', 'チームプレーへの貢献'),
   positioning('ポジショニング', '守備位置の判断'),
   pressureHandling('プレッシャー耐性', 'プレッシャーへの対応'),
-  clutchAbility('勝負強さ', '重要な場面での活躍'),
-  adaptability('適応力', '状況変化への対応力'),
-  consistency('安定性', '安定したパフォーマンス');
+  clutchAbility('勝負強さ', '重要な場面での活躍');
 
   const MentalAbility(this.displayName, this.description);
   final String displayName;
@@ -123,8 +120,6 @@ enum AbilityType {
   positioning(MentalAbility.positioning, AbilityCategory.mental),
   pressureHandling(MentalAbility.pressureHandling, AbilityCategory.mental),
   clutchAbility(MentalAbility.clutchAbility, AbilityCategory.mental),
-  adaptability(MentalAbility.adaptability, AbilityCategory.mental),
-  consistency(MentalAbility.consistency, AbilityCategory.mental),
   
   // Physical abilities
   acceleration(PhysicalAbility.acceleration, AbilityCategory.physical),

@@ -352,12 +352,33 @@ class DataService {
       
       for (final column in numericColumns) {
         try {
-          await db.execute('''
-            UPDATE Player 
-            SET $column = CAST($column AS INTEGER) 
-            WHERE $column IS NOT NULL AND $column != ''
-          ''');
-          print('_repairNumericData: ${column}カラムを修正しました');
+          // まず、文字列として保存されている数値を確認
+          final stringValues = await db.query('Player', 
+            columns: [column], 
+            where: 'typeof($column) = \'text\' AND $column IS NOT NULL AND $column != \'\''
+          );
+          
+          if (stringValues.isNotEmpty) {
+            print('_repairNumericData: $columnカラムに文字列データが${stringValues.length}件見つかりました');
+            
+            // 文字列を整数に変換
+            await db.execute('''
+              UPDATE Player 
+              SET $column = CAST($column AS INTEGER) 
+              WHERE typeof($column) = 'text' AND $column IS NOT NULL AND $column != ''
+            ''');
+            
+            // 変換できなかった場合は0に設定
+            await db.execute('''
+              UPDATE Player 
+              SET $column = 0 
+              WHERE $column IS NULL OR $column = '' OR typeof($column) = 'text'
+            ''');
+            
+            print('_repairNumericData: ${column}カラムを修正しました');
+          } else {
+            print('_repairNumericData: ${column}カラムは正常です');
+          }
         } catch (e) {
           print('_repairNumericData: ${column}カラムの修正でエラー: $e');
         }

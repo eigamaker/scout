@@ -72,7 +72,7 @@ class PlayerAssignmentService {
     final averageCount = (totalTalentedPlayers * 0.20).round();    // 20%
     final weakCount = totalTalentedPlayers - eliteCount - strongCount - averageCount; // 5%
     
-    print('配属予定選手数: 名門${eliteCount}人, 強豪${strongCount}人, 中堅${averageCount}人, 弱小${weakCount}人');
+
     
     // 各ランクの学校に選手を配属
     await _assignPlayersToRankedSchools(eliteSchools, talentedPlayers.take(eliteCount).toList());

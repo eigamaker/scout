@@ -122,9 +122,10 @@ class PlayerDataGenerator {
       'positioning': mentalAbilities[MentalAbility.positioning] ?? 25,
       'pressure_handling': mentalAbilities[MentalAbility.pressureHandling] ?? 25,
       'clutch_ability': mentalAbilities[MentalAbility.clutchAbility] ?? 25,
-      'motivation': mentalAbilities[MentalAbility.motivation] ?? 25,
-      'adaptability': mentalAbilities[MentalAbility.adaptability] ?? 25,
-      'consistency': mentalAbilities[MentalAbility.consistency] ?? 25,
+              // 以下の能力値はデータベースに存在しないため除外
+        // 'motivation': mentalAbilities[MentalAbility.motivation] ?? 25,
+        // 'adaptability': mentalAbilities[MentalAbility.adaptability] ?? 25,
+        // 'consistency': mentalAbilities[MentalAbility.consistency] ?? 25,
       // Physical abilities
       'acceleration': physicalAbilities[PhysicalAbility.acceleration] ?? 25,
       'agility': physicalAbilities[PhysicalAbility.agility] ?? 25,
@@ -254,10 +255,11 @@ class PlayerDataGenerator {
         (playerData['positioning'] as int? ?? 50) * 1.0, // ポジショニング
         (playerData['pressure_handling'] as int? ?? 50) * 1.2, // プレッシャー処理
         (playerData['clutch_ability'] as int? ?? 50) * 1.2, // 勝負強さ
-        (playerData['motivation'] as int? ?? 50) * 1.1, // モチベーション
-        (playerData['pressure'] as int? ?? 50) * 1.0, // プレッシャー
-        (playerData['adaptability'] as int? ?? 50) * 1.0, // 適応力
-        (playerData['consistency'] as int? ?? 50) * 1.1, // 安定性
+        // 以下の能力値はデータベースに存在しないため除外
+        // (playerData['motivation'] as int? ?? 50) * 1.1, // モチベーション
+        // (playerData['pressure'] as int? ?? 50) * 1.0, // プレッシャー
+        // (playerData['adaptability'] as int? ?? 50) * 1.0, // 適応力
+        // (playerData['consistency'] as int? ?? 50) * 1.1, // 安定性
         (playerData['clutch'] as int? ?? 50) * 1.2, // 勝負強さ
         (playerData['work_ethic'] as int? ?? 50) * 1.2, // 練習熱心
       ];
@@ -362,7 +364,8 @@ class PlayerDataGenerator {
       'concentration', 'anticipation', 'vision', 'composure', 'aggression', 
       'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
       'teamwork', 'positioning', 'pressureHandling', 'clutchAbility',
-      'motivation', 'adaptability', 'consistency'
+      // 以下の能力値はデータベースに存在しないため除外
+      // 'motivation', 'adaptability', 'consistency'
     ];
     
     // Physical（フィジカル面）能力値
@@ -782,7 +785,8 @@ class PlayerDataGenerator {
       'concentration', 'anticipation', 'vision', 'composure', 'aggression', 
       'bravery', 'leadership', 'workRate', 'selfDiscipline', 'ambition',
       'teamwork', 'positioning', 'pressureHandling', 'clutchAbility',
-      'motivation', 'adaptability', 'consistency'
+      // 以下の能力値はデータベースに存在しないため除外
+      // 'motivation', 'adaptability', 'consistency'
     ];
     
     // 身体的ポテンシャル
@@ -874,9 +878,10 @@ class PlayerDataGenerator {
       'positioning': 0,
       'pressure_handling': 0,
       'clutch_ability': 0,
-      'motivation': 0,
-      'adaptability': 0,
-      'consistency': 0,
+      // 以下の能力値はデータベースに存在しないため除外
+      // 'motivation': 0,
+      // 'adaptability': 0,
+      // 'consistency': 0,
       'acceleration': 0,
       'agility': 0,
       'balance': 0,

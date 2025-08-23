@@ -1,6 +1,7 @@
 import 'dart:math';
 import '../models/game/game.dart';
 import '../models/player/player.dart';
+import '../models/player/player_abilities.dart';
 import '../models/news/news_item.dart';
 import 'news_service.dart';
 import 'growth_service.dart';
@@ -69,24 +70,98 @@ class GameStateManager {
   // 全選手の成長処理（3ヶ月ごと - 5月1週、8月1週、11月1週、2月1週）
   static Game growAllPlayers(Game game) {
     print('GameStateManager.growAllPlayers: 全選手の成長処理開始');
+    
+    int totalPlayers = 0;
+    int grownPlayersCount = 0;
+    bool isFirstSchool = true;
+    
     final updatedSchools = game.schools.map((school) {
-      final grownPlayers = school.players.map((p) {
+      final updatedPlayers = school.players.map((p) {
         // デフォルト選手は成長処理をスキップ
         if (p.isDefaultPlayer) {
-          print('GameStateManager.growAllPlayers: 選手ID ${p.id} (${p.name}) はデフォルト選手のため成長処理をスキップ');
           return p;
         }
         
-        print('GameStateManager.growAllPlayers: 選手ID ${p.id} (${p.name}) の成長処理');
+        totalPlayers++;
+        
         // GrowthServiceを使用して適切な成長処理を実行
         final grownPlayer = GrowthService.growPlayer(p);
-        print('GameStateManager.growAllPlayers: 選手ID ${p.id} (${p.name}) の成長処理完了');
+        
+        // 成長があったかチェック
+        if (_hasPlayerGrown(p, grownPlayer)) {
+          grownPlayersCount++;
+          
+          // 1校目のみ、最初の成長した選手の詳細ログを出力
+          if (isFirstSchool) {
+            _logFirstPlayerGrowth(p, grownPlayer);
+            isFirstSchool = false;
+          }
+        }
+        
         return grownPlayer;
       }).toList();
-      return school.copyWith(players: grownPlayers);
+      return school.copyWith(players: updatedPlayers);
     }).toList();
     
-    print('GameStateManager.growAllPlayers: 全選手の成長処理完了（デフォルト選手除く）');
+    print('GameStateManager.growAllPlayers: 全選手の成長処理完了 - 総選手数: $totalPlayers, 成長した選手数: $grownPlayersCount');
     return game.copyWith(schools: updatedSchools);
+  }
+  
+  // 選手が成長したかチェック
+  static bool _hasPlayerGrown(Player oldPlayer, Player newPlayer) {
+    // 技術面能力値の変化をチェック
+    for (final entry in oldPlayer.technicalAbilities.entries) {
+      final oldValue = entry.value;
+      final newValue = newPlayer.technicalAbilities[entry.key] ?? oldValue;
+      if (newValue != oldValue) return true;
+    }
+    
+    // メンタル面能力値の変化をチェック
+    for (final entry in oldPlayer.mentalAbilities.entries) {
+      final oldValue = entry.value;
+      final newValue = newPlayer.mentalAbilities[entry.key] ?? oldValue;
+      if (newValue != oldValue) return true;
+    }
+    
+    // フィジカル面能力値の変化をチェック
+    for (final entry in oldPlayer.physicalAbilities.entries) {
+      final oldValue = entry.value;
+      final newValue = newPlayer.physicalAbilities[entry.key] ?? oldValue;
+      if (newValue != oldValue) return true;
+    }
+    
+    return false;
+  }
+  
+  // 最初の成長した選手の詳細ログを出力
+  static void _logFirstPlayerGrowth(Player oldPlayer, Player newPlayer) {
+    print('GameStateManager: 最初の成長した選手の詳細 - ${newPlayer.name}');
+    
+    // 技術面能力値の変化をチェック
+    for (final entry in oldPlayer.technicalAbilities.entries) {
+      final oldValue = entry.value;
+      final newValue = newPlayer.technicalAbilities[entry.key] ?? oldValue;
+      if (newValue != oldValue) {
+        print('  ${entry.key.name}: $oldValue → $newValue (${newValue > oldValue ? '+' : ''}${newValue - oldValue})');
+      }
+    }
+    
+    // メンタル面能力値の変化をチェック
+    for (final entry in oldPlayer.mentalAbilities.entries) {
+      final oldValue = entry.value;
+      final newValue = newPlayer.mentalAbilities[entry.key] ?? oldValue;
+      if (newValue != oldValue) {
+        print('  ${entry.key.name}: $oldValue → $newValue (${newValue > oldValue ? '+' : ''}${newValue - oldValue})');
+      }
+    }
+    
+    // フィジカル面能力値の変化をチェック
+    for (final entry in oldPlayer.physicalAbilities.entries) {
+      final oldValue = entry.value;
+      final newValue = newPlayer.physicalAbilities[entry.key] ?? oldValue;
+      if (newValue != oldValue) {
+        print('  ${entry.key.name}: $oldValue → $newValue (${newValue > oldValue ? '+' : ''}${newValue - oldValue})');
+      }
+    }
   }
 } 
