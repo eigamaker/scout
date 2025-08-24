@@ -193,10 +193,10 @@ class PlayerGenerator {
     final basePotential = _getBasePotentialByTalent(talent);
     
     for (final ability in MentalAbility.values) {
-      // 存在しないカラムを除外
-      if (ability.name == 'motivation' || ability.name == 'adaptability' || ability.name == 'consistency') {
-        continue;
-      }
+      // 存在しないカラムを除外（重複のため削除）
+      // if (ability.name == 'motivation' || ability.name == 'adaptability' || ability.name == 'consistency') {
+      //   continue;
+      // }
       
       int baseValue = basePotential + _random.nextInt(30) - 15; // 基本値 + ランダム変動
       

@@ -132,12 +132,13 @@ class TalentedPlayerGenerator {
       growthType: growthType,
       individualPotentials: individualPotentials,
       scoutAnalysisData: null,
-      motivationAbility: additionalAbilities['motivation'] ?? 50,
-      pressureAbility: additionalAbilities['pressure'] ?? 50,
-      adaptabilityAbility: additionalAbilities['adaptability'] ?? 50,
-      consistencyAbility: additionalAbilities['consistency'] ?? 50,
-      clutchAbility: additionalAbilities['clutch'] ?? 50,
-      workEthicAbility: additionalAbilities['work_ethic'] ?? 50,
+      // 以下のフィールドは重複のため削除
+      // motivationAbility: additionalAbilities['motivation'] ?? 50,
+      // pressureAbility: additionalAbilities['pressure'] ?? 50,
+      // adaptabilityAbility: additionalAbilities['adaptability'] ?? 50,
+      // consistencyAbility: additionalAbilities['consistency'] ?? 50,
+      // clutchAbility: additionalAbilities['clutch'] ?? 50,
+      // workEthicAbility: additionalAbilities['work_ethic'] ?? 50,
     );
     
     // 総合能力値を更新
@@ -265,10 +266,10 @@ class TalentedPlayerGenerator {
     
     // メンタル面ポテンシャル（データベースに存在するカラムのみ）
     for (final ability in MentalAbility.values) {
-      // 存在しないカラムを除外
-      if (ability.name == 'motivation' || ability.name == 'adaptability' || ability.name == 'consistency') {
-        continue;
-      }
+      // 存在しないカラムを除外（重複のため削除）
+      // if (ability.name == 'motivation' || ability.name == 'adaptability' || ability.name == 'consistency') {
+      //   continue;
+      // }
       int baseValue = basePotential + _random.nextInt(variationRange * 2 + 1) - variationRange;
       
       // 才能ランクによる微調整
@@ -322,10 +323,10 @@ class TalentedPlayerGenerator {
     final basePotential = _getBasePotentialByTalent(talentRank);
     
     for (final ability in MentalAbility.values) {
-      // 存在しないカラムを除外
-      if (ability.name == 'motivation' || ability.name == 'adaptability' || ability.name == 'consistency') {
-        continue;
-      }
+      // 存在しないカラムを除外（重複のため削除）
+      // if (ability.name == 'motivation' || ability.name == 'adaptability' || ability.name == 'consistency') {
+      //   continue;
+      // }
       
       int baseValue = basePotential + _random.nextInt(31) - 15; // 基本値 + ランダム変動
       
@@ -402,10 +403,10 @@ class TalentedPlayerGenerator {
       final ability = entry.key;
       final potential = entry.value;
       
-      // 存在しないカラムを除外
-      if (ability.name == 'motivation' || ability.name == 'adaptability' || ability.name == 'consistency') {
-        continue;
-      }
+      // 存在しないカラムを除外（重複のため削除）
+      // if (ability.name == 'motivation' || ability.name == 'adaptability' || ability.name == 'consistency') {
+      //   continue;
+      // }
       
       // ポテンシャルの60-70%の範囲で能力値を設定
       final baseValue = (potential * (_minAbilityPercentage + _random.nextDouble() * (_maxAbilityPercentage - _minAbilityPercentage))).round();

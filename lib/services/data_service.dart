@@ -12,7 +12,7 @@ class DataService {
 
   static Database? _db;
 
-  static const int _databaseVersion = 39;
+  static const int _databaseVersion = 40;
 
   String _currentSlot = 'セーブ1'; // デフォルト
   set currentSlot(String slot) {
@@ -32,7 +32,7 @@ class DataService {
     final path = join(dbPath, 'scout_game.db');
     return await openDatabase(
               path,
-        version: _databaseVersion, // バージョンを39に更新
+        version: _databaseVersion, // バージョンを40に更新
         onCreate: (db, version) async {
           // 既存のテーブル作成処理を流用
           await _createAllTables(db);
@@ -187,7 +187,7 @@ class DataService {
     final path = join(dbPath, dbName);
     return await openDatabase(
               path,
-        version: _databaseVersion, // バージョンを39に更新
+        version: _databaseVersion, // バージョンを40に更新
         onCreate: (db, version) async {
           // 既存のテーブル作成処理を流用
           await _createAllTables(db);
@@ -810,12 +810,13 @@ class DataService {
       
       try {
         // Playerテーブルに不足しているカラムを追加
-        await db.execute('ALTER TABLE Player ADD COLUMN motivation INTEGER DEFAULT 50');
-        await db.execute('ALTER TABLE Player ADD COLUMN pressure INTEGER DEFAULT 50');
-        await db.execute('ALTER TABLE Player ADD COLUMN adaptability INTEGER DEFAULT 50');
-        await db.execute('ALTER TABLE Player ADD COLUMN consistency INTEGER DEFAULT 50');
-        await db.execute('ALTER TABLE Player ADD COLUMN clutch INTEGER DEFAULT 50');
-        await db.execute('ALTER TABLE Player ADD COLUMN work_ethic INTEGER DEFAULT 50');
+        // 以下のカラムは重複のため削除
+        // await db.execute('ALTER TABLE Player ADD COLUMN motivation INTEGER DEFAULT 50');
+        // await db.execute('ALTER TABLE Player ADD COLUMN pressure INTEGER DEFAULT 50');
+        // await db.execute('ALTER TABLE Player ADD COLUMN adaptability INTEGER DEFAULT 50');
+        // await db.execute('ALTER TABLE Player ADD COLUMN consistency INTEGER DEFAULT 50');
+        // await db.execute('ALTER TABLE Player ADD COLUMN clutch INTEGER DEFAULT 50');
+        // await db.execute('ALTER TABLE Player ADD COLUMN work_ethic INTEGER DEFAULT 50');
         
         // 総合能力値カラムを追加
         await db.execute('ALTER TABLE Player ADD COLUMN overall INTEGER DEFAULT 50');
@@ -824,12 +825,13 @@ class DataService {
         await db.execute('ALTER TABLE Player ADD COLUMN mental INTEGER DEFAULT 50');
         
         // PlayerPotentialsテーブルに不足しているカラムを追加
-        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN motivation_potential INTEGER DEFAULT 50');
-        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN pressure_potential INTEGER DEFAULT 50');
-        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN adaptability_potential INTEGER DEFAULT 50');
-        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN consistency_potential INTEGER DEFAULT 50');
-        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN clutch_potential INTEGER DEFAULT 50');
-        await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN work_ethic_potential INTEGER DEFAULT 50');
+        // 以下のカラムは重複のため削除
+        // await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN motivation_potential INTEGER DEFAULT 50');
+        // await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN pressure_potential INTEGER DEFAULT 50');
+        // await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN adaptability_potential INTEGER DEFAULT 50');
+        // await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN consistency_potential INTEGER DEFAULT 50');
+        // await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN clutch_potential INTEGER DEFAULT 50');
+        // await db.execute('ALTER TABLE PlayerPotentials ADD COLUMN work_ethic_potential INTEGER DEFAULT 50');
         
         print('不足している能力値カラムの追加完了');
       } catch (e) {
@@ -1463,13 +1465,13 @@ class DataService {
         stamina INTEGER DEFAULT 50,
         strength INTEGER DEFAULT 50,
         pace INTEGER DEFAULT 50,
-        -- 追加された能力値カラム
-        motivation INTEGER DEFAULT 50,
-        pressure INTEGER DEFAULT 50,
-        adaptability INTEGER DEFAULT 50,
-        consistency INTEGER DEFAULT 50,
-        clutch INTEGER DEFAULT 50,
-        work_ethic INTEGER DEFAULT 50,
+        -- 追加された能力値カラム（重複のため削除）
+        -- motivation INTEGER DEFAULT 50,
+        -- pressure INTEGER DEFAULT 50,
+        -- adaptability INTEGER DEFAULT 50,
+        -- consistency INTEGER DEFAULT 50,
+        -- clutch INTEGER DEFAULT 50,
+        -- work_ethic INTEGER DEFAULT 50,
         -- 総合能力値カラム
         overall INTEGER DEFAULT 50,
         technical INTEGER DEFAULT 50,
@@ -1519,12 +1521,13 @@ class DataService {
         positioning_potential INTEGER DEFAULT 50,
         pressure_handling_potential INTEGER DEFAULT 50,
         clutch_ability_potential INTEGER DEFAULT 50,
-        motivation_potential INTEGER DEFAULT 50,
-        pressure_potential INTEGER DEFAULT 50,
-        adaptability_potential INTEGER DEFAULT 50,
-        consistency_potential INTEGER DEFAULT 50,
-        clutch_potential INTEGER DEFAULT 50,
-        work_ethic_potential INTEGER DEFAULT 50,
+        -- 以下のカラムは重複のため削除
+        -- motivation_potential INTEGER DEFAULT 50,
+        -- pressure_potential INTEGER DEFAULT 50,
+        -- adaptability_potential INTEGER DEFAULT 50,
+        -- consistency_potential INTEGER DEFAULT 50,
+        -- clutch_potential INTEGER DEFAULT 50,
+        -- work_ethic_potential INTEGER DEFAULT 50,
         -- Physical（フィジカル面）ポテンシャル
         acceleration_potential INTEGER DEFAULT 50,
         agility_potential INTEGER DEFAULT 50,
@@ -1701,9 +1704,10 @@ class DataService {
         positioning_scouted INTEGER,
         pressure_handling_scouted INTEGER,
         clutch_ability_scouted INTEGER,
-        motivation_scouted INTEGER,
-        adaptability_scouted INTEGER,
-        consistency_scouted INTEGER,
+        -- 以下のカラムは重複のため削除
+        -- motivation_scouted INTEGER,
+        -- adaptability_scouted INTEGER,
+        -- consistency_scouted INTEGER,
         acceleration_scouted INTEGER,
         agility_scouted INTEGER,
         balance_scouted INTEGER,
@@ -2265,13 +2269,13 @@ class DataService {
         (playerData['positioning'] as int? ?? 50) * 1.0, // ポジショニング
         (playerData['pressure_handling'] as int? ?? 50) * 1.2, // プレッシャー処理
         (playerData['clutch_ability'] as int? ?? 50) * 1.2, // 勝負強さ
-        // 追加された能力値
-        (playerData['motivation'] as int? ?? 50) * 1.1, // 動機・目標
-        (playerData['pressure'] as int? ?? 50) * 1.0, // プレッシャー耐性
-        (playerData['adaptability'] as int? ?? 50) * 1.1, // 適応力
-        (playerData['consistency'] as int? ?? 50) * 1.1, // 安定性
-        (playerData['clutch'] as int? ?? 50) * 1.2, // 勝負強さ
-        (playerData['work_ethic'] as int? ?? 50) * 1.2, // 仕事への取り組み
+        // 追加された能力値（重複のため削除）
+        // (playerData['motivation'] as int? ?? 50) * 1.1, // 動機・目標
+        // (playerData['pressure'] as int? ?? 50) * 1.0, // プレッシャー耐性
+        // (playerData['adaptability'] as int? ?? 50) * 1.1, // 適応力
+        // (playerData['consistency'] as int? ?? 50) * 1.1, // 安定性
+        // (playerData['clutch'] as int? ?? 50) * 1.2, // 勝負強さ
+        // (playerData['work_ethic'] as int? ?? 50) * 1.2, // 仕事への取り組み
       ];
       
       final mentalAbility = (mentalAbilities.reduce((a, b) => a + b) / mentalAbilities.length).round();
@@ -2540,13 +2544,13 @@ class DataService {
       (analysis['positioning_scouted'] as int? ?? 50) * 1.0,
       (analysis['pressure_handling_scouted'] as int? ?? 50) * 1.2,
       (analysis['clutch_ability_scouted'] as int? ?? 50) * 1.2,
-      // 追加された能力値
-      (analysis['motivation_scouted'] as int? ?? 50) * 1.1,
-      (analysis['pressure_scouted'] as int? ?? 50) * 1.0,
-      (analysis['adaptability_scouted'] as int? ?? 50) * 1.1,
-      (analysis['consistency_scouted'] as int? ?? 50) * 1.1,
-      (analysis['clutch_scouted'] as int? ?? 50) * 1.2,
-      (analysis['work_ethic_scouted'] as int? ?? 50) * 1.2,
+      // 追加された能力値（重複のため削除）
+      // (analysis['motivation_scouted'] as int? ?? 50) * 1.1,
+      // (analysis['pressure_scouted'] as int? ?? 50) * 1.0,
+      // (analysis['adaptability_scouted'] as int? ?? 50) * 1.1,
+      // (analysis['consistency_scouted'] as int? ?? 50) * 1.1,
+      // (analysis['clutch_scouted'] as int? ?? 50) * 1.2,
+      // (analysis['work_ethic_scouted'] as int? ?? 50) * 1.2,
     ];
     
     return (mentalAbilities.reduce((a, b) => a + b) / mentalAbilities.length).round();

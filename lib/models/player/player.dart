@@ -65,13 +65,13 @@ class Player {
   final Map<MentalAbility, int> mentalAbilities; // メンタル面能力値
   final Map<PhysicalAbility, int> physicalAbilities; // フィジカル面能力値
   
-  // 追加された能力値
-  final int motivationAbility; // 動機・目標（能力値）
-  final int pressureAbility; // プレッシャー耐性（能力値）
-  final int adaptabilityAbility; // 適応力（能力値）
-  final int consistencyAbility; // 安定性（能力値）
-  final int clutchAbility; // 勝負強さ（能力値）
-  final int workEthicAbility; // 仕事への取り組み（能力値）
+  // 追加された能力値（重複のため削除）
+  // final int motivationAbility; // 動機・目標（能力値）
+  // final int pressureAbility; // プレッシャー耐性（能力値）
+  // final int adaptabilityAbility; // 適応力（能力値）
+  // final int consistencyAbility; // 安定性（能力値）
+  // final int clutchAbility; // 勝負強さ（能力値）
+  // final int workEthicAbility; // 仕事への取り組み（能力値）
   
   // 総合能力値
   final int overall; // 総合能力値
@@ -150,12 +150,13 @@ class Player {
     List<Achievement>? achievements,
     this.scoutAnalysisData,
     this.isDefaultPlayer = false,
-    this.motivationAbility = 50,
-    this.pressureAbility = 50,
-    this.adaptabilityAbility = 50,
-    this.consistencyAbility = 50,
-    this.clutchAbility = 50,
-    this.workEthicAbility = 50,
+    // 以下のフィールドは重複のため削除
+    // this.motivationAbility = 50,
+    // this.pressureAbility = 50,
+    // this.adaptabilityAbility = 50,
+    // this.consistencyAbility = 50,
+    // this.clutchAbility = 50,
+    // this.workEthicAbility = 50,
     this.overall = 50,
     this.technical = 50,
     this.physical = 50,

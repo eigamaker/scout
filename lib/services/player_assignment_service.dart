@@ -208,13 +208,13 @@ class PlayerAssignmentService {
         'strength': player.physicalAbilities[PhysicalAbility.strength] ?? 25,
         'pace': player.physicalAbilities[PhysicalAbility.pace] ?? 25,
         'flexibility': player.physicalAbilities[PhysicalAbility.flexibility] ?? 25,
-        // 追加された能力値
-        'motivation': player.motivationAbility,
-        'pressure': player.pressureAbility,
-        'adaptability': player.adaptabilityAbility,
-        'consistency': player.consistencyAbility,
-        'clutch': player.clutchAbility,
-        'work_ethic': player.workEthicAbility,
+        // 追加された能力値（重複のため削除）
+        // 'motivation': player.motivationAbility,
+        // 'pressure': player.pressureAbility,
+        // 'adaptability': player.adaptabilityAbility,
+        // 'consistency': player.consistencyAbility,
+        // 'clutch': player.clutchAbility,
+        // 'work_ethic': player.workEthicAbility,
         // 総合能力値（後で計算して更新）
         'overall': 50,
         'technical': 50,
@@ -256,13 +256,13 @@ class PlayerAssignmentService {
       potentialData['${snakeKey}_potential'] = value;
     }
     
-    // 追加された能力値のポテンシャルも設定（デフォルト値）
-    potentialData['motivation_potential'] = 50;
-    potentialData['pressure_potential'] = 50;
-    potentialData['adaptability_potential'] = 50;
-    potentialData['consistency_potential'] = 50;
-    potentialData['clutch_potential'] = 50;
-    potentialData['work_ethic_potential'] = 50;
+    // 追加された能力値のポテンシャルも設定（デフォルト値）（重複のため削除）
+    // potentialData['motivation_potential'] = 50;
+    // potentialData['pressure_potential'] = 50;
+    // potentialData['adaptability_potential'] = 50;
+    // potentialData['consistency_potential'] = 50;
+    // potentialData['clutch_potential'] = 50;
+    // potentialData['work_ethic_potential'] = 50;
     
     // 総合ポテンシャルを計算
     final allPotentials = potentialData.values.where((v) => v is int && v != playerId).cast<int>();
@@ -302,12 +302,13 @@ class PlayerAssignmentService {
       potentialData['positioning_potential'] ?? 50,
       potentialData['pressure_handling_potential'] ?? 50,
       potentialData['clutch_ability_potential'] ?? 50,
-      potentialData['motivation_potential'] ?? 50,
-      potentialData['pressure_potential'] ?? 50,
-      potentialData['adaptability_potential'] ?? 50,
-      potentialData['consistency_potential'] ?? 50,
-      potentialData['clutch_potential'] ?? 50,
-      potentialData['work_ethic_potential'] ?? 50,
+      // 以下のポテンシャルは重複のため削除
+      // potentialData['motivation_potential'] ?? 50,
+      // potentialData['pressure_potential'] ?? 50,
+      // potentialData['adaptability_potential'] ?? 50,
+      // potentialData['consistency_potential'] ?? 50,
+      // potentialData['clutch_potential'] ?? 50,
+      // potentialData['work_ethic_potential'] ?? 50,
     ];
     
     final physicalPotentials = [
