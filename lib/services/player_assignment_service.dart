@@ -45,7 +45,13 @@ class PlayerAssignmentService {
         school.players.add(defaultPlayer);
         
         // データベースに保存
-        await _savePlayerToDatabase(defaultPlayer, school);
+        final savedPlayer = await _savePlayerToDatabase(defaultPlayer, school);
+        
+        // 保存された選手（ID付き）でリストを更新
+        final playerIndex = school.players.indexOf(defaultPlayer);
+        if (playerIndex != -1) {
+          school.players[playerIndex] = savedPlayer;
+        }
         
         // 個別の学校への配置ログは削除
       } catch (e) {
@@ -116,7 +122,13 @@ class PlayerAssignmentService {
           school.players.add(updatedPlayer);
           
           // データベースに保存（更新された選手情報）
-          await _savePlayerToDatabase(updatedPlayer, school);
+          final savedPlayer = await _savePlayerToDatabase(updatedPlayer, school);
+          
+          // 保存された選手（ID付き）でリストを更新
+          final playerIndexInSchool = school.players.indexOf(updatedPlayer);
+          if (playerIndexInSchool != -1) {
+            school.players[playerIndexInSchool] = savedPlayer;
+          }
           
           playerIndex++;
         }
@@ -136,7 +148,7 @@ class PlayerAssignmentService {
 
 
   /// 選手をデータベースに保存
-  Future<void> _savePlayerToDatabase(Player player, School school) async {
+  Future<Player> _savePlayerToDatabase(Player player, School school) async {
     try {
       final db = await _dataService.database;
       
@@ -227,8 +239,8 @@ class PlayerAssignmentService {
         await _savePlayerPotentials(playerId, player.individualPotentials!, db);
       }
       
-      // 選手のIDを設定（Playerオブジェクトは不変なので、コメントアウト）
-      // player.id = playerId;
+      // 選手のIDを設定したPlayerオブジェクトを返す
+      return player.copyWith(id: playerId);
       
     } catch (e) {
       print('選手のデータベース保存でエラー: $e');
