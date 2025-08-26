@@ -31,6 +31,9 @@ class _GameScreenState extends State<GameScreen> {
   bool _newsExpanded = false;
   bool _historyExpanded = false;
   bool _actionsExpanded = false;
+  bool _eventsExpanded = false;
+  bool _scheduleExpanded = false;
+  bool _progressExpanded = false;
 
   @override
   void initState() {
@@ -296,6 +299,51 @@ class _GameScreenState extends State<GameScreen> {
                     _actionsExpanded = false;
                   }),
                   child: _buildHistoryContent(),
+                ),
+                
+                // 進行中のイベント
+                _buildExpandableCard(
+                  icon: Icons.event,
+                  title: '進行中のイベント',
+                  isExpanded: _eventsExpanded,
+                  onTap: () => setState(() {
+                    _eventsExpanded = !_eventsExpanded;
+                    _newsExpanded = false;
+                    _actionsExpanded = false;
+                    _historyExpanded = false;
+                  }),
+                  child: _buildEventsContent(),
+                ),
+                
+                // 今週の予定
+                _buildExpandableCard(
+                  icon: Icons.schedule,
+                  title: '今週の予定',
+                  isExpanded: _scheduleExpanded,
+                  onTap: () => setState(() {
+                    _scheduleExpanded = !_scheduleExpanded;
+                    _newsExpanded = false;
+                    _actionsExpanded = false;
+                    _historyExpanded = false;
+                    _eventsExpanded = false;
+                  }),
+                  child: _buildScheduleContent(),
+                ),
+                
+                // 週進行状況
+                _buildExpandableCard(
+                  icon: Icons.timeline,
+                  title: '週進行状況',
+                  isExpanded: _progressExpanded,
+                  onTap: () => setState(() {
+                    _progressExpanded = !_progressExpanded;
+                    _newsExpanded = false;
+                    _actionsExpanded = false;
+                    _historyExpanded = false;
+                    _eventsExpanded = false;
+                    _scheduleExpanded = false;
+                  }),
+                  child: _buildProgressContent(),
                 ),
               ],
             ),
@@ -645,6 +693,228 @@ class _GameScreenState extends State<GameScreen> {
           );
         },
       ),
+    );
+  }
+
+  // 進行中のイベントコンテンツ
+  Widget _buildEventsContent() {
+    return Consumer<GameManager>(
+      builder: (context, gameManager, child) {
+        final events = gameManager.getCurrentEvents();
+        
+        if (events.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.event_busy, size: 48, color: Colors.grey),
+                  SizedBox(height: 8),
+                  Text('進行中のイベントはありません', style: TextStyle(color: Colors.grey)),
+                  SizedBox(height: 4),
+                  Text('今週は特別なイベントがありません', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: events.length,
+          itemBuilder: (context, index) {
+            final event = events[index];
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              child: ListTile(
+                leading: const Icon(Icons.event, color: Colors.blue),
+                title: Text(event, style: const TextStyle(fontWeight: FontWeight.bold)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // 今週の予定コンテンツ
+  Widget _buildScheduleContent() {
+    return Consumer<GameManager>(
+      builder: (context, gameManager, child) {
+        final schedule = gameManager.getThisWeekSchedule();
+        
+        if (schedule.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.schedule, size: 48, color: Colors.grey),
+                  SizedBox(height: 8),
+                  Text('今週の予定はありません', style: TextStyle(color: Colors.grey)),
+                  SizedBox(height: 4),
+                  Text('今週は試合や大会の予定がありません', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: schedule.length,
+          itemBuilder: (context, index) {
+            final scheduleItem = schedule[index];
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              child: ListTile(
+                leading: const Icon(Icons.schedule, color: Colors.green),
+                title: Text(scheduleItem, style: const TextStyle(fontWeight: FontWeight.bold)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // 週進行状況コンテンツ
+  Widget _buildProgressContent() {
+    return Consumer<GameManager>(
+      builder: (context, gameManager, child) {
+        final game = gameManager.currentGame;
+        if (game == null) return const Text('ゲームデータが読み込まれていません');
+        
+        final month = game.currentMonth;
+        final week = game.currentWeekOfMonth;
+        final year = game.currentYear;
+        final currentWeek = gameManager.calculateCurrentWeek(month, week);
+        final totalWeeks = 52; // 1年52週
+        
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 現在の日付情報
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${year}年${month}月${week}週',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '週 ${currentWeek}/${totalWeeks}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // 進行状況バー
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '年間進行状況',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: currentWeek / totalWeeks,
+                    backgroundColor: Colors.grey[300],
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${((currentWeek / totalWeeks) * 100).toStringAsFixed(1)}% 完了',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // 今週の状態
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '今週の状態',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            gameManager.isAdvancingWeek ? Icons.pause : Icons.play_arrow,
+                            color: gameManager.isAdvancingWeek ? Colors.orange : Colors.green,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            gameManager.isAdvancingWeek ? '週進行処理中' : '週進行可能',
+                            style: TextStyle(
+                              color: gameManager.isAdvancingWeek ? Colors.orange : Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (gameManager.isProcessingGrowth) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.trending_up, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Text(
+                              '成長処理中',
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

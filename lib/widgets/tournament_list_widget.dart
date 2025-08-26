@@ -62,11 +62,17 @@ class _TournamentListWidgetState extends State<TournamentListWidget> {
   List<HighSchoolTournament> _filterTournaments(List<HighSchoolTournament> tournaments) {
     return tournaments.where((tournament) {
       // 都道府県フィルター
-      if (_selectedPrefecture != null && _selectedPrefecture != '全国') {
-        if (tournament.stage == TournamentStage.national) return false;
-        // 県大会の場合、IDから都道府県を抽出
-        final tournamentPrefecture = _extractPrefectureFromId(tournament.id);
-        if (tournamentPrefecture != _selectedPrefecture) return false;
+      if (_selectedPrefecture != null) {
+        if (_selectedPrefecture == '全国') {
+          // 「全国」が選択された場合、全国大会のみを表示
+          if (tournament.stage != TournamentStage.national) return false;
+        } else {
+          // 特定の都道府県が選択された場合、県大会のみを表示
+          if (tournament.stage == TournamentStage.national) return false;
+          // 県大会の場合、IDから都道府県を抽出
+          final tournamentPrefecture = _extractPrefectureFromId(tournament.id);
+          if (tournamentPrefecture != _selectedPrefecture) return false;
+        }
       }
       
       // 年フィルター

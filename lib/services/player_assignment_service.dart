@@ -238,13 +238,16 @@ class PlayerAssignmentService {
         'mental': 50,
       });
       
-      // ポテンシャルデータを保存
+      // 選手のIDを設定したPlayerオブジェクトを作成
+      final playerWithId = player.copyWith(id: playerId);
+      
+      // ポテンシャルデータを保存（IDが設定された後）
       if (player.individualPotentials?.isNotEmpty == true) {
-        await _savePlayerPotentials(player, db);
+        await _savePlayerPotentials(playerWithId, db);
       }
       
       // 選手のIDを設定したPlayerオブジェクトを返す
-      return player.copyWith(id: playerId);
+      return playerWithId;
       
     } catch (e) {
       print('選手のデータベース保存でエラー: $e');
@@ -314,14 +317,6 @@ class PlayerAssignmentService {
       'strength_potential': individualPotentials['strength'] ?? 50,
       'pace_potential': individualPotentials['pace'] ?? 50,
       'flexibility_potential': individualPotentials['flexibility'] ?? 50,
-      
-      // 以下のポテンシャルは重複のため削除
-      // potentialData['motivation_potential'] = 50;
-      // potentialData['pressure_potential'] = 50;
-      // potentialData['adaptability_potential'] = 50;
-      // potentialData['consistency_potential'] = 50;
-      // potentialData['clutch_potential'] = 50;
-      // potentialData['work_ethic_potential'] = 50;
     };
     
     // プレイヤーオブジェクトから事前計算された総合ポテンシャル値を取得
@@ -339,66 +334,65 @@ class PlayerAssignmentService {
       // 総合ポテンシャル値（ポジション別重み付け済み）
       potentialData['overall_potential'] = _calculateOverallPotentialFromPlayer(player);
     } else {
-      // フォールバック: 従来の計算方法（互換性のため）
-      print('_savePlayerPotentials: 事前計算されたポテンシャル値が利用できないため、従来の計算方法を使用します');
-      
-      // 総合ポテンシャルを計算
-      final allPotentials = potentialData.values.where((v) => v is int && v != playerId).cast<int>();
-      final overallPotential = allPotentials.reduce((a, b) => a + b) ~/ allPotentials.length;
+      // フォールバック: individualPotentialsから計算
+      print('_savePlayerPotentials: 事前計算されたポテンシャル値が利用できないため、individualPotentialsから計算します');
       
       // カテゴリ別ポテンシャルを計算
       final technicalPotentials = [
-        potentialData['contact_potential'] ?? 50,
-        potentialData['power_potential'] ?? 50,
-        potentialData['plate_discipline_potential'] ?? 50,
-        potentialData['bunt_potential'] ?? 50,
-        potentialData['opposite_field_hitting_potential'] ?? 50,
-        potentialData['pull_hitting_potential'] ?? 50,
-        potentialData['bat_control_potential'] ?? 50,
-        potentialData['swing_speed_potential'] ?? 50,
-        potentialData['fielding_potential'] ?? 50,
-        potentialData['throwing_potential'] ?? 50,
-        potentialData['catcher_ability_potential'] ?? 50,
-        potentialData['control_potential'] ?? 50,
-        potentialData['fastball_potential'] ?? 50,
-        potentialData['breaking_ball_potential'] ?? 50,
-        potentialData['pitch_movement_potential'] ?? 50,
+        individualPotentials['contact'] ?? 50,
+        individualPotentials['power'] ?? 50,
+        individualPotentials['plate_discipline'] ?? 50,
+        individualPotentials['bunt'] ?? 50,
+        individualPotentials['opposite_field_hitting'] ?? 50,
+        individualPotentials['pull_hitting'] ?? 50,
+        individualPotentials['bat_control'] ?? 50,
+        individualPotentials['swing_speed'] ?? 50,
+        individualPotentials['fielding'] ?? 50,
+        individualPotentials['throwing'] ?? 50,
+        individualPotentials['catcher_ability'] ?? 50,
+        individualPotentials['control'] ?? 50,
+        individualPotentials['fastball'] ?? 50,
+        individualPotentials['breaking_ball'] ?? 50,
+        individualPotentials['pitch_movement'] ?? 50,
       ];
       
       final mentalPotentials = [
-        potentialData['concentration_potential'] ?? 50,
-        potentialData['anticipation_potential'] ?? 50,
-        potentialData['vision_potential'] ?? 50,
-        potentialData['composure_potential'] ?? 50,
-        potentialData['aggression_potential'] ?? 50,
-        potentialData['bravery_potential'] ?? 50,
-        potentialData['leadership_potential'] ?? 50,
-        potentialData['work_rate_potential'] ?? 50,
-        potentialData['self_discipline_potential'] ?? 50,
-        potentialData['ambition_potential'] ?? 50,
-        potentialData['teamwork_potential'] ?? 50,
-        potentialData['positioning_potential'] ?? 50,
-        potentialData['pressure_handling_potential'] ?? 50,
-        potentialData['clutch_ability_potential'] ?? 50,
+        individualPotentials['concentration'] ?? 50,
+        individualPotentials['anticipation'] ?? 50,
+        individualPotentials['vision'] ?? 50,
+        individualPotentials['composure'] ?? 50,
+        individualPotentials['aggression'] ?? 50,
+        individualPotentials['bravery'] ?? 50,
+        individualPotentials['leadership'] ?? 50,
+        individualPotentials['work_rate'] ?? 50,
+        individualPotentials['self_discipline'] ?? 50,
+        individualPotentials['ambition'] ?? 50,
+        individualPotentials['teamwork'] ?? 50,
+        individualPotentials['positioning'] ?? 50,
+        individualPotentials['pressure_handling'] ?? 50,
+        individualPotentials['clutch_ability'] ?? 50,
       ];
       
       final physicalPotentials = [
-        potentialData['acceleration_potential'] ?? 50,
-        potentialData['agility_potential'] ?? 50,
-        potentialData['balance_potential'] ?? 50,
-        potentialData['jumping_reach_potential'] ?? 50,
-        potentialData['natural_fitness_potential'] ?? 50,
-        potentialData['injury_proneness_potential'] ?? 50,
-        potentialData['stamina_potential'] ?? 50,
-        potentialData['strength_potential'] ?? 50,
-        potentialData['pace_potential'] ?? 50,
-        potentialData['flexibility_potential'] ?? 50,
+        individualPotentials['acceleration'] ?? 50,
+        individualPotentials['agility'] ?? 50,
+        individualPotentials['balance'] ?? 50,
+        individualPotentials['jumping_reach'] ?? 50,
+        individualPotentials['natural_fitness'] ?? 50,
+        individualPotentials['injury_proneness'] ?? 50,
+        individualPotentials['stamina'] ?? 50,
+        individualPotentials['strength'] ?? 50,
+        individualPotentials['pace'] ?? 50,
+        individualPotentials['flexibility'] ?? 50,
       ];
       
-      potentialData['overall_potential'] = overallPotential;
+      // カテゴリ別ポテンシャル値を設定
       potentialData['technical_potential'] = technicalPotentials.reduce((a, b) => a + b) ~/ technicalPotentials.length;
       potentialData['mental_potential'] = mentalPotentials.reduce((a, b) => a + b) ~/ mentalPotentials.length;
       potentialData['physical_potential'] = physicalPotentials.reduce((a, b) => a + b) ~/ physicalPotentials.length;
+      
+      // 総合ポテンシャル値を計算（ポジション別重み付け）
+      potentialData['overall_potential'] = _calculateOverallPotentialFromIndividualPotentials(individualPotentials, player.position);
     }
     
     await db.insert('PlayerPotentials', potentialData);
@@ -423,6 +417,71 @@ class PlayerAssignmentService {
     
     // ポジション別の重み付けを適用（能力値計算と同様）
     if (player.position == '投手') {
+      // 投手: 技術50%、精神30%、身体20%
+      return ((technicalAvg * 0.5) + (mentalAvg * 0.3) + (physicalAvg * 0.2)).round();
+    } else {
+      // 野手: 技術40%、精神25%、身体35%
+      return ((technicalAvg * 0.4) + (mentalAvg * 0.25) + (physicalAvg * 0.35)).round();
+    }
+  }
+
+  /// individualPotentialsから総合ポテンシャル値を計算（ポジション別重み付け）
+  int _calculateOverallPotentialFromIndividualPotentials(Map<String, int> individualPotentials, String position) {
+    // カテゴリ別ポテンシャルを計算
+    final technicalPotentials = [
+      individualPotentials['contact'] ?? 50,
+      individualPotentials['power'] ?? 50,
+      individualPotentials['plate_discipline'] ?? 50,
+      individualPotentials['bunt'] ?? 50,
+      individualPotentials['opposite_field_hitting'] ?? 50,
+      individualPotentials['pull_hitting'] ?? 50,
+      individualPotentials['bat_control'] ?? 50,
+      individualPotentials['swing_speed'] ?? 50,
+      individualPotentials['fielding'] ?? 50,
+      individualPotentials['throwing'] ?? 50,
+      individualPotentials['catcher_ability'] ?? 50,
+      individualPotentials['control'] ?? 50,
+      individualPotentials['fastball'] ?? 50,
+      individualPotentials['breaking_ball'] ?? 50,
+      individualPotentials['pitch_movement'] ?? 50,
+    ];
+    
+    final mentalPotentials = [
+      individualPotentials['concentration'] ?? 50,
+      individualPotentials['anticipation'] ?? 50,
+      individualPotentials['vision'] ?? 50,
+      individualPotentials['composure'] ?? 50,
+      individualPotentials['aggression'] ?? 50,
+      individualPotentials['bravery'] ?? 50,
+      individualPotentials['leadership'] ?? 50,
+      individualPotentials['work_rate'] ?? 50,
+      individualPotentials['self_discipline'] ?? 50,
+      individualPotentials['ambition'] ?? 50,
+      individualPotentials['teamwork'] ?? 50,
+      individualPotentials['positioning'] ?? 50,
+      individualPotentials['pressure_handling'] ?? 50,
+      individualPotentials['clutch_ability'] ?? 50,
+    ];
+    
+    final physicalPotentials = [
+      individualPotentials['acceleration'] ?? 50,
+      individualPotentials['agility'] ?? 50,
+      individualPotentials['balance'] ?? 50,
+      individualPotentials['jumping_reach'] ?? 50,
+      individualPotentials['natural_fitness'] ?? 50,
+      individualPotentials['injury_proneness'] ?? 50,
+      individualPotentials['stamina'] ?? 50,
+      individualPotentials['strength'] ?? 50,
+      individualPotentials['pace'] ?? 50,
+      individualPotentials['flexibility'] ?? 50,
+    ];
+    
+    final technicalAvg = technicalPotentials.reduce((a, b) => a + b) ~/ technicalPotentials.length;
+    final mentalAvg = mentalPotentials.reduce((a, b) => a + b) ~/ mentalPotentials.length;
+    final physicalAvg = physicalPotentials.reduce((a, b) => a + b) ~/ physicalPotentials.length;
+    
+    // ポジション別の重み付けを適用（能力値計算と同様）
+    if (position == '投手') {
       // 投手: 技術50%、精神30%、身体20%
       return ((technicalAvg * 0.5) + (mentalAvg * 0.3) + (physicalAvg * 0.2)).round();
     } else {

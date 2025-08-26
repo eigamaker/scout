@@ -1846,7 +1846,7 @@ class GameManager {
 
   Future<void> _refreshPlayersFromDb(DataService dataService, {bool isRetry = false}) async {
     try {
-      print('_refreshPlayersFromDb: 開始, _currentGame = ${_currentGame != null ? "loaded" : "null"}, isRetry: $isRetry');
+      print('_refreshPlayersFromDb: 開始, _currentGame = ${_currentGame != null ? 'loaded' : 'null'}, isRetry: $isRetry');
       if (isRetry) {
         print('_refreshPlayersFromDb: 再試行モードです');
       }
@@ -1855,8 +1855,24 @@ class GameManager {
         print('_refreshPlayersFromDb: _currentGameがnullのため終了');
         return;
       }
-          final db = await dataService.database;
+      
+      final db = await dataService.database;
       print('_refreshPlayersFromDb: データベース接続完了');
+      
+      // データベース修復処理を実行（非同期処理の完了を待つ）
+      if (!isRetry) {
+        print('_refreshPlayersFromDb: データベース修復処理を開始...');
+        try {
+          await dataService.repairNumericData();
+          print('_refreshPlayersFromDb: データベース修復処理が完了しました');
+          
+          // 修復処理完了後、少し待機してからデータを取得
+          await Future.delayed(Duration(milliseconds: 100));
+        } catch (e) {
+          print('_refreshPlayersFromDb: データベース修復処理でエラー: $e');
+        }
+      }
+      
       final playerMaps = await db.query('Player');
       
       // デバッグ用：最初のプレイヤーのデータ型を確認
@@ -1871,278 +1887,325 @@ class GameManager {
         print('  talent: ${firstPlayer['talent']} (${firstPlayer['talent'].runtimeType})');
       }
       
-    // school_idの分布を確認
-    final schoolIdCounts = <int, int>{};
-    for (final p in playerMaps) {
-      final schoolId = p['school_id'] as int? ?? 0;
-      schoolIdCounts[schoolId] = (schoolIdCounts[schoolId] ?? 0) + 1;
-    }
-    
-    
-    final personIds = playerMaps.map((p) => p['id'] as int).toList();
-    final persons = <int, Map<String, dynamic>>{};
-    if (personIds.isNotEmpty) {
-      final personMaps = await db.query('Person', where: 'id IN (${List.filled(personIds.length, '?').join(',')})', whereArgs: personIds);
-      for (final p in personMaps) {
-        persons[p['id'] as int] = p;
-      }
-    }
-    
-    // 個別ポテンシャルを取得
-    final potentialMaps = await db.query('PlayerPotentials');
-    final potentials = <int, Map<String, int>>{};
-    for (final p in potentialMaps) {
-      final playerId = p['player_id'] as int;
-      final playerPotentials = <String, int>{};
-      
-      // ポテンシャルデータを変換
-      for (final key in p.keys) {
-        if (key.endsWith('_potential') && p[key] != null) {
-          final abilityName = key.replaceAll('_potential', '');
-          playerPotentials[abilityName] = p[key] as int;
-        }
-      }
-      
-      potentials[playerId] = playerPotentials;
-    }
-    
-    // スカウト分析データを取得（scout_idを指定して最新のデータを取得）
-    final scoutAnalysisMaps = await db.query('ScoutAnalysis');
-    final scoutAnalyses = <int, Map<String, int>>{};
-    
-    for (final sa in scoutAnalysisMaps) {
-      final playerId = _safeIntCast(sa['player_id']);
-      final scoutId = sa['scout_id'] as String? ?? 'default_scout';
-      final scoutAnalysis = <String, int>{};
-      
-      // スカウト分析データを変換
-      for (final key in sa.keys) {
-        if (key.endsWith('_scouted') && sa[key] != null) {
-          final abilityName = _getAbilityNameFromScoutColumn(key);
-          if (abilityName != null) {
-            scoutAnalysis[abilityName] = _safeIntCast(sa[key]);
+      // データ型チェック：数値カラムが文字列になっていないか確認
+      bool hasStringData = false;
+      for (final player in playerMaps) {
+        for (final key in player.keys) {
+          if (key != 'id' && key != 'name' && key != 'position' && key != 'personality' && 
+              key != 'school_id' && key != 'graduated_at' && key != 'growthType' &&
+              key != 'is_retired' && key != 'is_default_player' && key != 'is_publicly_known' && 
+              key != 'is_scout_favorite' && key != 'is_graduated') {
+            final value = player[key];
+            if (value is String && value.isNotEmpty) {
+              try {
+                int.tryParse(value);
+              } catch (e) {
+                print('_refreshPlayersFromDb: データ型エラー検出 - カラム: $key, 値: $value, プレイヤーID: ${player['id']}');
+                hasStringData = true;
+                break;
+              }
+            }
           }
         }
+        if (hasStringData) break;
       }
       
-      // 最新の分析データのみを保持（同じプレイヤーIDとスカウトIDの場合）
-      final currentAnalysisDate = _safeIntCast(sa['analysis_date']);
-      final existingAnalysisDate = _safeIntCast(scoutAnalyses[playerId]?['_analysis_date'] ?? 0);
-      if (!scoutAnalyses.containsKey(playerId) || currentAnalysisDate > existingAnalysisDate) {
-        scoutAnalysis['_analysis_date'] = currentAnalysisDate;
-        scoutAnalysis['_scout_id'] = scoutId.hashCode; // スカウトIDも保存
-        scoutAnalyses[playerId] = scoutAnalysis;
+             if (hasStringData && !isRetry) {
+         print('_refreshPlayersFromDb: 文字列データが検出されました。修復処理を再実行します...');
+         // 修復処理を再実行
+         try {
+           await dataService.repairNumericData();
+           print('_refreshPlayersFromDb: 再修復処理が完了しました');
+           
+           // 再修復後、再度データを取得
+           await Future.delayed(Duration(milliseconds: 200));
+           final retryPlayerMaps = await db.query('Player');
+           if (retryPlayerMaps.isNotEmpty) {
+             final firstRetryPlayer = retryPlayerMaps.first;
+             print('_refreshPlayersFromDb: 再修復後のデータ型確認:');
+             print('  contact: ${firstRetryPlayer['contact']} (${firstRetryPlayer['contact'].runtimeType})');
+             print('  power: ${firstRetryPlayer['power']} (${firstRetryPlayer['power'].runtimeType})');
+           }
+         } catch (e) {
+           print('_refreshPlayersFromDb: 再修復処理でエラー: $e');
+         }
+       }
+      
+      // school_idの分布を確認
+      final schoolIdCounts = <int, int>{};
+      for (final p in playerMaps) {
+        final schoolId = p['school_id'] as int? ?? 0;
+        schoolIdCounts[schoolId] = (schoolIdCounts[schoolId] ?? 0) + 1;
       }
-    }
-    
-    
-    
-    // 学校ごとにplayersを再構築
-    final updatedSchools = _currentGame!.schools.map((school) {
-      final schoolPlayers = playerMaps.where((p) => p['school_id'] == school.id).map((p) {
-        final playerId = _safeIntCast(p['id']);
-        final person = persons[playerId] ?? {};
-        final individualPotentials = potentials[playerId];
+      
+      final personIds = playerMaps.map((p) => p['id'] as int).toList();
+      final persons = <int, Map<String, dynamic>>{};
+      if (personIds.isNotEmpty) {
+        final personMaps = await db.query('Person', where: 'id IN (${List.filled(personIds.length, '?').join(',')})', whereArgs: personIds);
+        for (final p in personMaps) {
+          persons[p['id'] as int] = p;
+        }
+      }
+      
+      // 個別ポテンシャルを取得
+      final potentialMaps = await db.query('PlayerPotentials');
+      final potentials = <int, Map<String, int>>{};
+      for (final p in potentialMaps) {
+        final playerId = p['player_id'] as int;
+        final playerPotentials = <String, int>{};
         
-        // 能力値システムの復元（データベースから直接読み込み）
-        final technicalAbilities = <TechnicalAbility, int>{};
-        final mentalAbilities = <MentalAbility, int>{};
-        final physicalAbilities = <PhysicalAbility, int>{};
+        // ポテンシャルデータを変換
+        for (final key in p.keys) {
+          if (key.endsWith('_potential') && p[key] != null) {
+            final abilityName = key.replaceAll('_potential', '');
+            playerPotentials[abilityName] = p[key] as int;
+          }
+        }
         
-        // Technical abilities復元
-        try {
-          // デバッグ用：データベースの値を確認
-          _debugDatabaseValue('contact', p['contact'], playerId);
-          _debugDatabaseValue('power', p['power'], playerId);
+        potentials[playerId] = playerPotentials;
+      }
+      
+      // スカウト分析データを取得（scout_idを指定して最新のデータを取得）
+      final scoutAnalysisMaps = await db.query('ScoutAnalysis');
+      final scoutAnalyses = <int, Map<String, int>>{};
+      
+      for (final sa in scoutAnalysisMaps) {
+        final playerId = _safeIntCast(sa['player_id']);
+        final scoutId = sa['scout_id'] as String? ?? 'default_scout';
+        final scoutAnalysis = <String, int>{};
+        
+        // スカウト分析データを変換
+        for (final key in sa.keys) {
+          if (key.endsWith('_scouted') && sa[key] != null) {
+            final abilityName = _getAbilityNameFromScoutColumn(key);
+            if (abilityName != null) {
+              scoutAnalysis[abilityName] = _safeIntCast(sa[key]);
+            }
+          }
+        }
+        
+        // 最新の分析データのみを保持（同じプレイヤーIDとスカウトIDの場合）
+        final currentAnalysisDate = _safeIntCast(sa['analysis_date']);
+        final existingAnalysisDate = _safeIntCast(scoutAnalyses[playerId]?['_analysis_date'] ?? 0);
+        if (!scoutAnalyses.containsKey(playerId) || currentAnalysisDate > existingAnalysisDate) {
+          scoutAnalysis['_analysis_date'] = currentAnalysisDate;
+          scoutAnalysis['_scout_id'] = scoutId.hashCode; // スカウトIDも保存
+          scoutAnalyses[playerId] = scoutAnalysis;
+        }
+      }
+      
+      // 学校ごとにplayersを再構築
+      final updatedSchools = _currentGame!.schools.map((school) {
+        final schoolPlayers = playerMaps.where((p) => p['school_id'] == school.id).map((p) {
+          final playerId = _safeIntCast(p['id']);
+          final person = persons[playerId] ?? {};
+          final individualPotentials = potentials[playerId];
           
-          technicalAbilities[TechnicalAbility.contact] = _safeIntCastWithDebug(p['contact'], 'contact', playerId);
-          technicalAbilities[TechnicalAbility.power] = _safeIntCastWithDebug(p['power'], 'power', playerId);
-          technicalAbilities[TechnicalAbility.plateDiscipline] = _safeIntCastWithDebug(p['plate_discipline'], 'plate_discipline', playerId);
-          technicalAbilities[TechnicalAbility.bunt] = _safeIntCastWithDebug(p['bunt'], 'bunt', playerId);
-          technicalAbilities[TechnicalAbility.oppositeFieldHitting] = _safeIntCastWithDebug(p['opposite_field_hitting'], 'opposite_field_hitting', playerId);
-          technicalAbilities[TechnicalAbility.pullHitting] = _safeIntCastWithDebug(p['pull_hitting'], 'pull_hitting', playerId);
-          technicalAbilities[TechnicalAbility.batControl] = _safeIntCastWithDebug(p['bat_control'], 'bat_control', playerId);
-          technicalAbilities[TechnicalAbility.swingSpeed] = _safeIntCastWithDebug(p['swing_speed'], 'swing_speed', playerId);
-          technicalAbilities[TechnicalAbility.fielding] = _safeIntCastWithDebug(p['fielding'], 'fielding', playerId);
-          technicalAbilities[TechnicalAbility.throwing] = _safeIntCastWithDebug(p['throwing'], 'throwing', playerId);
-          technicalAbilities[TechnicalAbility.catcherAbility] = _safeIntCastWithDebug(p['catcher_ability'], 'catcher_ability', playerId);
-          technicalAbilities[TechnicalAbility.control] = _safeIntCastWithDebug(p['control'], 'control', playerId);
-          technicalAbilities[TechnicalAbility.fastball] = _safeIntCastWithDebug(p['fastball'], 'fastball', playerId);
-          technicalAbilities[TechnicalAbility.breakingBall] = _safeIntCastWithDebug(p['breaking_ball'], 'breaking_ball', playerId);
-          technicalAbilities[TechnicalAbility.pitchMovement] = _safeIntCastWithDebug(p['pitch_movement'], 'pitch_movement', playerId);
-        } catch (e) {
-          print('_refreshPlayersFromDb: Technical abilities復元でエラー: $e');
-          print('_refreshPlayersFromDb: 問題のプレイヤーID: $playerId');
-          print('_refreshPlayersFromDb: contact: ${p['contact']} (${p['contact'].runtimeType})');
-          print('_refreshPlayersFromDb: power: ${p['power']} (${p['power'].runtimeType})');
-          rethrow;
-        }
-        
-        // Mental abilities復元
-        try {
-          mentalAbilities[MentalAbility.concentration] = _safeIntCastWithDebug(p['concentration'], 'concentration', playerId);
-          mentalAbilities[MentalAbility.anticipation] = _safeIntCastWithDebug(p['anticipation'], 'anticipation', playerId);
-          mentalAbilities[MentalAbility.vision] = _safeIntCastWithDebug(p['vision'], 'vision', playerId);
-          mentalAbilities[MentalAbility.composure] = _safeIntCastWithDebug(p['composure'], 'composure', playerId);
-          mentalAbilities[MentalAbility.aggression] = _safeIntCastWithDebug(p['aggression'], 'aggression', playerId);
-          mentalAbilities[MentalAbility.bravery] = _safeIntCastWithDebug(p['bravery'], 'bravery', playerId);
-          mentalAbilities[MentalAbility.leadership] = _safeIntCastWithDebug(p['leadership'], 'leadership', playerId);
-          mentalAbilities[MentalAbility.workRate] = _safeIntCastWithDebug(p['work_rate'], 'work_rate', playerId);
-          mentalAbilities[MentalAbility.selfDiscipline] = _safeIntCastWithDebug(p['self_discipline'], 'self_discipline', playerId);
-          mentalAbilities[MentalAbility.ambition] = _safeIntCastWithDebug(p['ambition'], 'ambition', playerId);
-          mentalAbilities[MentalAbility.teamwork] = _safeIntCastWithDebug(p['teamwork'], 'teamwork', playerId);
-          mentalAbilities[MentalAbility.positioning] = _safeIntCastWithDebug(p['positioning'], 'positioning', playerId);
-          mentalAbilities[MentalAbility.pressureHandling] = _safeIntCastWithDebug(p['pressure_handling'], 'pressure_handling', playerId);
-          mentalAbilities[MentalAbility.clutchAbility] = _safeIntCastWithDebug(p['clutch_ability'], 'clutch_ability', playerId);
-        } catch (e) {
-          print('_refreshPlayersFromDb: Mental abilities復元でエラー: $e');
-          print('_refreshPlayersFromDb: 問題のプレイヤーID: $playerId');
-          rethrow;
-        }
-        
-        // Physical abilities復元
-        try {
-          physicalAbilities[PhysicalAbility.acceleration] = _safeIntCastWithDebug(p['acceleration'], 'acceleration', playerId);
-          physicalAbilities[PhysicalAbility.agility] = _safeIntCastWithDebug(p['agility'], 'agility', playerId);
-          physicalAbilities[PhysicalAbility.balance] = _safeIntCastWithDebug(p['balance'], 'balance', playerId);
-          physicalAbilities[PhysicalAbility.jumpingReach] = _safeIntCastWithDebug(p['jumping_reach'], 'jumping_reach', playerId);
-          physicalAbilities[PhysicalAbility.flexibility] = _safeIntCastWithDebug(p['flexibility'], 'flexibility', playerId);
-          physicalAbilities[PhysicalAbility.naturalFitness] = _safeIntCastWithDebug(p['natural_fitness'], 'natural_fitness', playerId);
-          physicalAbilities[PhysicalAbility.injuryProneness] = _safeIntCastWithDebug(p['injury_proneness'], 'injury_proneness', playerId);
-          physicalAbilities[PhysicalAbility.stamina] = _safeIntCastWithDebug(p['stamina'], 'stamina', playerId);
-          physicalAbilities[PhysicalAbility.strength] = _safeIntCastWithDebug(p['strength'], 'strength', playerId);
-          physicalAbilities[PhysicalAbility.pace] = _safeIntCastWithDebug(p['pace'], 'pace', playerId);
-        } catch (e) {
-          print('_refreshPlayersFromDb: Physical abilities復元でエラー: $e');
-          print('_refreshPlayersFromDb: 問題のプレイヤーID: $playerId');
-          rethrow;
-        }
-        
-
-        
-        final scoutAnalysisData = scoutAnalyses[playerId];
-        
-        // 現在のゲーム状態から発掘情報を復元（学校の選手リストから検索）
-        final existingPlayer = school.players.firstWhere(
-          (p) => p.name == (person['name'] as String? ?? '名無し'),
-          orElse: () => Player(
-            name: person['name'] as String? ?? '名無し',
-            school: school.name,
-            grade: _safeIntCast(p['grade']),
-            position: p['position'] as String? ?? '',
-            personality: person['personality'] as String? ?? '',
-            fame: _safeIntCast(p['fame']),
-            isDiscovered: false,
-            isPubliclyKnown: (p['is_publicly_known'] as int?) == 1, // データベースから読み込み
-            isScoutFavorite: false,
-            isGraduated: (p['is_graduated'] as int?) == 1, // 卒業フラグを読み込み
-            graduatedAt: p['graduated_at'] != null ? DateTime.tryParse(p['graduated_at'] as String) : null, // 卒業日を読み込み
-                      discoveredBy: null,
-          scoutedDates: [],
-            abilityKnowledge: <String, int>{},
-            type: PlayerType.highSchool,
-            yearsAfterGraduation: 0,
-            pitches: [],
-            technicalAbilities: technicalAbilities,
-            mentalAbilities: mentalAbilities,
-            physicalAbilities: physicalAbilities,
-            mentalGrit: (p['mental_grit'] as num?)?.toDouble() ?? 0.0,
-            growthRate: p['growth_rate'] as double? ?? 1.0,
-            peakAbility: _safeIntCast(p['peak_ability']),
-            positionFit: _generatePositionFit(p['position'] as String? ?? '投手'),
-            talent: _safeIntCast(p['talent']),
-            growthType: (p['growthType'] is String) ? p['growthType'] as String : (p['growthType']?.toString() ?? 'normal'),
-            individualPotentials: individualPotentials,
-            scoutAnalysisData: scoutAnalysisData,
-          ),
-        );
-
-        final isPubliclyKnownFromDb = (p['is_publicly_known'] as int?) == 1;
-        final isScoutFavoriteFromDb = (p['is_scout_favorite'] as int?) == 1;
-        final isGraduatedFromDb = (p['is_graduated'] as int?) == 1;
-        final graduatedAtFromDb = p['graduated_at'] as String?;
-        final isDefaultPlayerFromDb = (p['is_default_player'] as int?) == 1; // デフォルト選手フラグを読み込み
-
-        // overall能力値を計算
-        final overall = _calculateOverallAbility(technicalAbilities, mentalAbilities, physicalAbilities, p['position'] as String? ?? '投手');
-        final technical = _calculateTechnicalAbility(technicalAbilities);
-        final physical = _calculatePhysicalAbility(physicalAbilities);
-        final mental = _calculateMentalAbility(mentalAbilities);
-        
-        final player;
-        try {
-          player = Player(
-            id: playerId,
-            name: person['name'] as String? ?? '名無し',
-            school: school.name,
-            grade: _safeIntCast(p['grade']),
-            position: p['position'] as String? ?? '',
-            personality: person['personality'] as String? ?? '',
-            fame: _safeIntCast(p['fame']), // fameフィールドを追加
-            isWatched: existingPlayer.isWatched,
-            isDiscovered: existingPlayer.isDiscovered,
-            isPubliclyKnown: isPubliclyKnownFromDb, // データベースから読み込み
-            isScoutFavorite: isScoutFavoriteFromDb, // データベースから読み込み
-            isGraduated: isGraduatedFromDb, // 卒業フラグを読み込み
-            graduatedAt: graduatedAtFromDb != null ? DateTime.tryParse(graduatedAtFromDb) : null, // 卒業日を読み込み
-            discoveredBy: existingPlayer.discoveredBy,
-            scoutedDates: existingPlayer.scoutedDates,
-            abilityKnowledge: existingPlayer.abilityKnowledge,
-            pitches: [],
-            technicalAbilities: technicalAbilities,
-            mentalAbilities: mentalAbilities,
-            physicalAbilities: physicalAbilities,
-            overall: overall, // 計算されたoverall能力値を設定
-            technical: technical, // 計算されたtechnical能力値を設定
-            physical: physical, // 計算されたphysical能力値を設定
-            mental: mental, // 計算されたmental能力値を設定
-            mentalGrit: (p['mental_grit'] as num?)?.toDouble() ?? 0.0,
-            growthRate: p['growth_rate'] as double? ?? 1.0,
-            peakAbility: _safeIntCast(p['peak_ability']),
-            positionFit: _generatePositionFit(p['position'] as String? ?? '投手'),
-            talent: _safeIntCast(p['talent']),
-            growthType: (p['growthType'] is String) ? p['growthType'] as String : (p['growthType']?.toString() ?? 'normal'),
-            individualPotentials: individualPotentials,
-            scoutAnalysisData: scoutAnalysisData, // スカウト分析データを設定
-            isDefaultPlayer: isDefaultPlayerFromDb, // デフォルト選手フラグを設定
+          // 能力値システムの復元（データベースから直接読み込み）
+          final technicalAbilities = <TechnicalAbility, int>{};
+          final mentalAbilities = <MentalAbility, int>{};
+          final physicalAbilities = <PhysicalAbility, int>{};
+          
+          // Technical abilities復元
+          try {
+            // デバッグ用：データベースの値を確認
+            _debugDatabaseValue('contact', p['contact'], playerId);
+            _debugDatabaseValue('power', p['power'], playerId);
+            
+            technicalAbilities[TechnicalAbility.contact] = _safeIntCastWithDebug(p['contact'], 'contact', playerId);
+            technicalAbilities[TechnicalAbility.power] = _safeIntCastWithDebug(p['power'], 'power', playerId);
+            technicalAbilities[TechnicalAbility.plateDiscipline] = _safeIntCastWithDebug(p['plate_discipline'], 'plate_discipline', playerId);
+            technicalAbilities[TechnicalAbility.bunt] = _safeIntCastWithDebug(p['bunt'], 'bunt', playerId);
+            technicalAbilities[TechnicalAbility.oppositeFieldHitting] = _safeIntCastWithDebug(p['opposite_field_hitting'], 'opposite_field_hitting', playerId);
+            technicalAbilities[TechnicalAbility.pullHitting] = _safeIntCastWithDebug(p['pull_hitting'], 'pull_hitting', playerId);
+            technicalAbilities[TechnicalAbility.batControl] = _safeIntCastWithDebug(p['bat_control'], 'bat_control', playerId);
+            technicalAbilities[TechnicalAbility.swingSpeed] = _safeIntCastWithDebug(p['swing_speed'], 'swing_speed', playerId);
+            technicalAbilities[TechnicalAbility.fielding] = _safeIntCastWithDebug(p['fielding'], 'fielding', playerId);
+            technicalAbilities[TechnicalAbility.throwing] = _safeIntCastWithDebug(p['throwing'], 'throwing', playerId);
+            technicalAbilities[TechnicalAbility.catcherAbility] = _safeIntCastWithDebug(p['catcher_ability'], 'catcher_ability', playerId);
+            technicalAbilities[TechnicalAbility.control] = _safeIntCastWithDebug(p['control'], 'control', playerId);
+            technicalAbilities[TechnicalAbility.fastball] = _safeIntCastWithDebug(p['fastball'], 'fastball', playerId);
+            technicalAbilities[TechnicalAbility.breakingBall] = _safeIntCastWithDebug(p['breaking_ball'], 'breaking_ball', playerId);
+            technicalAbilities[TechnicalAbility.pitchMovement] = _safeIntCastWithDebug(p['pitch_movement'], 'pitch_movement', playerId);
+          } catch (e) {
+            print('_refreshPlayersFromDb: Technical abilities復元でエラー: $e');
+            print('_refreshPlayersFromDb: 問題のプレイヤーID: $playerId');
+            print('_refreshPlayersFromDb: contact: ${p['contact']} (${p['contact'].runtimeType})');
+            print('_refreshPlayersFromDb: power: ${p['power']} (${p['power'].runtimeType})');
+            rethrow;
+          }
+          
+          // Mental abilities復元
+          try {
+            mentalAbilities[MentalAbility.concentration] = _safeIntCastWithDebug(p['concentration'], 'concentration', playerId);
+            mentalAbilities[MentalAbility.anticipation] = _safeIntCastWithDebug(p['anticipation'], 'anticipation', playerId);
+            mentalAbilities[MentalAbility.vision] = _safeIntCastWithDebug(p['vision'], 'vision', playerId);
+            mentalAbilities[MentalAbility.composure] = _safeIntCastWithDebug(p['composure'], 'composure', playerId);
+            mentalAbilities[MentalAbility.aggression] = _safeIntCastWithDebug(p['aggression'], 'aggression', playerId);
+            mentalAbilities[MentalAbility.bravery] = _safeIntCastWithDebug(p['bravery'], 'bravery', playerId);
+            mentalAbilities[MentalAbility.leadership] = _safeIntCastWithDebug(p['leadership'], 'leadership', playerId);
+            mentalAbilities[MentalAbility.workRate] = _safeIntCastWithDebug(p['work_rate'], 'work_rate', playerId);
+            mentalAbilities[MentalAbility.selfDiscipline] = _safeIntCastWithDebug(p['self_discipline'], 'self_discipline', playerId);
+            mentalAbilities[MentalAbility.ambition] = _safeIntCastWithDebug(p['ambition'], 'ambition', playerId);
+            mentalAbilities[MentalAbility.teamwork] = _safeIntCastWithDebug(p['teamwork'], 'teamwork', playerId);
+            mentalAbilities[MentalAbility.positioning] = _safeIntCastWithDebug(p['positioning'], 'positioning', playerId);
+            mentalAbilities[MentalAbility.pressureHandling] = _safeIntCastWithDebug(p['pressure_handling'], 'pressure_handling', playerId);
+            mentalAbilities[MentalAbility.clutchAbility] = _safeIntCastWithDebug(p['clutch_ability'], 'clutch_ability', playerId);
+          } catch (e) {
+            print('_refreshPlayersFromDb: Mental abilities復元でエラー: $e');
+            print('_refreshPlayersFromDb: 問題のプレイヤーID: $playerId');
+            rethrow;
+          }
+          
+          // Physical abilities復元
+          try {
+            physicalAbilities[PhysicalAbility.acceleration] = _safeIntCastWithDebug(p['acceleration'], 'acceleration', playerId);
+            physicalAbilities[PhysicalAbility.agility] = _safeIntCastWithDebug(p['agility'], 'agility', playerId);
+            physicalAbilities[PhysicalAbility.balance] = _safeIntCastWithDebug(p['balance'], 'balance', playerId);
+            physicalAbilities[PhysicalAbility.jumpingReach] = _safeIntCastWithDebug(p['jumping_reach'], 'jumping_reach', playerId);
+            physicalAbilities[PhysicalAbility.flexibility] = _safeIntCastWithDebug(p['flexibility'], 'flexibility', playerId);
+            physicalAbilities[PhysicalAbility.naturalFitness] = _safeIntCastWithDebug(p['natural_fitness'], 'natural_fitness', playerId);
+            physicalAbilities[PhysicalAbility.injuryProneness] = _safeIntCastWithDebug(p['injury_proneness'], 'injury_proneness', playerId);
+            physicalAbilities[PhysicalAbility.stamina] = _safeIntCastWithDebug(p['stamina'], 'stamina', playerId);
+            physicalAbilities[PhysicalAbility.strength] = _safeIntCastWithDebug(p['strength'], 'strength', playerId);
+            physicalAbilities[PhysicalAbility.pace] = _safeIntCastWithDebug(p['pace'], 'pace', playerId);
+          } catch (e) {
+            print('_refreshPlayersFromDb: Physical abilities復元でエラー: $e');
+            print('_refreshPlayersFromDb: 問題のプレイヤーID: $playerId');
+            rethrow;
+          }
+          
+          final scoutAnalysisData = scoutAnalyses[playerId];
+          
+          // 現在のゲーム状態から発掘情報を復元（学校の選手リストから検索）
+          final existingPlayer = school.players.firstWhere(
+            (p) => p.name == (person['name'] as String? ?? '名無し'),
+            orElse: () => Player(
+              name: person['name'] as String? ?? '名無し',
+              school: school.name,
+              grade: _safeIntCast(p['grade']),
+              position: p['position'] as String? ?? '',
+              personality: person['personality'] as String? ?? '',
+              fame: _safeIntCast(p['fame']),
+              isDiscovered: false,
+              isPubliclyKnown: (p['is_publicly_known'] as int?) == 1, // データベースから読み込み
+              isScoutFavorite: false,
+              isGraduated: (p['is_graduated'] as int?) == 1, // 卒業フラグを読み込み
+              graduatedAt: p['graduated_at'] != null ? DateTime.tryParse(p['graduated_at'] as String) : null, // 卒業日を読み込み
+              discoveredBy: null,
+              scoutedDates: [],
+              abilityKnowledge: <String, int>{},
+              type: PlayerType.highSchool,
+              yearsAfterGraduation: 0,
+              pitches: [],
+              technicalAbilities: technicalAbilities,
+              mentalAbilities: mentalAbilities,
+              physicalAbilities: physicalAbilities,
+              mentalGrit: (p['mental_grit'] as num?)?.toDouble() ?? 0.0,
+              growthRate: p['growth_rate'] as double? ?? 1.0,
+              peakAbility: _safeIntCast(p['peak_ability']),
+              positionFit: _generatePositionFit(p['position'] as String? ?? '投手'),
+              talent: _safeIntCast(p['talent']),
+              growthType: (p['growthType'] is String) ? p['growthType'] as String : (p['growthType']?.toString() ?? 'normal'),
+              individualPotentials: individualPotentials,
+              scoutAnalysisData: scoutAnalysisData,
+            ),
           );
-        } catch (e) {
-          print('_refreshPlayersFromDb: Player作成でエラー: $e');
-          print('_refreshPlayersFromDb: 問題のプレイヤーID: $playerId');
-          print('_refreshPlayersFromDb: grade: ${p['grade']} (${p['grade'].runtimeType})');
-          print('_refreshPlayersFromDb: fame: ${p['fame']} (${p['fame'].runtimeType})');
-          print('_refreshPlayersFromDb: peak_ability: ${p['peak_ability']} (${p['peak_ability'].runtimeType})');
-          print('_refreshPlayersFromDb: talent: ${p['talent']} (${p['talent'].runtimeType})');
-          rethrow;
-        }
-        
 
-        
-        return player;
+          final isPubliclyKnownFromDb = (p['is_publicly_known'] as int?) == 1;
+          final isScoutFavoriteFromDb = (p['is_scout_favorite'] as int?) == 1;
+          final isGraduatedFromDb = (p['is_graduated'] as int?) == 1;
+          final graduatedAtFromDb = p['graduated_at'] as String?;
+          final isDefaultPlayerFromDb = (p['is_default_player'] as int?) == 1; // デフォルト選手フラグを読み込み
+
+          // overall能力値を計算
+          final overall = _calculateOverallAbility(technicalAbilities, mentalAbilities, physicalAbilities, p['position'] as String? ?? '投手');
+          final technical = _calculateTechnicalAbility(technicalAbilities);
+          final physical = _calculatePhysicalAbility(physicalAbilities);
+          final mental = _calculateMentalAbility(mentalAbilities);
+          
+          final player;
+          try {
+            player = Player(
+              id: playerId,
+              name: person['name'] as String? ?? '名無し',
+              school: school.name,
+              grade: _safeIntCast(p['grade']),
+              position: p['position'] as String? ?? '',
+              personality: person['personality'] as String? ?? '',
+              fame: _safeIntCast(p['fame']), // fameフィールドを追加
+              isWatched: existingPlayer.isWatched,
+              isDiscovered: existingPlayer.isDiscovered,
+              isPubliclyKnown: isPubliclyKnownFromDb, // データベースから読み込み
+              isScoutFavorite: isScoutFavoriteFromDb, // データベースから読み込み
+              isGraduated: isGraduatedFromDb, // 卒業フラグを読み込み
+              graduatedAt: graduatedAtFromDb != null ? DateTime.tryParse(graduatedAtFromDb) : null, // 卒業日を読み込み
+              discoveredBy: existingPlayer.discoveredBy,
+              scoutedDates: existingPlayer.scoutedDates,
+              abilityKnowledge: existingPlayer.abilityKnowledge,
+              pitches: [],
+              technicalAbilities: technicalAbilities,
+              mentalAbilities: mentalAbilities,
+              physicalAbilities: physicalAbilities,
+              overall: overall, // 計算されたoverall能力値を設定
+              technical: technical, // 計算されたtechnical能力値を設定
+              physical: physical, // 計算されたphysical能力値を設定
+              mental: mental, // 計算されたmental能力値を設定
+              mentalGrit: (p['mental_grit'] as num?)?.toDouble() ?? 0.0,
+              growthRate: p['growth_rate'] as double? ?? 1.0,
+              peakAbility: _safeIntCast(p['peak_ability']),
+              positionFit: _generatePositionFit(p['position'] as String? ?? '投手'),
+              talent: _safeIntCast(p['talent']),
+              growthType: (p['growthType'] is String) ? p['growthType'] as String : (p['growthType']?.toString() ?? 'normal'),
+              individualPotentials: individualPotentials,
+              scoutAnalysisData: scoutAnalysisData,
+              yearsAfterGraduation: _safeIntCast(p['years_after_graduation']),
+              isRetired: (p['is_retired'] as int?) == 1,
+              isDefaultPlayer: isDefaultPlayerFromDb,
+            );
+          } catch (e) {
+            print('_refreshPlayersFromDb: Player作成でエラー: $e');
+            print('_refreshPlayersFromDb: 問題のプレイヤーID: $playerId');
+            rethrow;
+          }
+
+          return player;
+        }).toList();
+
+        return school.copyWith(players: schoolPlayers.cast<Player>());
       }).toList();
-      return school.copyWith(players: schoolPlayers.cast<Player>());
-    }).toList();
-    _currentGame = _currentGame!.copyWith(schools: updatedSchools);
-    
 
-    
+      // 発掘選手リストを更新
+      final discoveredPlayers = updatedSchools.expand((school) => school.players.where((p) => p.isDiscovered)).toList();
+
+      // ゲーム状態を更新
+      _currentGame = _currentGame!.copyWith(
+        schools: updatedSchools,
+        discoveredPlayers: discoveredPlayers,
+      );
+
+      print('_refreshPlayersFromDb: 完了 - 学校数: ${updatedSchools.length}, 発掘選手数: ${discoveredPlayers.length}');
     } catch (e) {
       print('_refreshPlayersFromDb: エラーが発生しました: $e');
       
-      // データ型エラーの場合は修復を試行（再試行でない場合のみ）
-      if (!isRetry && e.toString().contains('type \'String\' is not a subtype of type \'int?\'')) {
-        print('_refreshPlayersFromDb: データ型エラーを検出。データベース修復を試行します...');
-        try {
-          await dataService.repairNumericData();
-          print('_refreshPlayersFromDb: データベース修復が完了しました。再度読み込みを試行します...');
-          // 修復後に再度実行（再試行フラグを設定）
-          return await _refreshPlayersFromDb(dataService, isRetry: true);
-        } catch (repairError) {
-          print('_refreshPlayersFromDb: データベース修復でエラーが発生しました: $repairError');
-        }
-      }
-      
-      rethrow;
+             if (!isRetry) {
+         print('_refreshPlayersFromDb: データ型エラーを検出。データベース修復を試行します...');
+         try {
+           // データベース修復処理を実行
+           await dataService.repairNumericData();
+           print('_refreshPlayersFromDb: データベース修復が完了しました。再度読み込みを試行します...');
+           
+           // 修復完了後、再試行
+           await Future.delayed(Duration(milliseconds: 300));
+           await _refreshPlayersFromDb(dataService, isRetry: true);
+         } catch (repairError) {
+           print('_refreshPlayersFromDb: データベース修復でエラーが発生しました: $repairError');
+           rethrow;
+         }
+       } else {
+         print('_refreshPlayersFromDb: 再試行でもエラーが発生しました: $e');
+         rethrow;
+       }
     }
   }
 
@@ -2195,9 +2258,9 @@ class GameManager {
       _advanceHighSchoolTournaments();
       print('GameManager.advanceWeekWithResults: 高校野球大会処理完了');
       
-      // 8月4週終了後（9月1週開始前）に3年生の野球部引退処理
-      // 8月4週（週20）の終了時に実行
-      final isGraduation = _currentGame!.currentMonth == 8 && _currentGame!.currentWeekOfMonth == 4;
+      // 8月4週終了後（9月1週開始時）に3年生の野球部引退処理
+      // 9月1週（週21）の開始時に実行
+      final isGraduation = _currentGame!.currentMonth == 9 && _currentGame!.currentWeekOfMonth == 1;
       final graduationWeek = _calculateCurrentWeek(_currentGame!.currentMonth, _currentGame!.currentWeekOfMonth);
       print('GameManager.advanceWeekWithResults: 3年生引退処理判定 - 月: ${_currentGame!.currentMonth}, 週: ${_currentGame!.currentWeekOfMonth}, 引退処理: $isGraduation, 総週数: $graduationWeek');
       
@@ -2603,7 +2666,10 @@ class GameManager {
     return totalWeeks;
   }
 
-
+  /// 週数を計算するパブリックメソッド
+  int calculateCurrentWeek(int month, int weekOfMonth) {
+    return _calculateCurrentWeek(month, weekOfMonth);
+  }
 
   void advanceWeek(NewsService newsService, DataService dataService) async {
     if (_currentGame != null) {
@@ -3922,6 +3988,153 @@ class GameManager {
     } catch (e) {
       print('_processHighSchoolAndGraduatedPlayerRetirements: エラーが発生しました: $e');
       rethrow;
+    }
+  }
+
+  /// 現在進行中のイベント情報を取得
+  List<String> getCurrentEvents() {
+    if (_currentGame == null) return [];
+    
+    final events = <String>[];
+    final month = _currentGame!.currentMonth;
+    final week = _currentGame!.currentWeekOfMonth;
+    final year = _currentGame!.currentYear;
+    
+    // 高校野球大会の進行状況
+    final activeTournaments = _currentGame!.highSchoolTournaments
+        .where((t) => !t.isCompleted && _isTournamentActive(t, month, week))
+        .toList();
+    
+    for (final tournament in activeTournaments) {
+      String eventName;
+      switch (tournament.type) {
+        case high_school_tournament.TournamentType.spring:
+          eventName = '春の県大会';
+          break;
+        case high_school_tournament.TournamentType.summer:
+          eventName = tournament.stage == high_school_tournament.TournamentStage.prefectural 
+              ? '夏の県大会' : '夏の全国大会';
+          break;
+        case high_school_tournament.TournamentType.autumn:
+          eventName = '秋の大会';
+          break;
+        case high_school_tournament.TournamentType.springNational:
+          eventName = '春の全国大会';
+          break;
+      }
+      events.add('$eventName（${tournament.participatingSchools.length}校参加）');
+    }
+    
+    // ペナントレースの進行状況
+    if (isPennantRaceActive) {
+      final progress = pennantRaceProgress;
+      events.add('ペナントレース進行中（$progress）');
+    }
+    
+    // 成長期の判定
+    if (_isGrowthWeek(_calculateCurrentWeek(month, week))) {
+      String growthPeriod;
+      switch (month) {
+        case 5:
+          growthPeriod = '春の成長期';
+          break;
+        case 8:
+          growthPeriod = '夏の成長期';
+          break;
+        case 11:
+          growthPeriod = '秋の成長期';
+          break;
+        case 2:
+          growthPeriod = '冬の成長期';
+          break;
+        default:
+          growthPeriod = '成長期';
+      }
+      events.add('$growthPeriod（選手の能力値向上）');
+    }
+    
+    // 3年生引退処理の予定
+    if (month == 8 && week == 4) {
+      events.add('3年生引退処理予定（来週）');
+    } else if (month == 9 && week == 1) {
+      events.add('3年生引退処理実行中');
+    }
+    
+    return events;
+  }
+
+  /// 今週の予定を取得
+  List<String> getThisWeekSchedule() {
+    if (_currentGame == null) return [];
+    
+    final schedule = <String>[];
+    final month = _currentGame!.currentMonth;
+    final week = _currentGame!.currentWeekOfMonth;
+    
+    // 今週の試合予定
+    if (isPennantRaceActive) {
+      final weekGames = _currentGame!.pennantRace!.schedule.getGamesForWeek(month, week);
+      final uncompletedGames = weekGames.where((game) => !game.isCompleted).toList();
+      if (uncompletedGames.isNotEmpty) {
+        schedule.add('プロ野球試合: ${uncompletedGames.length}試合予定');
+      }
+    }
+    
+    // 高校野球大会の今週の予定
+    final activeTournaments = _currentGame!.highSchoolTournaments
+        .where((t) => !t.isCompleted && _isTournamentActive(t, month, week))
+        .toList();
+    
+    for (final tournament in activeTournaments) {
+      final weekGames = tournament.games
+          .where((g) => g.month == month && g.week == week && !g.isCompleted)
+          .toList();
+      if (weekGames.isNotEmpty) {
+        String tournamentName;
+        switch (tournament.type) {
+          case high_school_tournament.TournamentType.spring:
+            tournamentName = '春の県大会';
+            break;
+          case high_school_tournament.TournamentType.summer:
+            tournamentName = tournament.stage == high_school_tournament.TournamentStage.prefectural 
+                ? '夏の県大会' : '夏の全国大会';
+            break;
+          case high_school_tournament.TournamentType.autumn:
+            tournamentName = '秋の大会';
+            break;
+          case high_school_tournament.TournamentType.springNational:
+            tournamentName = '春の全国大会';
+            break;
+        }
+        schedule.add('$tournamentName: ${weekGames.length}試合予定');
+      }
+    }
+    
+    return schedule;
+  }
+
+  /// 成長週かどうかを判定
+  bool _isGrowthWeek(int week) {
+    return week == 5 || week == 17 || week == 29 || week == 41;
+  }
+
+  /// 大会が進行中かチェック
+  bool _isTournamentActive(high_school_tournament.HighSchoolTournament tournament, int month, int week) {
+    if (tournament.isCompleted) return false;
+    
+    switch (tournament.type) {
+      case high_school_tournament.TournamentType.spring:
+        return month == 4 && week >= 3 || month == 5 && week == 1;
+      case high_school_tournament.TournamentType.summer:
+        if (tournament.stage == high_school_tournament.TournamentStage.prefectural) {
+          return month == 7 && week >= 2 && week <= 4;
+        } else {
+          return month == 8 && week >= 1 && week <= 3;
+        }
+      case high_school_tournament.TournamentType.autumn:
+        return month == 10 && week >= 1 && week <= 3;
+      case high_school_tournament.TournamentType.springNational:
+        return month == 3 && week >= 1 && week <= 3;
     }
   }
 } 
