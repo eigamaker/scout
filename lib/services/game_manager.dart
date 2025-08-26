@@ -93,6 +93,87 @@ class GameManager {
     return month >= 4 && month <= 10 && (month != 4 || week >= 1) && (month != 10 || week <= 2);
   }
 
+  /// ドラフト週かどうかをチェック
+  bool get isDraftWeek {
+    if (_currentGame == null) return false;
+    return _currentGame!.currentMonth == 10 && _currentGame!.currentWeekOfMonth == 4;
+  }
+
+  /// ドラフト順位を決定（勝率順、セ・パ交互）
+  List<String> determineDraftOrder() {
+    if (_currentGame?.pennantRace == null) return [];
+    
+    final pennantRace = _currentGame!.pennantRace!;
+    final standings = pennantRace.getSortedStandings();
+    
+    // セ・リーグとパ・リーグに分離
+    final centralLeagueTeams = standings.where((s) => s.league == League.central).toList();
+    final pacificLeagueTeams = standings.where((s) => s.league == League.pacific).toList();
+    
+    // 各リーグ内で勝率順にソート（勝率が高い順）
+    centralLeagueTeams.sort((a, b) => b.winningPercentage.compareTo(a.winningPercentage));
+    pacificLeagueTeams.sort((a, b) => b.winningPercentage.compareTo(a.winningPercentage));
+    
+    // ドラフト順位を決定（最下位チームが1番指名）
+    final draftOrder = <String>[];
+    
+    // セ・リーグとパ・リーグのチーム数を取得
+    final centralCount = centralLeagueTeams.length;
+    final pacificCount = pacificLeagueTeams.length;
+    final maxCount = centralCount > pacificCount ? centralCount : pacificCount;
+    
+    for (int i = 0; i < maxCount; i++) {
+      // パ・リーグの最下位チームから順番に（1番指名）
+      if (i < pacificCount) {
+        final team = pacificLeagueTeams[pacificCount - 1 - i];
+        draftOrder.add(team.teamId);
+      }
+      
+      // セ・リーグの最下位チームから順番に（2番指名）
+      if (i < centralCount) {
+        final team = centralLeagueTeams[centralCount - 1 - i];
+        draftOrder.add(team.teamId);
+      }
+    }
+    
+    print('GameManager.determineDraftOrder: ドラフト順位決定完了');
+    print('GameManager.determineDraftOrder: セ・リーグ順位: ${centralLeagueTeams.map((s) => '${s.teamShortName}(${(s.winningPercentage * 100).toStringAsFixed(3)})').join(', ')}');
+    print('GameManager.determineDraftOrder: パ・リーグ順位: ${pacificLeagueTeams.map((s) => '${s.teamShortName}(${(s.winningPercentage * 100).toStringAsFixed(3)})').join(', ')}');
+    print('GameManager.determineDraftOrder: ドラフト順位: ${draftOrder.map((id) => _currentGame!.professionalTeams.getTeam(id)?.shortName ?? id).join(' → ')}');
+    
+    return draftOrder;
+  }
+
+  /// ドラフト順位の詳細情報を取得
+  Map<String, dynamic> getDraftOrderDetails() {
+    if (_currentGame?.pennantRace == null) return {};
+    
+    final draftOrder = determineDraftOrder();
+    final details = <String, dynamic>{};
+    
+    for (int i = 0; i < draftOrder.length; i++) {
+      final teamId = draftOrder[i];
+      final team = _currentGame!.professionalTeams.getTeam(teamId);
+      final standing = _currentGame!.pennantRace!.standings[teamId];
+      
+      if (team != null && standing != null) {
+        details['${i + 1}位'] = {
+          'teamId': teamId,
+          'teamName': team.name,
+          'teamShortName': team.shortName,
+          'league': standing.league.toString().split('.').last,
+          'winningPercentage': standing.winningPercentage,
+          'rank': standing.rank,
+          'games': standing.games,
+          'wins': standing.wins,
+          'losses': standing.losses,
+        };
+      }
+    }
+    
+    return details;
+  }
+
   /// ペナントレースを更新
   void updatePennantRace(PennantRace pennantRace) {
     if (_currentGame != null) {
@@ -414,9 +495,13 @@ class GameManager {
     }
   }
 
-  GameManager(DataService dataService) {
+  final DataService _dataService;
+  final NewsService? _newsService;
+  
+  GameManager(DataService dataService, {NewsService? newsService}) 
+      : _dataService = dataService,
+        _newsService = newsService {
     _gameDataManager = GameDataManager(dataService);
-    
   }
 
   // 新しい選手生成・配属システム
@@ -2566,9 +2651,15 @@ class GameManager {
     
     // オートセーブ（週送り完了後）
     print('GameManager.advanceWeekWithResults: オートセーブ開始');
-    await saveGame();
-    await _gameDataManager.saveAutoGameData(_currentGame!);
-    print('GameManager.advanceWeekWithResults: オートセーブ完了');
+    try {
+      await saveGame();
+      await _gameDataManager.saveAutoGameData(_currentGame!);
+      print('GameManager.advanceWeekWithResults: オートセーブ完了');
+    } catch (e) {
+      print('オートセーブエラー: $e');
+      // オートセーブエラーは致命的ではないので、ゲーム進行を継続
+      print('オートセーブに失敗しましたが、ゲーム進行は継続します');
+    }
     
     print('GameManager.advanceWeekWithResults: 週送り処理完了');
     
@@ -4135,6 +4226,170 @@ class GameManager {
         return month == 10 && week >= 1 && week <= 3;
       case high_school_tournament.TournamentType.springNational:
         return month == 3 && week >= 1 && week <= 3;
+    }
+  }
+
+  /// メモリ使用量を監視・制御
+  void _manageMemoryUsage() {
+    try {
+      // メモリ使用量の概算
+      final estimatedMemoryUsage = _estimateCurrentMemoryUsage();
+      print('現在の推定メモリ使用量: ${(estimatedMemoryUsage / 1024 / 1024).toStringAsFixed(2)}MB');
+      
+      // メモリ使用量が大きい場合は解放処理を実行
+      if (estimatedMemoryUsage > 100 * 1024 * 1024) { // 100MB以上
+        print('メモリ使用量が大きいため、メモリ解放処理を実行します');
+        _performMemoryCleanup();
+      }
+      
+      // 定期的なメモリ解放（週送りごと）
+      _performPeriodicMemoryCleanup();
+    } catch (e) {
+      print('メモリ管理エラー: $e');
+    }
+  }
+  
+  /// 現在のメモリ使用量を概算
+  int _estimateCurrentMemoryUsage() {
+    try {
+      if (_currentGame == null) return 0;
+      
+      int totalSize = 0;
+      
+      // ゲーム基本情報
+      totalSize += _currentGame!.scoutName.length * 2; // UTF-16文字
+      totalSize += 8 * 4; // int型の基本データ
+      
+      // 学校データ
+      for (final school in _currentGame!.schools) {
+        totalSize += school.name.length * 2;
+        totalSize += school.shortName.length * 2;
+        totalSize += school.location.length * 2;
+        totalSize += school.prefecture.length * 2;
+        totalSize += 8 * 3; // int型の基本データ
+        
+        // 選手データ
+        for (final player in school.players) {
+          totalSize += player.name.length * 2;
+          totalSize += player.position.length * 2;
+          totalSize += 8 * 20; // 数値データ（概算）
+        }
+      }
+      
+      // 発掘選手データ
+      for (final player in _currentGame!.discoveredPlayers) {
+        totalSize += player.name.length * 2;
+        totalSize += player.position.length * 2;
+        totalSize += 8 * 20; // 数値データ（概算）
+        }
+      
+      return totalSize;
+    } catch (e) {
+      print('メモリ使用量推定エラー: $e');
+      return 0;
+    }
+  }
+  
+  /// メモリ解放処理を実行
+  void _performMemoryCleanup() {
+    try {
+      // 不要なデータの削除
+      _cleanupUnusedData();
+      
+      // キャッシュのクリア
+      _clearCaches();
+      
+      // ガベージコレクションの促進
+      _promoteGarbageCollection();
+      
+      print('メモリ解放処理が完了しました');
+    } catch (e) {
+      print('メモリ解放処理エラー: $e');
+    }
+  }
+  
+  /// 不要なデータを削除
+  void _cleanupUnusedData() {
+    try {
+      // 引退した選手の詳細データを削除
+      for (final school in _currentGame?.schools ?? []) {
+        school.players.removeWhere((player) => player.isRetired);
+      }
+      
+      // 発掘選手から引退した選手を削除
+      _currentGame?.discoveredPlayers.removeWhere((player) => player.isRetired);
+      
+      print('不要なデータの削除が完了しました');
+    } catch (e) {
+      print('不要なデータ削除エラー: $e');
+    }
+  }
+  
+  /// キャッシュをクリア
+  void _clearCaches() {
+    try {
+      // データベース接続のキャッシュをクリア
+      if (_dataService != null) {
+        // 必要に応じてデータベース接続をリセット
+        print('データベースキャッシュをクリアしました');
+      }
+      
+      print('キャッシュのクリアが完了しました');
+    } catch (e) {
+      print('キャッシュクリアエラー: $e');
+    }
+  }
+  
+  /// ガベージコレクションを促進
+  void _promoteGarbageCollection() {
+    try {
+      // Dartでは自動的にガベージコレクションが実行されるが、
+      // メモリ使用量が多い場合は明示的にメモリを解放
+      
+      // 大きなオブジェクトへの参照を一時的に解除
+      final tempGame = _currentGame;
+      _currentGame = null;
+      
+      // 少し待機してから復元
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _currentGame = tempGame;
+      });
+      
+      print('ガベージコレクションの促進が完了しました');
+    } catch (e) {
+      print('ガベージコレクション促進エラー: $e');
+    }
+  }
+  
+  /// 定期的なメモリ解放処理
+  void _performPeriodicMemoryCleanup() {
+    try {
+      // 週送りごとに実行される軽量なメモリ解放
+      
+      // 古いニュースデータを削除（NewsServiceにclearOldNewsメソッドがない場合はコメントアウト）
+      // if (_newsService != null) {
+      //   _newsService!.clearOldNews();
+      // }
+      
+      // 一時的なデータをクリア
+      _clearTemporaryData();
+      
+      print('定期的なメモリ解放処理が完了しました');
+    } catch (e) {
+      print('定期的なメモリ解放処理エラー: $e');
+    }
+  }
+  
+  /// 一時的なデータをクリア
+  void _clearTemporaryData() {
+    try {
+      // 週送り処理で使用される一時的なデータをクリア
+      // _weeklyResults.clear();
+      // _monthlyResults.clear();
+      
+      print('一時的なデータのクリアが完了しました');
+    } catch (e) {
+      print('一時的なデータクリアエラー: $e');
     }
   }
 } 

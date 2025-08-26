@@ -441,6 +441,25 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ),
                 ),
+              // ドラフト週の場合はドラフトボタンを表示
+              if (gameManager.isDraftWeek)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/draft');
+                    },
+                    icon: const Icon(Icons.sports_baseball),
+                    label: const Text('ドラフト会議に参加'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange[600],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              
               // 週送りボタン
               FloatingActionButton.extended(
                 onPressed: isProcessing ? null : () async {

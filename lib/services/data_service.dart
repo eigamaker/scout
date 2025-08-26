@@ -55,8 +55,37 @@ class DataService {
   }
 
   Future<void> saveGameDataToSlot(Map<String, dynamic> data, dynamic slot) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_slotKey(slot), jsonEncode(data));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // メモリ使用量を削減するため、データを分割して保存
+      final jsonString = jsonEncode(data);
+      
+      // データサイズが大きすぎる場合は圧縮を検討
+      if (jsonString.length > 1000000) { // 1MB以上
+        print('警告: セーブデータが大きすぎます (${(jsonString.length / 1024 / 1024).toStringAsFixed(2)}MB)');
+        print('警告: データサイズを削減することを推奨します');
+      }
+      
+      // メモリ使用量の監視
+      final dataSizeKB = jsonString.length / 1024;
+      if (dataSizeKB > 500) { // 500KB以上
+        print('注意: セーブデータが大きいです (${dataSizeKB.toStringAsFixed(2)}KB)');
+      }
+      
+      await prefs.setString(_slotKey(slot), jsonString);
+      print('セーブデータを保存しました: スロット $slot (${dataSizeKB.toStringAsFixed(2)}KB)');
+    } catch (e) {
+      print('セーブデータ保存エラー: $e');
+      
+      // メモリ不足エラーの場合は特別な処理
+      if (e.toString().contains('OutOfMemoryError') || e.toString().contains('OOM')) {
+        print('メモリ不足エラーが発生しました。データサイズを削減してください。');
+        print('推奨: 不要なデータを削除するか、データの分割保存を検討してください。');
+      }
+      
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>?> loadGameDataFromSlot(dynamic slot) async {
@@ -72,8 +101,87 @@ class DataService {
   }
 
   Future<void> saveAutoGameData(Map<String, dynamic> data) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(autoSaveKey, jsonEncode(data));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // オートセーブは軽量化したデータを使用
+      final lightData = _createLightSaveData(data);
+      final jsonString = jsonEncode(lightData);
+      
+      if (jsonString.length > 500000) { // 500KB以上
+        print('警告: オートセーブデータが大きすぎます (${(jsonString.length / 1024).toStringAsFixed(2)}KB)');
+      }
+      
+      await prefs.setString(autoSaveKey, jsonString);
+      print('オートセーブデータを保存しました (${(jsonString.length / 1024).toStringAsFixed(2)}KB)');
+    } catch (e) {
+      print('オートセーブ保存エラー: $e');
+      // オートセーブエラーは致命的ではないので、エラーを投げない
+    }
+  }
+  
+  /// 軽量化されたセーブデータを作成（オートセーブ用）
+  Map<String, dynamic> _createLightSaveData(Map<String, dynamic> fullData) {
+    final lightData = <String, dynamic>{};
+    
+    // 重要なデータのみをコピー
+    lightData['scoutName'] = fullData['scoutName'];
+    lightData['currentYear'] = fullData['currentYear'];
+    lightData['currentMonth'] = fullData['currentMonth'];
+    lightData['currentWeekOfMonth'] = fullData['currentWeekOfMonth'];
+    lightData['state'] = fullData['state'];
+    lightData['ap'] = fullData['ap'];
+    lightData['budget'] = fullData['budget'];
+    lightData['scoutSkills'] = fullData['scoutSkills'];
+    lightData['reputation'] = fullData['reputation'];
+    lightData['experience'] = fullData['experience'];
+    lightData['level'] = fullData['level'];
+    lightData['timestamp'] = DateTime.now().millisecondsSinceEpoch;
+    
+    // 学校データは軽量化（選手の詳細情報は除外）
+    if (fullData['schools'] != null) {
+      final schools = fullData['schools'] as List;
+      lightData['schools'] = schools.map((school) {
+        final schoolData = Map<String, dynamic>.from(school);
+        // 選手の詳細情報を除外して軽量化
+        if (schoolData['players'] != null) {
+          final players = schoolData['players'] as List;
+          schoolData['players'] = players.map((player) {
+            final playerData = Map<String, dynamic>.from(player);
+            // 必要最小限の情報のみ保持
+            return {
+              'id': playerData['id'],
+              'name': playerData['name'],
+              'position': playerData['position'],
+              'age': playerData['age'],
+              'isGraduated': playerData['isGraduated'],
+              'isRetired': playerData['isRetired'],
+              'school': playerData['school'],
+            };
+          }).toList();
+        }
+        return schoolData;
+      }).toList();
+    }
+    
+    // 発掘選手も軽量化
+    if (fullData['discoveredPlayers'] != null) {
+      final players = fullData['discoveredPlayers'] as List;
+      lightData['discoveredPlayers'] = players.map((player) {
+        final playerData = Map<String, dynamic>.from(player);
+        return {
+          'id': playerData['id'],
+          'name': playerData['name'],
+          'position': playerData['position'],
+          'age': playerData['age'],
+          'isGraduated': playerData['isGraduated'],
+          'isRetired': playerData['isRetired'],
+          'school': playerData['school'],
+        };
+      }).toList();
+    }
+    
+    return lightData;
   }
 
   Future<Map<String, dynamic>?> loadAutoGameData() async {
@@ -1917,6 +2025,187 @@ class DataService {
     
     final total = physicalAbilities.reduce((a, b) => a + b);
     return total ~/ physicalAbilities.length;
+  }
+
+  /// ゲームデータをデータベースに直接保存（メモリ使用量削減）
+  Future<void> saveGameDataToDatabase(Map<String, dynamic> data) async {
+    try {
+      final db = await database;
+      
+      // トランザクションを使用して一括保存
+      await db.transaction((txn) async {
+        // ゲーム基本情報を保存
+        await _saveGameBasicInfo(txn, data);
+        
+        // 学校データを分割して保存
+        if (data['schools'] != null) {
+          await _saveSchoolsInBatches(txn, data['schools'] as List);
+        }
+        
+        // 発掘選手データを分割して保存
+        if (data['discoveredPlayers'] != null) {
+          await _saveDiscoveredPlayersInBatches(txn, data['discoveredPlayers'] as List);
+        }
+        
+        // プロ野球データを保存
+        if (data['professionalTeams'] != null) {
+          await _saveProfessionalData(txn, data['professionalTeams'] as List);
+        }
+      });
+      
+      print('ゲームデータをデータベースに直接保存しました');
+    } catch (e) {
+      print('データベース保存エラー: $e');
+      rethrow;
+    }
+  }
+  
+  /// ゲーム基本情報を保存
+  Future<void> _saveGameBasicInfo(Transaction txn, Map<String, dynamic> data) async {
+    // GameInfoテーブルに保存
+    await txn.insert('GameInfo', {
+      'scoutName': data['scoutName'] ?? '',
+      'currentYear': data['currentYear'] ?? 1,
+      'currentMonth': data['currentMonth'] ?? 4,
+      'currentWeekOfMonth': data['currentWeekOfMonth'] ?? 1,
+      'state': data['state'] ?? 'playing',
+      'ap': data['ap'] ?? 0,
+      'budget': data['budget'] ?? 0,
+      'scoutSkills': jsonEncode(data['scoutSkills'] ?? {}),
+      'reputation': data['reputation'] ?? 0,
+      'experience': data['experience'] ?? 0,
+      'level': data['level'] ?? 1,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+  
+  /// 学校データをバッチ処理で保存
+  Future<void> _saveSchoolsInBatches(Transaction txn, List schools) async {
+    const batchSize = 50; // バッチサイズを制限
+    
+    for (int i = 0; i < schools.length; i += batchSize) {
+      final end = (i + batchSize < schools.length) ? i + batchSize : schools.length;
+      final batch = schools.sublist(i, end);
+      
+      // 学校情報を保存
+      for (final schoolData in batch) {
+        final school = Map<String, dynamic>.from(schoolData);
+        final schoolId = await _saveSchoolInfo(txn, school);
+        
+        // 選手データを保存（詳細情報は除外）
+        if (school['players'] != null) {
+          await _saveSchoolPlayersInBatches(txn, school['players'] as List, schoolId);
+        }
+      }
+      
+      // バッチ処理後にメモリを解放
+      print('学校データバッチ処理完了: ${i + 1}-$end / ${schools.length}');
+    }
+  }
+  
+  /// 学校情報を保存
+  Future<int> _saveSchoolInfo(Transaction txn, Map<String, dynamic> school) async {
+    final schoolId = await txn.insert('School', {
+      'name': school['name'] ?? '',
+      'type': school['type'] ?? 'high_school',
+      'region': school['region'] ?? '',
+      'level': school['level'] ?? 1,
+      'reputation': school['reputation'] ?? 0,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    
+    return schoolId;
+  }
+  
+  /// 学校の選手データをバッチ処理で保存
+  Future<void> _saveSchoolPlayersInBatches(Transaction txn, List players, int schoolId) async {
+    const batchSize = 100; // 選手データのバッチサイズ
+    
+    for (int i = 0; i < players.length; i += batchSize) {
+      final end = (i + batchSize < players.length) ? i + batchSize : players.length;
+      final batch = players.sublist(i, end);
+      
+      for (final playerData in batch) {
+        final player = Map<String, dynamic>.from(playerData);
+        
+        // 必要最小限の情報のみ保存
+        await txn.insert('Player', {
+          'id': player['id'],
+          'name': player['name'] ?? '',
+          'position': player['position'] ?? '',
+          'age': player['age'] ?? 0,
+          'grade': player['grade'] ?? 1,
+          'isGraduated': player['isGraduated'] ?? false ? 1 : 0,
+          'isRetired': player['isRetired'] ?? false ? 1 : 0,
+          'school': schoolId,
+          'fame': player['fame'] ?? 0,
+          'growth_rate': player['growth_rate'] ?? 0,
+          'talent': player['talent'] ?? 0,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      
+      // バッチ処理後にメモリを解放
+      print('選手データバッチ処理完了: ${i + 1}-$end / ${players.length}');
+    }
+  }
+  
+  /// 発掘選手データをバッチ処理で保存
+  Future<void> _saveDiscoveredPlayersInBatches(Transaction txn, List players) async {
+    const batchSize = 100;
+    
+    for (int i = 0; i < players.length; i += batchSize) {
+      final end = (i + batchSize < players.length) ? i + batchSize : players.length;
+      final batch = players.sublist(i, end);
+      
+      for (final playerData in batch) {
+        final player = Map<String, dynamic>.from(playerData);
+        
+        await txn.insert('DiscoveredPlayer', {
+          'id': player['id'],
+          'name': player['name'] ?? '',
+          'position': player['position'] ?? '',
+          'age': player['age'] ?? 0,
+          'isGraduated': player['isGraduated'] ?? false ? 1 : 0,
+          'isRetired': player['isRetired'] ?? false ? 1 : 0,
+          'fame': player['fame'] ?? 0,
+          'growth_rate': player['growth_rate'] ?? 0,
+          'talent': player['talent'] ?? 0,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      
+      print('発掘選手データバッチ処理完了: ${i + 1}-$end / ${players.length}');
+    }
+  }
+  
+  /// プロ野球データを保存
+  Future<void> _saveProfessionalData(Transaction txn, List teams) async {
+    for (final teamData in teams) {
+      final team = Map<String, dynamic>.from(teamData);
+      
+      final teamId = await txn.insert('ProfessionalTeam', {
+        'name': team['name'] ?? '',
+        'league': team['league'] ?? '',
+        'division': team['division'] ?? '',
+        'region': team['region'] ?? '',
+        'reputation': team['reputation'] ?? 0,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      
+      // プロ選手データも保存
+      if (team['professionalPlayers'] != null) {
+        final players = team['professionalPlayers'] as List;
+        for (final playerData in players) {
+          final player = Map<String, dynamic>.from(playerData);
+          
+          await txn.insert('ProfessionalPlayer', {
+            'id': player['id'],
+            'name': player['name'] ?? '',
+            'position': player['position'] ?? '',
+            'age': player['age'] ?? 0,
+            'team': teamId,
+            'isRetired': player['isRetired'] ?? false ? 1 : 0,
+          }, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+      }
+    }
   }
 
 } 

@@ -11,7 +11,10 @@ void main() {
       providers: [
         Provider<DataService>(create: (_) => DataService()),
         Provider<NewsService>(create: (_) => NewsService()),
-        Provider<GameManager>(create: (context) => GameManager(context.read<DataService>())),
+        Provider<GameManager>(create: (context) => GameManager(
+          context.read<DataService>(),
+          newsService: context.read<NewsService>(),
+        )),
       ],
       child: const ScoutGameApp(),
     ),

@@ -13,6 +13,7 @@ import '../screens/professional_teams_screen.dart';
 import '../screens/team_detail_screen.dart';
 import '../screens/pennant_race_screen.dart';
 import '../screens/tournament_screen.dart';
+import '../screens/draft_screen.dart';
 
 import 'theme.dart';
 import '../models/player/player.dart';
@@ -39,6 +40,7 @@ class ScoutGameApp extends StatelessWidget {
         '/teamRequests': (context) => const TeamRequestsScreen(),
         '/professionalTeams': (context) => const ProfessionalTeamsScreen(),
         '/pennantRace': (context) => const PennantRaceScreen(),
+        '/draft': (context) => const DraftScreen(),
 
       },
       onGenerateRoute: (settings) {
