@@ -447,7 +447,7 @@ class GameManager {
       
       // 3. 選手を学校に配属
       final playerAssignmentService = PlayerAssignmentService(dataService);
-      await playerAssignmentService.assignPlayersToSchools(allSchools, talentedPlayers);
+      await playerAssignmentService.assignPlayersToSchools(allSchools, talentedPlayers, isNewYear: false);
       
       // 4. 学校リストを更新
       print('GameManager.generateInitialStudentsForAllSchoolsDb: _currentGame!.copyWith実行前');
@@ -601,9 +601,9 @@ class GameManager {
     try {
       print('GameManager.generateNewStudentsForAllSchoolsDb: 新年度新1年生生成開始');
       
-      // TalentedPlayerGeneratorを使用して新1年生を生成
+      // TalentedPlayerGeneratorを使用して新1年生のみを生成
       final talentedPlayerGenerator = TalentedPlayerGenerator(dataService);
-      final newFirstYears = await talentedPlayerGenerator.generateTalentedPlayers();
+      final newFirstYears = await talentedPlayerGenerator.generateNewFirstYearStudents();
       
       // 新1年生のみをフィルタリング（学年を1年生に設定）
       final firstYearStudents = newFirstYears.take(2350).map((player) => 
@@ -612,7 +612,7 @@ class GameManager {
       
       // 選手を学校に配属
       final playerAssignmentService = PlayerAssignmentService(dataService);
-      await playerAssignmentService.assignPlayersToSchools(_currentGame!.schools, firstYearStudents);
+      await playerAssignmentService.assignPlayersToSchools(_currentGame!.schools, firstYearStudents, isNewYear: true);
       
       // 学校リストを更新
       final updatedSchools = <School>[];
@@ -1955,21 +1955,21 @@ class GameManager {
           _debugDatabaseValue('contact', p['contact'], playerId);
           _debugDatabaseValue('power', p['power'], playerId);
           
-          technicalAbilities[TechnicalAbility.contact] = _safeIntCast(p['contact']);
-          technicalAbilities[TechnicalAbility.power] = _safeIntCast(p['power']);
-          technicalAbilities[TechnicalAbility.plateDiscipline] = _safeIntCast(p['plate_discipline']);
-          technicalAbilities[TechnicalAbility.bunt] = _safeIntCast(p['bunt']);
-          technicalAbilities[TechnicalAbility.oppositeFieldHitting] = _safeIntCast(p['opposite_field_hitting']);
-          technicalAbilities[TechnicalAbility.pullHitting] = _safeIntCast(p['pull_hitting']);
-          technicalAbilities[TechnicalAbility.batControl] = _safeIntCast(p['bat_control']);
-          technicalAbilities[TechnicalAbility.swingSpeed] = _safeIntCast(p['swing_speed']);
-          technicalAbilities[TechnicalAbility.fielding] = _safeIntCast(p['fielding']);
-          technicalAbilities[TechnicalAbility.throwing] = _safeIntCast(p['throwing']);
-          technicalAbilities[TechnicalAbility.catcherAbility] = _safeIntCast(p['catcher_ability']);
-          technicalAbilities[TechnicalAbility.control] = _safeIntCast(p['control']);
-          technicalAbilities[TechnicalAbility.fastball] = _safeIntCast(p['fastball']);
-          technicalAbilities[TechnicalAbility.breakingBall] = _safeIntCast(p['breaking_ball']);
-          technicalAbilities[TechnicalAbility.pitchMovement] = _safeIntCast(p['pitch_movement']);
+          technicalAbilities[TechnicalAbility.contact] = _safeIntCastWithDebug(p['contact'], 'contact', playerId);
+          technicalAbilities[TechnicalAbility.power] = _safeIntCastWithDebug(p['power'], 'power', playerId);
+          technicalAbilities[TechnicalAbility.plateDiscipline] = _safeIntCastWithDebug(p['plate_discipline'], 'plate_discipline', playerId);
+          technicalAbilities[TechnicalAbility.bunt] = _safeIntCastWithDebug(p['bunt'], 'bunt', playerId);
+          technicalAbilities[TechnicalAbility.oppositeFieldHitting] = _safeIntCastWithDebug(p['opposite_field_hitting'], 'opposite_field_hitting', playerId);
+          technicalAbilities[TechnicalAbility.pullHitting] = _safeIntCastWithDebug(p['pull_hitting'], 'pull_hitting', playerId);
+          technicalAbilities[TechnicalAbility.batControl] = _safeIntCastWithDebug(p['bat_control'], 'bat_control', playerId);
+          technicalAbilities[TechnicalAbility.swingSpeed] = _safeIntCastWithDebug(p['swing_speed'], 'swing_speed', playerId);
+          technicalAbilities[TechnicalAbility.fielding] = _safeIntCastWithDebug(p['fielding'], 'fielding', playerId);
+          technicalAbilities[TechnicalAbility.throwing] = _safeIntCastWithDebug(p['throwing'], 'throwing', playerId);
+          technicalAbilities[TechnicalAbility.catcherAbility] = _safeIntCastWithDebug(p['catcher_ability'], 'catcher_ability', playerId);
+          technicalAbilities[TechnicalAbility.control] = _safeIntCastWithDebug(p['control'], 'control', playerId);
+          technicalAbilities[TechnicalAbility.fastball] = _safeIntCastWithDebug(p['fastball'], 'fastball', playerId);
+          technicalAbilities[TechnicalAbility.breakingBall] = _safeIntCastWithDebug(p['breaking_ball'], 'breaking_ball', playerId);
+          technicalAbilities[TechnicalAbility.pitchMovement] = _safeIntCastWithDebug(p['pitch_movement'], 'pitch_movement', playerId);
         } catch (e) {
           print('_refreshPlayersFromDb: Technical abilities復元でエラー: $e');
           print('_refreshPlayersFromDb: 問題のプレイヤーID: $playerId');
@@ -1980,20 +1980,20 @@ class GameManager {
         
         // Mental abilities復元
         try {
-          mentalAbilities[MentalAbility.concentration] = _safeIntCast(p['concentration']);
-          mentalAbilities[MentalAbility.anticipation] = _safeIntCast(p['anticipation']);
-          mentalAbilities[MentalAbility.vision] = _safeIntCast(p['vision']);
-          mentalAbilities[MentalAbility.composure] = _safeIntCast(p['composure']);
-          mentalAbilities[MentalAbility.aggression] = _safeIntCast(p['aggression']);
-          mentalAbilities[MentalAbility.bravery] = _safeIntCast(p['bravery']);
-          mentalAbilities[MentalAbility.leadership] = _safeIntCast(p['leadership']);
-          mentalAbilities[MentalAbility.workRate] = _safeIntCast(p['work_rate']);
-          mentalAbilities[MentalAbility.selfDiscipline] = _safeIntCast(p['self_discipline']);
-          mentalAbilities[MentalAbility.ambition] = _safeIntCast(p['ambition']);
-          mentalAbilities[MentalAbility.teamwork] = _safeIntCast(p['teamwork']);
-          mentalAbilities[MentalAbility.positioning] = _safeIntCast(p['positioning']);
-          mentalAbilities[MentalAbility.pressureHandling] = _safeIntCast(p['pressure_handling']);
-          mentalAbilities[MentalAbility.clutchAbility] = _safeIntCast(p['clutch_ability']);
+          mentalAbilities[MentalAbility.concentration] = _safeIntCastWithDebug(p['concentration'], 'concentration', playerId);
+          mentalAbilities[MentalAbility.anticipation] = _safeIntCastWithDebug(p['anticipation'], 'anticipation', playerId);
+          mentalAbilities[MentalAbility.vision] = _safeIntCastWithDebug(p['vision'], 'vision', playerId);
+          mentalAbilities[MentalAbility.composure] = _safeIntCastWithDebug(p['composure'], 'composure', playerId);
+          mentalAbilities[MentalAbility.aggression] = _safeIntCastWithDebug(p['aggression'], 'aggression', playerId);
+          mentalAbilities[MentalAbility.bravery] = _safeIntCastWithDebug(p['bravery'], 'bravery', playerId);
+          mentalAbilities[MentalAbility.leadership] = _safeIntCastWithDebug(p['leadership'], 'leadership', playerId);
+          mentalAbilities[MentalAbility.workRate] = _safeIntCastWithDebug(p['work_rate'], 'work_rate', playerId);
+          mentalAbilities[MentalAbility.selfDiscipline] = _safeIntCastWithDebug(p['self_discipline'], 'self_discipline', playerId);
+          mentalAbilities[MentalAbility.ambition] = _safeIntCastWithDebug(p['ambition'], 'ambition', playerId);
+          mentalAbilities[MentalAbility.teamwork] = _safeIntCastWithDebug(p['teamwork'], 'teamwork', playerId);
+          mentalAbilities[MentalAbility.positioning] = _safeIntCastWithDebug(p['positioning'], 'positioning', playerId);
+          mentalAbilities[MentalAbility.pressureHandling] = _safeIntCastWithDebug(p['pressure_handling'], 'pressure_handling', playerId);
+          mentalAbilities[MentalAbility.clutchAbility] = _safeIntCastWithDebug(p['clutch_ability'], 'clutch_ability', playerId);
         } catch (e) {
           print('_refreshPlayersFromDb: Mental abilities復元でエラー: $e');
           print('_refreshPlayersFromDb: 問題のプレイヤーID: $playerId');
@@ -2002,16 +2002,16 @@ class GameManager {
         
         // Physical abilities復元
         try {
-          physicalAbilities[PhysicalAbility.acceleration] = _safeIntCast(p['acceleration']);
-          physicalAbilities[PhysicalAbility.agility] = _safeIntCast(p['agility']);
-          physicalAbilities[PhysicalAbility.balance] = _safeIntCast(p['balance']);
-          physicalAbilities[PhysicalAbility.jumpingReach] = _safeIntCast(p['jumping_reach']);
-          physicalAbilities[PhysicalAbility.flexibility] = _safeIntCast(p['flexibility']);
-          physicalAbilities[PhysicalAbility.naturalFitness] = _safeIntCast(p['natural_fitness']);
-          physicalAbilities[PhysicalAbility.injuryProneness] = _safeIntCast(p['injury_proneness']);
-          physicalAbilities[PhysicalAbility.stamina] = _safeIntCast(p['stamina']);
-          physicalAbilities[PhysicalAbility.strength] = _safeIntCast(p['strength']);
-          physicalAbilities[PhysicalAbility.pace] = _safeIntCast(p['pace']);
+          physicalAbilities[PhysicalAbility.acceleration] = _safeIntCastWithDebug(p['acceleration'], 'acceleration', playerId);
+          physicalAbilities[PhysicalAbility.agility] = _safeIntCastWithDebug(p['agility'], 'agility', playerId);
+          physicalAbilities[PhysicalAbility.balance] = _safeIntCastWithDebug(p['balance'], 'balance', playerId);
+          physicalAbilities[PhysicalAbility.jumpingReach] = _safeIntCastWithDebug(p['jumping_reach'], 'jumping_reach', playerId);
+          physicalAbilities[PhysicalAbility.flexibility] = _safeIntCastWithDebug(p['flexibility'], 'flexibility', playerId);
+          physicalAbilities[PhysicalAbility.naturalFitness] = _safeIntCastWithDebug(p['natural_fitness'], 'natural_fitness', playerId);
+          physicalAbilities[PhysicalAbility.injuryProneness] = _safeIntCastWithDebug(p['injury_proneness'], 'injury_proneness', playerId);
+          physicalAbilities[PhysicalAbility.stamina] = _safeIntCastWithDebug(p['stamina'], 'stamina', playerId);
+          physicalAbilities[PhysicalAbility.strength] = _safeIntCastWithDebug(p['strength'], 'strength', playerId);
+          physicalAbilities[PhysicalAbility.pace] = _safeIntCastWithDebug(p['pace'], 'pace', playerId);
         } catch (e) {
           print('_refreshPlayersFromDb: Physical abilities復元でエラー: $e');
           print('_refreshPlayersFromDb: 問題のプレイヤーID: $playerId');
@@ -2063,6 +2063,12 @@ class GameManager {
         final graduatedAtFromDb = p['graduated_at'] as String?;
         final isDefaultPlayerFromDb = (p['is_default_player'] as int?) == 1; // デフォルト選手フラグを読み込み
 
+        // overall能力値を計算
+        final overall = _calculateOverallAbility(technicalAbilities, mentalAbilities, physicalAbilities, p['position'] as String? ?? '投手');
+        final technical = _calculateTechnicalAbility(technicalAbilities);
+        final physical = _calculatePhysicalAbility(physicalAbilities);
+        final mental = _calculateMentalAbility(mentalAbilities);
+        
         final player;
         try {
           player = Player(
@@ -2086,6 +2092,10 @@ class GameManager {
             technicalAbilities: technicalAbilities,
             mentalAbilities: mentalAbilities,
             physicalAbilities: physicalAbilities,
+            overall: overall, // 計算されたoverall能力値を設定
+            technical: technical, // 計算されたtechnical能力値を設定
+            physical: physical, // 計算されたphysical能力値を設定
+            mental: mental, // 計算されたmental能力値を設定
             mentalGrit: (p['mental_grit'] as num?)?.toDouble() ?? 0.0,
             growthRate: p['growth_rate'] as double? ?? 1.0,
             peakAbility: _safeIntCast(p['peak_ability']),
@@ -2303,6 +2313,28 @@ class GameManager {
             _updateGrowthStatus(false, '学年アップ処理でエラーが発生しました');
             results.add('学年アップ処理中にエラーが発生しましたが、処理を継続します。');
           }
+        }
+      }
+
+      // 3月4週（週48）の終了後に高校生と卒業後の選手の引退処理（能力値による引退判定）
+      if (isGradeUp) {
+        print('GameManager.advanceWeekWithResults: 高校生・卒業後選手引退処理開始');
+        _updateGrowthStatus(true, '高校生・卒業後選手の引退判定を実行中...');
+        
+        try {
+          await _processHighSchoolAndGraduatedPlayerRetirements(dataService);
+          await _refreshPlayersFromDb(dataService);
+          
+          _updateGrowthStatus(false, '高校生・卒業後選手引退処理完了');
+          print('GameManager.advanceWeekWithResults: 高校生・卒業後選手引退処理完了');
+          
+          // 引退処理のニュース生成
+          results.add('高校生・卒業後選手の引退判定が完了しました。');
+          
+        } catch (e) {
+          print('GameManager.advanceWeekWithResults: 高校生・卒業後選手引退処理でエラーが発生しました: $e');
+          _updateGrowthStatus(false, '高校生・卒業後選手引退処理でエラーが発生しました');
+          results.add('高校生・卒業後選手引退処理中にエラーが発生しましたが、処理を継続します。');
         }
       }
       
@@ -3725,5 +3757,171 @@ class GameManager {
     }
     
     return fit;
+  }
+
+  // 強化された安全なint型変換ヘルパーメソッド（デバッグ情報付き）
+  int _safeIntCastWithDebug(dynamic value, String columnName, int? playerId) {
+    try {
+      if (value == null) {
+        print('_safeIntCastWithDebug: $columnName = null (プレイヤーID: $playerId)');
+        return 0;
+      }
+      if (value is int) return value;
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) {
+          print('_safeIntCastWithDebug: $columnName = "$value" (String) → $parsed (int) (プレイヤーID: $playerId)');
+          return parsed;
+        }
+        print('_safeIntCastWithDebug: $columnName = "$value" (String) → 変換失敗 (プレイヤーID: $playerId)');
+        return 0;
+      }
+      if (value is double) {
+        final result = value.toInt();
+        print('_safeIntCastWithDebug: $columnName = $value (double) → $result (int) (プレイヤーID: $playerId)');
+        return result;
+      }
+      print('_safeIntCastWithDebug: $columnName = 予期しない型: ${value.runtimeType}, 値: $value (プレイヤーID: $playerId)');
+      return 0;
+    } catch (e) {
+      print('_safeIntCastWithDebug: $columnName でエラーが発生: $e, 値: $value, 型: ${value.runtimeType} (プレイヤーID: $playerId)');
+      return 0;
+    }
+  }
+
+  /// 総合能力値を計算
+  int _calculateOverallAbility(Map<TechnicalAbility, int> technicalAbilities, Map<MentalAbility, int> mentalAbilities, Map<PhysicalAbility, int> physicalAbilities, String position) {
+    final technical = _calculateTechnicalAbility(technicalAbilities);
+    final mental = _calculateMentalAbility(mentalAbilities);
+    final physical = _calculatePhysicalAbility(physicalAbilities);
+    
+    // ポジション別の重み付け
+    if (position == '投手') {
+      // 投手: 技術50%、精神30%、身体20%
+      return ((technical * 0.5) + (mental * 0.3) + (physical * 0.2)).round();
+    } else {
+      // 野手: 技術40%、精神25%、身体35%
+      return ((technical * 0.4) + (mental * 0.25) + (physical * 0.35)).round();
+    }
+  }
+
+  /// 技術面総合能力値を計算
+  int _calculateTechnicalAbility(Map<TechnicalAbility, int> technicalAbilities) {
+    if (technicalAbilities.isEmpty) return 50;
+    final values = technicalAbilities.values.toList();
+    return values.reduce((a, b) => a + b) ~/ values.length;
+  }
+
+  /// フィジカル面総合能力値を計算
+  int _calculatePhysicalAbility(Map<PhysicalAbility, int> physicalAbilities) {
+    if (physicalAbilities.isEmpty) return 50;
+    final values = physicalAbilities.values.toList();
+    return values.reduce((a, b) => a + b) ~/ values.length;
+  }
+
+  /// メンタル面総合能力値を計算
+  int _calculateMentalAbility(Map<MentalAbility, int> mentalAbilities) {
+    if (mentalAbilities.isEmpty) return 50;
+    final values = mentalAbilities.values.toList();
+    return values.reduce((a, b) => a + b) ~/ values.length;
+  }
+
+  /// 高校生と卒業後の選手の引退処理（能力値による引退判定）
+  Future<void> _processHighSchoolAndGraduatedPlayerRetirements(DataService dataService) async {
+    try {
+      print('_processHighSchoolAndGraduatedPlayerRetirements: 開始');
+      
+      final db = await dataService.database;
+      int totalRetired = 0;
+      
+      // 高校生と卒業後の選手を取得（isRetired OFF, isDefaultPlayer OFF）
+      final players = await db.query(
+        'Player',
+        where: 'is_retired = 0 AND is_default_player = 0',
+        whereArgs: [],
+      );
+      
+      for (final playerMap in players) {
+        final playerId = playerMap['id'] as int;
+        final position = playerMap['position'] as String? ?? '投手';
+        
+        // 能力値を取得
+        final technicalAbilities = <TechnicalAbility, int>{};
+        final mentalAbilities = <MentalAbility, int>{};
+        final physicalAbilities = <PhysicalAbility, int>{};
+        
+        // Technical abilities
+        technicalAbilities[TechnicalAbility.contact] = _safeIntCast(playerMap['contact']);
+        technicalAbilities[TechnicalAbility.power] = _safeIntCast(playerMap['power']);
+        technicalAbilities[TechnicalAbility.plateDiscipline] = _safeIntCast(playerMap['plate_discipline']);
+        technicalAbilities[TechnicalAbility.bunt] = _safeIntCast(playerMap['bunt']);
+        technicalAbilities[TechnicalAbility.oppositeFieldHitting] = _safeIntCast(playerMap['opposite_field_hitting']);
+        technicalAbilities[TechnicalAbility.pullHitting] = _safeIntCast(playerMap['pull_hitting']);
+        technicalAbilities[TechnicalAbility.batControl] = _safeIntCast(playerMap['bat_control']);
+        technicalAbilities[TechnicalAbility.swingSpeed] = _safeIntCast(playerMap['swing_speed']);
+        technicalAbilities[TechnicalAbility.fielding] = _safeIntCast(playerMap['fielding']);
+        technicalAbilities[TechnicalAbility.throwing] = _safeIntCast(playerMap['throwing']);
+        technicalAbilities[TechnicalAbility.catcherAbility] = _safeIntCast(playerMap['catcher_ability']);
+        technicalAbilities[TechnicalAbility.control] = _safeIntCast(playerMap['control']);
+        technicalAbilities[TechnicalAbility.fastball] = _safeIntCast(playerMap['fastball']);
+        technicalAbilities[TechnicalAbility.breakingBall] = _safeIntCast(playerMap['breaking_ball']);
+        technicalAbilities[TechnicalAbility.pitchMovement] = _safeIntCast(playerMap['pitch_movement']);
+        
+        // Mental abilities
+        mentalAbilities[MentalAbility.concentration] = _safeIntCast(playerMap['concentration']);
+        mentalAbilities[MentalAbility.anticipation] = _safeIntCast(playerMap['anticipation']);
+        mentalAbilities[MentalAbility.vision] = _safeIntCast(playerMap['vision']);
+        mentalAbilities[MentalAbility.composure] = _safeIntCast(playerMap['composure']);
+        mentalAbilities[MentalAbility.aggression] = _safeIntCast(playerMap['aggression']);
+        mentalAbilities[MentalAbility.bravery] = _safeIntCast(playerMap['bravery']);
+        mentalAbilities[MentalAbility.leadership] = _safeIntCast(playerMap['leadership']);
+        mentalAbilities[MentalAbility.workRate] = _safeIntCast(playerMap['work_rate']);
+        mentalAbilities[MentalAbility.selfDiscipline] = _safeIntCast(playerMap['self_discipline']);
+        mentalAbilities[MentalAbility.ambition] = _safeIntCast(playerMap['ambition']);
+        mentalAbilities[MentalAbility.teamwork] = _safeIntCast(playerMap['teamwork']);
+        mentalAbilities[MentalAbility.positioning] = _safeIntCast(playerMap['positioning']);
+        mentalAbilities[MentalAbility.pressureHandling] = _safeIntCast(playerMap['pressure_handling']);
+        mentalAbilities[MentalAbility.clutchAbility] = _safeIntCast(playerMap['clutch_ability']);
+        
+        // Physical abilities
+        physicalAbilities[PhysicalAbility.acceleration] = _safeIntCast(playerMap['acceleration']);
+        physicalAbilities[PhysicalAbility.agility] = _safeIntCast(playerMap['agility']);
+        physicalAbilities[PhysicalAbility.balance] = _safeIntCast(playerMap['balance']);
+        physicalAbilities[PhysicalAbility.jumpingReach] = _safeIntCast(playerMap['jumping_reach']);
+        physicalAbilities[PhysicalAbility.flexibility] = _safeIntCast(playerMap['flexibility']);
+        physicalAbilities[PhysicalAbility.naturalFitness] = _safeIntCast(playerMap['natural_fitness']);
+        physicalAbilities[PhysicalAbility.injuryProneness] = _safeIntCast(playerMap['injury_proneness']);
+        physicalAbilities[PhysicalAbility.stamina] = _safeIntCast(playerMap['stamina']);
+        physicalAbilities[PhysicalAbility.strength] = _safeIntCast(playerMap['strength']);
+        physicalAbilities[PhysicalAbility.pace] = _safeIntCast(playerMap['pace']);
+        
+        // overall能力値を計算
+        final overall = _calculateOverallAbility(technicalAbilities, mentalAbilities, physicalAbilities, position);
+        
+        // 引退判定（overall < 70）
+        if (overall < 70) {
+          print('_processHighSchoolAndGraduatedPlayerRetirements: 選手ID $playerId (${playerMap['name']}) が引退判定: overall=$overall');
+          
+          // データベースで引退フラグを設定
+          await db.update(
+            'Player',
+            {
+              'is_retired': 1,
+              'retired_at': DateTime.now().toIso8601String(),
+            },
+            where: 'id = ?',
+            whereArgs: [playerId],
+          );
+          
+          totalRetired++;
+        }
+      }
+      
+      print('_processHighSchoolAndGraduatedPlayerRetirements: 完了 - 引退選手数: $totalRetired');
+      
+    } catch (e) {
+      print('_processHighSchoolAndGraduatedPlayerRetirements: エラーが発生しました: $e');
+      rethrow;
+    }
   }
 } 

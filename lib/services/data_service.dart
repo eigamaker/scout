@@ -1191,6 +1191,11 @@ class DataService {
             'strength_potential': _generateProPlayerPotential(peakAbility, random),
             'pace_potential': _generateProPlayerPotential(peakAbility, random),
             'flexibility_potential': _generateProPlayerPotential(peakAbility, random),
+            // 総合ポテンシャル指標（事前計算済み）
+            'overall_potential': _calculateProfessionalOverallPotential(peakAbility, position, random),
+            'technical_potential': _calculateProfessionalTechnicalPotential(peakAbility, random),
+            'mental_potential': _calculateProfessionalMentalPotential(peakAbility, random),
+            'physical_potential': _calculateProfessionalPhysicalPotential(peakAbility, random),
           });
           
           // ProfessionalPlayerテーブルに挿入
@@ -1623,21 +1628,13 @@ class DataService {
   }
   
   /// スカウト分析の総合評価を計算
-  int _calculateScoutOverallEvaluation(int technical, int physical, int mental, String position) {
+  int _calculateScoutOverallEvaluation(int technicalEvaluation, int physicalEvaluation, int mentalEvaluation, String position) {
     if (position == '投手') {
       // 投手: 技術50%、精神30%、身体20%
-      return (
-        (technical * 0.5) +
-        (mental * 0.3) +
-        (physical * 0.2)
-      ).round();
+      return ((technicalEvaluation * 0.5) + (mentalEvaluation * 0.3) + (physicalEvaluation * 0.2)).round();
     } else {
       // 野手: 技術40%、精神25%、身体35%
-      return (
-        (technical * 0.4) +
-        (mental * 0.25) +
-        (physical * 0.35)
-      ).round();
+      return ((technicalEvaluation * 0.4) + (mentalEvaluation * 0.25) + (physicalEvaluation * 0.35)).round();
     }
   }
 
@@ -1831,6 +1828,95 @@ class DataService {
     } catch (e) {
       print('引退判定エラー: $e');
     }
+  }
+
+  /// プロ選手の総合ポテンシャル値を計算（ポジション別重み付け）
+  int _calculateProfessionalOverallPotential(int peakAbility, String position, Random random) {
+    // 基本ポテンシャル値を計算
+    final technicalPotential = _calculateProfessionalTechnicalPotential(peakAbility, random);
+    final mentalPotential = _calculateProfessionalMentalPotential(peakAbility, random);
+    final physicalPotential = _calculateProfessionalPhysicalPotential(peakAbility, random);
+    
+    // ポジション別の重み付けを適用
+    if (position == '投手') {
+      // 投手: 技術50%、精神30%、身体20%
+      return ((technicalPotential * 0.5) + (mentalPotential * 0.3) + (physicalPotential * 0.2)).round();
+    } else {
+      // 野手: 技術40%、精神25%、身体35%
+      return ((technicalPotential * 0.4) + (mentalPotential * 0.25) + (physicalPotential * 0.35)).round();
+    }
+  }
+
+  /// プロ選手の技術面ポテンシャル値を計算
+  int _calculateProfessionalTechnicalPotential(int peakAbility, Random random) {
+    // 技術面ポテンシャルは個別能力値の平均
+    // 各能力値のポテンシャルはpeak_ability + 0-15の範囲
+    final technicalAbilities = [
+      peakAbility + random.nextInt(16), // contact
+      peakAbility + random.nextInt(16), // power
+      peakAbility + random.nextInt(16), // plate_discipline
+      peakAbility + random.nextInt(16), // bunt
+      peakAbility + random.nextInt(16), // opposite_field_hitting
+      peakAbility + random.nextInt(16), // pull_hitting
+      peakAbility + random.nextInt(16), // bat_control
+      peakAbility + random.nextInt(16), // swing_speed
+      peakAbility + random.nextInt(16), // fielding
+      peakAbility + random.nextInt(16), // throwing
+      peakAbility + random.nextInt(16), // catcher_ability
+      peakAbility + random.nextInt(16), // control
+      peakAbility + random.nextInt(16), // fastball
+      peakAbility + random.nextInt(16), // breaking_ball
+      peakAbility + random.nextInt(16), // pitch_movement
+    ];
+    
+    final total = technicalAbilities.reduce((a, b) => a + b);
+    return total ~/ technicalAbilities.length;
+  }
+
+  /// プロ選手のメンタル面ポテンシャル値を計算
+  int _calculateProfessionalMentalPotential(int peakAbility, Random random) {
+    // メンタル面ポテンシャルは個別能力値の平均
+    // 各能力値のポテンシャルはpeak_ability + 0-15の範囲
+    final mentalAbilities = [
+      peakAbility + random.nextInt(16), // concentration
+      peakAbility + random.nextInt(16), // anticipation
+      peakAbility + random.nextInt(16), // vision
+      peakAbility + random.nextInt(16), // composure
+      peakAbility + random.nextInt(16), // aggression
+      peakAbility + random.nextInt(16), // bravery
+      peakAbility + random.nextInt(16), // leadership
+      peakAbility + random.nextInt(16), // work_rate
+      peakAbility + random.nextInt(16), // self_discipline
+      peakAbility + random.nextInt(16), // ambition
+      peakAbility + random.nextInt(16), // teamwork
+      peakAbility + random.nextInt(16), // positioning
+      peakAbility + random.nextInt(16), // pressure_handling
+      peakAbility + random.nextInt(16), // clutch_ability
+    ];
+    
+    final total = mentalAbilities.reduce((a, b) => a + b);
+    return total ~/ mentalAbilities.length;
+  }
+
+  /// プロ選手のフィジカル面ポテンシャル値を計算
+  int _calculateProfessionalPhysicalPotential(int peakAbility, Random random) {
+    // フィジカル面ポテンシャルは個別能力値の平均
+    // 各能力値のポテンシャルはpeak_ability + 0-15の範囲
+    final physicalAbilities = [
+      peakAbility + random.nextInt(16), // acceleration
+      peakAbility + random.nextInt(16), // agility
+      peakAbility + random.nextInt(16), // balance
+      peakAbility + random.nextInt(16), // jumping_reach
+      peakAbility + random.nextInt(16), // natural_fitness
+      peakAbility + random.nextInt(16), // injury_proneness
+      peakAbility + random.nextInt(16), // stamina
+      peakAbility + random.nextInt(16), // strength
+      peakAbility + random.nextInt(16), // pace
+      peakAbility + random.nextInt(16), // flexibility
+    ];
+    
+    final total = physicalAbilities.reduce((a, b) => a + b);
+    return total ~/ physicalAbilities.length;
   }
 
 } 

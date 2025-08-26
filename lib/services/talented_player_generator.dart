@@ -17,7 +17,7 @@ class TalentedPlayerGenerator {
 
   TalentedPlayerGenerator(this._dataService);
 
-  /// 才能のある選手を1000人生成
+  /// 才能のある選手を1000人生成（初期ゲーム開始時用）
   Future<List<Player>> generateTalentedPlayers() async {
     final players = <Player>[];
     
@@ -36,6 +36,28 @@ class TalentedPlayerGenerator {
     }
     
     print('才能のある選手を${players.length}人生成しました');
+    return players;
+  }
+
+  /// 新1年生のみを生成（新年度処理用）
+  Future<List<Player>> generateNewFirstYearStudents() async {
+    final players = <Player>[];
+    
+    // 都道府県別の選手数を決定（1都道府県あたり最大25人）
+    final prefecturePlayerCounts = _determinePrefecturePlayerCounts();
+    
+    // 各都道府県で選手を生成
+    for (final entry in prefecturePlayerCounts.entries) {
+      final prefecture = entry.key;
+      final count = entry.value;
+      
+      for (int i = 0; i < count; i++) {
+        final player = await _generateNewFirstYearStudent(prefecture);
+        players.add(player);
+      }
+    }
+    
+    print('新1年生を${players.length}人生成しました');
     return players;
   }
 
@@ -62,7 +84,7 @@ class TalentedPlayerGenerator {
     return prefecturePlayerCounts;
   }
 
-  /// 個別の才能のある選手を生成
+  /// 個別の才能のある選手を生成（初期ゲーム開始時用）
   Future<Player> _generateTalentedPlayer(String prefecture) async {
     // 才能ランクを決定（指定された割合）
     final talentRank = _determineTalentRank();
@@ -103,6 +125,12 @@ class TalentedPlayerGenerator {
     // ピーク能力をタレントランクに基づいて生成
     final peakAbility = _calculatePeakAbilityByTalent(talentRank);
     
+    // 総合ポテンシャル値を計算
+    final overallPotential = _calculateOverallPotential(individualPotentials, position);
+    final technicalPotential = _calculateTechnicalPotential(individualPotentials);
+    final mentalPotential = _calculateMentalPotential(individualPotentials);
+    final physicalPotential = _calculatePhysicalPotential(individualPotentials);
+    
     // 選手を作成
     final player = Player(
       name: name,
@@ -131,6 +159,103 @@ class TalentedPlayerGenerator {
       talent: talentRank,
       growthType: growthType,
       individualPotentials: individualPotentials,
+      technicalPotentials: _convertToTechnicalPotentials(individualPotentials),
+      mentalPotentials: _convertToMentalPotentials(individualPotentials),
+      physicalPotentials: _convertToPhysicalPotentials(individualPotentials),
+      scoutAnalysisData: null,
+      // 以下のフィールドは重複のため削除
+      // motivationAbility: additionalAbilities['motivation'] ?? 50,
+      // pressureAbility: additionalAbilities['pressure'] ?? 50,
+      // adaptabilityAbility: additionalAbilities['adaptability'] ?? 50,
+      // consistencyAbility: additionalAbilities['consistency'] ?? 50,
+      // clutchAbility: additionalAbilities['clutch'] ?? 50,
+      // workEthicAbility: additionalAbilities['work_ethic'] ?? 50,
+    );
+    
+    // 総合能力値を更新
+    _updatePlayerOverallAbilities(player);
+    
+    return player;
+  }
+
+  /// 新1年生のみを生成（新年度処理用）
+  Future<Player> _generateNewFirstYearStudent(String prefecture) async {
+    // 才能ランクを決定（指定された割合）
+    final talentRank = _determineTalentRank();
+    
+    // ポジションを決定
+    final position = _determinePositionByTalent(talentRank);
+    
+    // 新1年生のみ（学年固定）
+    final grade = 1;
+    final age = 15; // 1年生15歳
+    
+    // 個別ポテンシャルを生成（プロ野球選手のロジックを参考）
+    final individualPotentials = _generateIndividualPotentials(talentRank, position);
+    
+    // 能力値を生成（ポテンシャルの60-70%で生成）
+    final technicalAbilities = _generateTechnicalAbilities(talentRank, position, grade);
+    final mentalAbilities = _generateMentalAbilities(talentRank, grade);
+    final physicalAbilities = _generatePhysicalAbilities(talentRank, position, grade);
+    
+    // 追加された能力値を生成
+    final additionalAbilities = _generateAdditionalAbilities(talentRank, grade);
+    
+    // その他の属性を生成
+    final pitches = _generatePitches(position);
+    final growthType = _generateGrowthType();
+    final mentalGrit = _generateMentalGrit();
+    final growthRate = _generateGrowthRate();
+    final positionFit = _generatePositionFit(position);
+    
+    // 選手名と基本情報を生成
+    final name = NameGenerator.generatePlayerName();
+    final birthDate = _generateBirthDate(age);
+    final hometown = prefecture;
+    final personality = _generatePersonality();
+    final fame = _generateFame(talentRank);
+    final isPubliclyKnown = _shouldBePubliclyKnown(talentRank);
+    
+    // ピーク能力をタレントランクに基づいて生成
+    final peakAbility = _calculatePeakAbilityByTalent(talentRank);
+    
+    // 総合ポテンシャル値を計算
+    final overallPotential = _calculateOverallPotential(individualPotentials, position);
+    final technicalPotential = _calculateTechnicalPotential(individualPotentials);
+    final mentalPotential = _calculateMentalPotential(individualPotentials);
+    final physicalPotential = _calculatePhysicalPotential(individualPotentials);
+    
+    // 選手を作成
+    final player = Player(
+      name: name,
+      school: '', // 学校は後で配属
+      grade: grade,
+      position: position,
+      personality: personality,
+      fame: fame,
+      isPubliclyKnown: isPubliclyKnown,
+      isScoutFavorite: false,
+      isDiscovered: false, // 注目選手でも初期状態では未発掘
+      isGraduated: false,
+      discoveredBy: null,
+      scoutedDates: [], // 初期状態では視察履歴なし
+      abilityKnowledge: <String, int>{},
+      type: PlayerType.highSchool,
+      yearsAfterGraduation: 0,
+      pitches: pitches.map((p) => Pitch(type: p, breakAmount: 0, breakPot: 50, unlocked: true)).toList(),
+      technicalAbilities: technicalAbilities,
+      mentalAbilities: mentalAbilities,
+      physicalAbilities: physicalAbilities,
+      mentalGrit: mentalGrit,
+      growthRate: growthRate,
+      peakAbility: peakAbility,
+      positionFit: positionFit,
+      talent: talentRank,
+      growthType: growthType,
+      individualPotentials: individualPotentials,
+      technicalPotentials: _convertToTechnicalPotentials(individualPotentials),
+      mentalPotentials: _convertToMentalPotentials(individualPotentials),
+      physicalPotentials: _convertToPhysicalPotentials(individualPotentials),
       scoutAnalysisData: null,
       // 以下のフィールドは重複のため削除
       // motivationAbility: additionalAbilities['motivation'] ?? 50,
@@ -607,5 +732,132 @@ class TalentedPlayerGenerator {
     
     // 選手の総合能力値を更新（実際の実装ではPlayerクラスにsetterが必要）
     // print('選手 ${player.name} の総合能力値: ${overallAvg.toStringAsFixed(1)}');
+  }
+
+  /// 総合ポテンシャル値を計算
+  int _calculateOverallPotential(Map<String, int> individualPotentials, String position) {
+    final allPotentials = individualPotentials.values.toList();
+    final overallPotential = allPotentials.reduce((a, b) => a + b) ~/ allPotentials.length;
+    
+    // ポジション別の重み付けを適用（能力値計算と同様）
+    if (position == '投手') {
+      // 投手: 技術50%、精神30%、身体20%
+      final technicalPotentials = _getTechnicalPotentialsFromIndividual(individualPotentials);
+      final mentalPotentials = _getMentalPotentialsFromIndividual(individualPotentials);
+      final physicalPotentials = _getPhysicalPotentialsFromIndividual(individualPotentials);
+      
+      final technicalAvg = technicalPotentials.values.reduce((a, b) => a + b) / technicalPotentials.length;
+      final mentalAvg = mentalPotentials.values.reduce((a, b) => a + b) / mentalPotentials.length;
+      final physicalAvg = physicalPotentials.values.reduce((a, b) => a + b) / physicalPotentials.length;
+      
+      return ((technicalAvg * 0.5) + (mentalAvg * 0.3) + (physicalAvg * 0.2)).round();
+    } else {
+      // 野手: 技術40%、精神25%、身体35%
+      final technicalPotentials = _getTechnicalPotentialsFromIndividual(individualPotentials);
+      final mentalPotentials = _getMentalPotentialsFromIndividual(individualPotentials);
+      final physicalPotentials = _getPhysicalPotentialsFromIndividual(individualPotentials);
+      
+      final technicalAvg = technicalPotentials.values.reduce((a, b) => a + b) / technicalPotentials.length;
+      final mentalAvg = mentalPotentials.values.reduce((a, b) => a + b) / mentalPotentials.length;
+      final physicalAvg = physicalPotentials.values.reduce((a, b) => a + b) / physicalPotentials.length;
+      
+      return ((technicalAvg * 0.4) + (mentalAvg * 0.25) + (physicalAvg * 0.35)).round();
+    }
+  }
+
+  /// 技術面ポテンシャル値を計算
+  int _calculateTechnicalPotential(Map<String, int> individualPotentials) {
+    final technicalPotentials = _getTechnicalPotentialsFromIndividual(individualPotentials);
+    if (technicalPotentials.isEmpty) return 50;
+    final values = technicalPotentials.values.toList();
+    return values.reduce((a, b) => a + b) ~/ values.length;
+  }
+
+  /// メンタル面ポテンシャル値を計算
+  int _calculateMentalPotential(Map<String, int> individualPotentials) {
+    final mentalPotentials = _getMentalPotentialsFromIndividual(individualPotentials);
+    if (mentalPotentials.isEmpty) return 50;
+    final values = mentalPotentials.values.toList();
+    return values.reduce((a, b) => a + b) ~/ values.length;
+  }
+
+  /// フィジカル面ポテンシャル値を計算
+  int _calculatePhysicalPotential(Map<String, int> individualPotentials) {
+    final physicalPotentials = _getPhysicalPotentialsFromIndividual(individualPotentials);
+    if (physicalPotentials.isEmpty) return 50;
+    final values = physicalPotentials.values.toList();
+    return values.reduce((a, b) => a + b) ~/ values.length;
+  }
+
+  /// 個別ポテンシャルから技術面ポテンシャルを抽出
+  Map<TechnicalAbility, int> _getTechnicalPotentialsFromIndividual(Map<String, int> individualPotentials) {
+    final technicalPotentials = <TechnicalAbility, int>{};
+    for (final ability in TechnicalAbility.values) {
+      final potential = individualPotentials[ability.name];
+      if (potential != null) {
+        technicalPotentials[ability] = potential;
+      }
+    }
+    return technicalPotentials;
+  }
+
+  /// 個別ポテンシャルからメンタル面ポテンシャルを抽出
+  Map<MentalAbility, int> _getMentalPotentialsFromIndividual(Map<String, int> individualPotentials) {
+    final mentalPotentials = <MentalAbility, int>{};
+    for (final ability in MentalAbility.values) {
+      final potential = individualPotentials[ability.name];
+      if (potential != null) {
+        mentalPotentials[ability] = potential;
+      }
+    }
+    return mentalPotentials;
+  }
+
+  /// 個別ポテンシャルからフィジカル面ポテンシャルを抽出
+  Map<PhysicalAbility, int> _getPhysicalPotentialsFromIndividual(Map<String, int> individualPotentials) {
+    final physicalPotentials = <PhysicalAbility, int>{};
+    for (final ability in PhysicalAbility.values) {
+      final potential = individualPotentials[ability.name];
+      if (potential != null) {
+        physicalPotentials[ability] = potential;
+      }
+    }
+    return physicalPotentials;
+  }
+
+  /// 個別ポテンシャルを技術面ポテンシャルマップに変換
+  Map<TechnicalAbility, int> _convertToTechnicalPotentials(Map<String, int> individualPotentials) {
+    final technicalPotentials = <TechnicalAbility, int>{};
+    for (final ability in TechnicalAbility.values) {
+      final potential = individualPotentials[ability.name];
+      if (potential != null) {
+        technicalPotentials[ability] = potential;
+      }
+    }
+    return technicalPotentials;
+  }
+
+  /// 個別ポテンシャルをメンタル面ポテンシャルマップに変換
+  Map<MentalAbility, int> _convertToMentalPotentials(Map<String, int> individualPotentials) {
+    final mentalPotentials = <MentalAbility, int>{};
+    for (final ability in MentalAbility.values) {
+      final potential = individualPotentials[ability.name];
+      if (potential != null) {
+        mentalPotentials[ability] = potential;
+      }
+    }
+    return mentalPotentials;
+  }
+
+  /// 個別ポテンシャルをフィジカル面ポテンシャルマップに変換
+  Map<PhysicalAbility, int> _convertToPhysicalPotentials(Map<String, int> individualPotentials) {
+    final physicalPotentials = <PhysicalAbility, int>{};
+    for (final ability in PhysicalAbility.values) {
+      final potential = individualPotentials[ability.name];
+      if (potential != null) {
+        physicalPotentials[ability] = potential;
+      }
+    }
+    return physicalPotentials;
   }
 }

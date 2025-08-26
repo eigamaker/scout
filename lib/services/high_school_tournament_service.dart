@@ -655,55 +655,45 @@ class HighSchoolTournamentService {
       GameRound.championship,
     ];
     
-    int currentWeek = week;
-    int currentMonth = month;
+    // 固定スケジュール: 3週間で6試合を配分
+    // 1週目: 1回戦・2回戦
+    // 2週目: 3回戦・準々決勝  
+    // 3週目: 準決勝・決勝
     
-    // 春の大会の場合は、より早く終了するようにスケジュールを調整
-    if (type == TournamentType.spring) {
-      // 春の大会: 4月3週～5月1週で終了
-      // 1回戦: 4月3週, 2回戦: 4月4週, 3回戦: 5月1週
-      // 準々決勝以降は5月1週に集中
-      for (int i = 0; i < rounds.length; i++) {
-        final round = rounds[i];
-        final roundGames = _generateRoundGames(
-          round,
-          schools,
-          currentMonth,
-          currentWeek,
-          random,
-        );
-        games.addAll(roundGames);
-        
-        // 春の大会の場合は、準々決勝以降は同じ週に配置
-        if (i < 3) { // 1回戦、2回戦、3回戦
-          currentWeek++;
-          if (currentWeek > 4) {
-            currentWeek = 1;
-            currentMonth++;
-          }
-        }
-        // 準々決勝以降は5月1週に集中（同じ週に複数試合）
-      }
-    } else {
-      // その他の大会は従来通りのスケジュール
-      for (final round in rounds) {
-        final roundGames = _generateRoundGames(
-          round,
-          schools,
-          currentMonth,
-          currentWeek,
-          random,
-        );
-        games.addAll(roundGames);
-        
-        // 次の週に進む
-        currentWeek++;
-        if (currentWeek > 4) {
-          currentWeek = 1;
-          currentMonth++;
-        }
-      }
+    // 1週目: 1回戦・2回戦
+    final firstWeekGames = [
+      ..._generateRoundGames(GameRound.firstRound, schools, month, week, random),
+      ..._generateRoundGames(GameRound.secondRound, schools, month, week, random),
+    ];
+    games.addAll(firstWeekGames);
+    
+    // 2週目: 3回戦・準々決勝
+    int secondWeek = week + 1;
+    int secondMonth = month;
+    if (secondWeek > 4) {
+      secondWeek = 1;
+      secondMonth++;
     }
+    
+    final secondWeekGames = [
+      ..._generateRoundGames(GameRound.thirdRound, schools, secondMonth, secondWeek, random),
+      ..._generateRoundGames(GameRound.quarterFinal, schools, secondMonth, secondWeek, random),
+    ];
+    games.addAll(secondWeekGames);
+    
+    // 3週目: 準決勝・決勝
+    int thirdWeek = secondWeek + 1;
+    int thirdMonth = secondMonth;
+    if (thirdWeek > 4) {
+      thirdWeek = 1;
+      thirdMonth++;
+    }
+    
+    final thirdWeekGames = [
+      ..._generateRoundGames(GameRound.semiFinal, schools, thirdMonth, thirdWeek, random),
+      ..._generateRoundGames(GameRound.championship, schools, thirdMonth, thirdWeek, random),
+    ];
+    games.addAll(thirdWeekGames);
     
     return TournamentSchedule(
       id: 'schedule_${year}_${type.name}',
@@ -727,33 +717,45 @@ class HighSchoolTournamentService {
     final games = <TournamentGame>[];
     final random = Random(year * 1000 + month * 100 + week);
     
-    // 全国大会は準々決勝から
-    final rounds = [
-      GameRound.quarterFinal,
-      GameRound.semiFinal,
-      GameRound.championship,
+    // 全国大会も同様の固定スケジュール
+    // 1週目: 1回戦・2回戦
+    // 2週目: 3回戦・準々決勝
+    // 3週目: 準決勝・決勝
+    
+    // 1週目: 1回戦・2回戦
+    final firstWeekGames = [
+      ..._generateRoundGames(GameRound.firstRound, schools, month, week, random),
+      ..._generateRoundGames(GameRound.secondRound, schools, month, week, random),
     ];
+    games.addAll(firstWeekGames);
     
-    int currentWeek = week;
-    int currentMonth = month;
-    
-    for (final round in rounds) {
-      final roundGames = _generateRoundGames(
-        round,
-        schools,
-        currentMonth,
-        currentWeek,
-        random,
-      );
-      games.addAll(roundGames);
-      
-      // 次の週に進む
-      currentWeek++;
-      if (currentWeek > 4) {
-        currentWeek = 1;
-        currentMonth++;
-      }
+    // 2週目: 3回戦・準々決勝
+    int secondWeek = week + 1;
+    int secondMonth = month;
+    if (secondWeek > 4) {
+      secondWeek = 1;
+      secondMonth++;
     }
+    
+    final secondWeekGames = [
+      ..._generateRoundGames(GameRound.thirdRound, schools, secondMonth, secondWeek, random),
+      ..._generateRoundGames(GameRound.quarterFinal, schools, secondMonth, secondWeek, random),
+    ];
+    games.addAll(secondWeekGames);
+    
+    // 3週目: 準決勝・決勝
+    int thirdWeek = secondWeek + 1;
+    int thirdMonth = secondMonth;
+    if (thirdWeek > 4) {
+      thirdWeek = 1;
+      thirdMonth++;
+    }
+    
+    final thirdWeekGames = [
+      ..._generateRoundGames(GameRound.semiFinal, schools, thirdMonth, thirdWeek, random),
+      ..._generateRoundGames(GameRound.championship, schools, thirdMonth, thirdWeek, random),
+    ];
+    games.addAll(thirdWeekGames);
     
     return TournamentSchedule(
       id: 'schedule_${year}_${type.name}_national',
