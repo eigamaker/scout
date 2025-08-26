@@ -84,6 +84,8 @@ class Game {
   final ProfessionalTeamManager professionalTeams; // プロ野球団管理
   final PennantRace? pennantRace; // ペナントレース
   final List<HighSchoolTournament> highSchoolTournaments; // 高校野球大会
+  final bool? hasGradeUpProcessedThisYear; // 今年の学年アップ処理が実行済みか
+  final bool? hasNewYearProcessedThisYear; // 今年の新年度処理が実行済みか
   
   Game({
     required this.scoutName,
@@ -108,6 +110,8 @@ class Game {
     required this.professionalTeams,
     this.pennantRace,
     this.highSchoolTournaments = const [],
+    this.hasGradeUpProcessedThisYear = false,
+    this.hasNewYearProcessedThisYear = false,
   });
 
   // 月ごとの最大週数を返す（1か月4週、1年間48週）
@@ -134,6 +138,9 @@ class Game {
       currentYear: newYear,
       currentMonth: newMonth,
       currentWeekOfMonth: newWeek,
+      // 年が変わる際は処理済みフラグをリセット
+      hasGradeUpProcessedThisYear: newYear > currentYear ? false : hasGradeUpProcessedThisYear,
+      hasNewYearProcessedThisYear: newYear > currentYear ? false : hasNewYearProcessedThisYear,
     );
   }
   
@@ -326,6 +333,8 @@ class Game {
     'newsList': newsList.map((n) => n.toJson()).toList(),
     'pennantRace': pennantRace?.toJson(),
     'highSchoolTournaments': highSchoolTournaments.map((t) => t.toJson()).toList(),
+    'hasGradeUpProcessedThisYear': hasGradeUpProcessedThisYear,
+    'hasNewYearProcessedThisYear': hasNewYearProcessedThisYear,
   };
 
   factory Game.fromJson(Map<String, dynamic> json) {
@@ -373,6 +382,8 @@ class Game {
       newsList: newsList,
       professionalTeams: ProfessionalTeamManager(teams: ProfessionalTeamManager.generateDefaultTeams()),
       highSchoolTournaments: (json['highSchoolTournaments'] as List?)?.map((t) => HighSchoolTournament.fromJson(t)).toList() ?? [],
+      hasGradeUpProcessedThisYear: json['hasGradeUpProcessedThisYear'] as bool? ?? false,
+      hasNewYearProcessedThisYear: json['hasNewYearProcessedThisYear'] as bool? ?? false,
     );
   }
   
@@ -400,6 +411,8 @@ class Game {
     ProfessionalTeamManager? professionalTeams,
     PennantRace? pennantRace,
     List<HighSchoolTournament>? highSchoolTournaments,
+    bool? hasGradeUpProcessedThisYear,
+    bool? hasNewYearProcessedThisYear,
   }) {
     return Game(
       scoutName: scoutName ?? this.scoutName,
@@ -424,6 +437,8 @@ class Game {
       professionalTeams: professionalTeams ?? this.professionalTeams,
       pennantRace: pennantRace ?? this.pennantRace,
       highSchoolTournaments: highSchoolTournaments ?? this.highSchoolTournaments,
+      hasGradeUpProcessedThisYear: hasGradeUpProcessedThisYear ?? this.hasGradeUpProcessedThisYear,
+      hasNewYearProcessedThisYear: hasNewYearProcessedThisYear ?? this.hasNewYearProcessedThisYear,
     );
   }
 } 

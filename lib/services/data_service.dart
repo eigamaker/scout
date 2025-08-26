@@ -307,7 +307,7 @@ class DataService {
     try {
       // 高校生の選手を取得（プロ選手以外）
       final highSchoolPlayers = await db.rawQuery('''
-        SELECT DISTINCT pl.id, pl.grade, pl.talent_rank
+        SELECT DISTINCT pl.id, pl.grade, pl.talent
         FROM Player pl 
         LEFT JOIN ProfessionalPlayer pp ON pl.id = pp.player_id 
         WHERE pp.player_id IS NULL 
@@ -324,7 +324,7 @@ class DataService {
         for (final player in highSchoolPlayers) {
           final playerId = player['id'] as int;
           final grade = player['grade'] as int? ?? 1;
-          final talentRank = player['talent_rank'] as int? ?? 3;
+          final talentRank = player['talent'] as int? ?? 3;
           
           // 才能ランクに基づく適切なポテンシャル範囲を計算
           final basePotential = _getHighSchoolBasePotential(talentRank);

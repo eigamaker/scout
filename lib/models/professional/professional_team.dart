@@ -333,6 +333,9 @@ class ProfessionalTeamManager {
         // 一意のplayerIdを割り当て
         final uniquePlayerId = globalPlayerId++;
         
+        // Playerオブジェクトに正しいIDを設定
+        final playerWithId = player.copyWith(id: uniquePlayerId);
+        
         return ProfessionalPlayer(
           playerId: uniquePlayerId,
           teamId: team.id,
@@ -346,7 +349,7 @@ class ProfessionalTeamManager {
           joinedAt: DateTime.now().subtract(Duration(days: 365)),
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
-          player: player,
+          player: playerWithId,  // IDが設定されたPlayerオブジェクト
           teamName: team.name,
           teamShortName: team.shortName,
         );
@@ -370,7 +373,15 @@ class ProfessionalTeamManager {
     if (index != -1) {
       final team = teams[index];
       final players = PlayerGenerator.generateProfessionalPlayers(team);
-      teams[index] = team.copyWith(players: players);
+      
+      // 各選手に一意のIDを割り当て
+      int globalPlayerId = 1;
+      final playersWithId = players.map((player) {
+        final uniquePlayerId = globalPlayerId++;
+        return player.copyWith(id: uniquePlayerId);
+      }).toList();
+      
+      teams[index] = team.copyWith(players: playersWithId);
     }
   }
   

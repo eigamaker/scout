@@ -163,7 +163,8 @@ class GameManager {
         final winner = result.isHomeWin ? homeTeam : awayTeam;
         final loser = result.isHomeWin ? awayTeam : homeTeam;
         
-        print('GameManager: 試合結果ニュース生成 - ${homeTeam.shortName} ${result.homeScore}-${result.awayScore} ${awayTeam.shortName}');
+        // ログ出力を停止（試合数が多いため）
+        // print('GameManager: 試合結果ニュース生成 - ${homeTeam.shortName} ${result.homeScore}-${result.awayScore} ${awayTeam.shortName}');
       }
     }
   }
@@ -524,10 +525,8 @@ class GameManager {
       // 全学校に1〜3年生を生成
       await generateInitialStudentsForAllSchoolsDb(dataService);
       
-
-      
-      // プロ野球団に選手を生成
-      _currentGame!.professionalTeams.generatePlayersForAllTeams();
+      // プロ野球団に選手を生成（データベースから読み込み）
+      await _loadProfessionalPlayersFromDatabase(dataService);
       
       // ペナントレースを初期化
       _initializePennantRace();
@@ -1079,71 +1078,90 @@ class GameManager {
     
     int totalPlayers = 0;
     int grownPlayersCount = 0;
-    bool isFirstSchool = true;
+    bool isFirstPlayer = true;
     
-    // 高校生選手の成長処理
-    final updatedSchools = game.schools.map((school) {
-      final updatedPlayers = school.players.map((p) {
-        // デフォルト選手は成長処理をスキップ
-        if (p.isDefaultPlayer) {
-          return p;
-        }
-        
-        totalPlayers++;
-        
-        // GrowthServiceを使用して適切な成長処理を実行
-        final grownPlayer = GrowthService.growPlayer(p);
-        
-        // 成長があったかチェック
-        if (_hasPlayerGrown(p, grownPlayer)) {
-          grownPlayersCount++;
-          
-          // 1校目のみ、最初の成長した選手の詳細ログを出力
-          if (isFirstSchool) {
-            _logFirstPlayerGrowth(p, grownPlayer);
-            isFirstSchool = false;
+    // Playerテーブルから全選手を取得して統一処理
+    final allPlayers = <Player>[];
+    
+    // 高校生選手を追加
+    for (final school in game.schools) {
+      allPlayers.addAll(school.players);
+    }
+    
+    // プロ選手を追加（ProfessionalPlayerからPlayerを抽出）
+    for (final team in game.professionalTeams.teams) {
+      if (team.professionalPlayers != null) {
+        for (final proPlayer in team.professionalPlayers!) {
+          if (proPlayer.player != null) {
+            final player = proPlayer.player!;
+            // プロ選手のID確認ログ（最初の3件のみ）
+            if (allPlayers.length < 3) {
+              print('GameManager._growAllPlayersUnified: プロ選手追加 - 名前: ${player.name}, ID: ${player.id}, playerId: ${proPlayer.playerId}');
+            }
+            allPlayers.add(player);
           }
         }
+      }
+    }
+    
+    print('GameManager._growAllPlayersUnified: 全選手数: ${allPlayers.length}');
+    
+    // 全選手を統一して成長処理
+    final updatedPlayers = allPlayers.map((player) {
+      // 引退選手とデフォルト選手は成長処理をスキップ
+      if (player.isRetired || player.isDefaultPlayer) {
+        return player;
+      }
+      
+      totalPlayers++;
+      
+      // GrowthServiceを使用して成長処理を実行
+      final grownPlayer = GrowthService.growPlayer(player);
+      
+      // プロ選手のみ年齢による能力値減退を適用
+      Player finalPlayer = grownPlayer;
+      if (player.school == 'プロ野球団') {
+        finalPlayer = _applyAgeBasedDecline(grownPlayer);
+      }
+      
+      // 成長があったかチェック
+      if (_hasPlayerGrown(player, finalPlayer)) {
+        grownPlayersCount++;
         
-        return grownPlayer;
-      }).toList();
-      return school.copyWith(players: updatedPlayers);
+        // 最初の成長した選手の詳細ログを出力
+        if (isFirstPlayer) {
+          _logFirstPlayerGrowth(player, finalPlayer);
+          isFirstPlayer = false;
+        }
+      }
+      
+      return finalPlayer;
     }).toList();
     
-    // プロ野球選手の成長処理
+    // 更新された選手データを元の構造に戻す
+    final updatedSchools = game.schools.map((school) {
+      final schoolPlayers = school.players.map((p) {
+        final updatedPlayer = updatedPlayers.firstWhere(
+          (up) => up.id == p.id,
+          orElse: () => p,
+        );
+        return updatedPlayer;
+      }).toList();
+      return school.copyWith(players: schoolPlayers);
+    }).toList();
+    
     final updatedTeams = game.professionalTeams.teams.map((team) {
-      final updatedPlayers = team.professionalPlayers?.map((proPlayer) {
-        final player = proPlayer.player;
-        if (player == null || player.isRetired || player.isDefaultPlayer) {
-          return proPlayer;
+      final teamPlayers = team.professionalPlayers?.map((proPlayer) {
+        if (proPlayer.player != null) {
+          final updatedPlayer = updatedPlayers.firstWhere(
+            (up) => up.id == proPlayer.player!.id,
+            orElse: () => proPlayer.player!,
+          );
+          return proPlayer.copyWith(player: updatedPlayer);
         }
-        
-        totalPlayers++;
-        
-        // GrowthServiceを使用して成長処理
-        final grownPlayer = GrowthService.growPlayer(player);
-        
-        // プロ選手のみ年齢による能力値減退を適用
-        final ageAdjustedPlayer = _applyAgeBasedDecline(grownPlayer);
-        
-        // 引退判定
-        if (ageAdjustedPlayer.age >= 18) {
-          final shouldRetire = _shouldPlayerRetire(ageAdjustedPlayer, ageAdjustedPlayer.age);
-          if (shouldRetire) {
-            // 引退フラグを設定
-            final retiredPlayer = ageAdjustedPlayer.copyWith(isRetired: true);
-            final retiredProPlayer = proPlayer.copyWith(player: retiredPlayer);
-            
-            // 引退した選手は更新されたProfessionalPlayerとして追加
-            return retiredProPlayer;
-          }
-        }
-        
-        // 成長後の選手データを更新されたProfessionalPlayerとして追加
-        return proPlayer.copyWith(player: ageAdjustedPlayer);
+        return proPlayer;
       }).toList() ?? [];
-      
-      return team.copyWith(professionalPlayers: updatedPlayers);
+      return team.copyWith(professionalPlayers: teamPlayers);
     }).toList();
     
     print('GameManager._growAllPlayersUnified: 全選手の成長処理完了 - 総選手数: $totalPlayers, 成長した選手数: $grownPlayersCount');
@@ -1222,66 +1240,74 @@ class GameManager {
     final age = player.age;
     final growthType = player.growthType;
     
+    // 年間の減退ポイントを計算（年間4回の成長期があるため、1回あたりの減退を制限）
+    double yearlyDeclinePoints;
+    
     // 37歳以降は全選手共通の大幅減退
     if (age >= 37) {
-      return _applyDeclineToPlayer(player, 0.6); // 40%減退
+      yearlyDeclinePoints = 5.0; // 年間5ポイント減退
     }
-    
     // 年齢段階による減退
-    if (age >= 33 && age <= 36) {
+    else if (age >= 33 && age <= 36) {
       switch (growthType) {
         case 'early':
-          return _applyDeclineToPlayer(player, 0.7); // 30%減退
+          yearlyDeclinePoints = 4.0; // 年間4ポイント減退
         case 'normal':
-          return _applyDeclineToPlayer(player, 0.8); // 20%減退
+          yearlyDeclinePoints = 3.0; // 年間3ポイント減退
         case 'late':
-          return _applyDeclineToPlayer(player, 0.9); // 10%減退
-        case 'spurt':
-          return _applyDeclineToPlayer(player, 0.8); // 20%減退
+          yearlyDeclinePoints = 2.0; // 年間2ポイント減退
         default:
-          return _applyDeclineToPlayer(player, 0.8); // 20%減退
+          yearlyDeclinePoints = 3.0; // 年間3ポイント減退
       }
     }
-    
-    if (age >= 28 && age <= 32) {
+    else if (age >= 28 && age <= 32) {
       switch (growthType) {
         case 'early':
-          return _applyDeclineToPlayer(player, 0.8); // 20%減退
+          yearlyDeclinePoints = 2.0; // 年間2ポイント減退
         case 'normal':
-          return player; // 成長停止
+          yearlyDeclinePoints = 0.0; // 成長停止
         case 'late':
-          return player; // 成長継続
-        case 'spurt':
-          return player; // 成長停止
+          yearlyDeclinePoints = 0.0; // 成長継続
         default:
-          return player;
+          yearlyDeclinePoints = 0.0;
       }
     }
+    else {
+      return player; // 若手は減退なし
+    }
     
-    return player; // 若手は減退なし
+    // 1回の成長期あたりの減退ポイントを計算（年間4回の成長期）
+    final declinePerGrowthPeriod = yearlyDeclinePoints / 4.0;
+    
+    // 1回の成長期あたり最大2ポイントまで制限
+    final limitedDeclinePerGrowthPeriod = declinePerGrowthPeriod.clamp(0.0, 2.0);
+    
+    return _applyDeclineToPlayer(player, limitedDeclinePerGrowthPeriod);
   }
 
-  // 選手に減退を適用
-  Player _applyDeclineToPlayer(Player player, double declineFactor) {
+  // 選手に減退を適用（ポイントベースの減退）
+  Player _applyDeclineToPlayer(Player player, double declinePoints) {
+    if (declinePoints <= 0) return player;
+    
     final updatedTechnicalAbilities = <TechnicalAbility, int>{};
     final updatedMentalAbilities = <MentalAbility, int>{};
     final updatedPhysicalAbilities = <PhysicalAbility, int>{};
     
-    // 技術面能力値に減退を適用
+    // 技術面能力値に減退を適用（ポイントベース）
     for (final entry in player.technicalAbilities.entries) {
-      final newValue = (entry.value * declineFactor).round().clamp(25, 150);
+      final newValue = (entry.value - declinePoints).round().clamp(25, 150);
       updatedTechnicalAbilities[entry.key] = newValue;
     }
     
-    // メンタル面能力値に減退を適用
+    // メンタル面能力値に減退を適用（ポイントベース）
     for (final entry in player.mentalAbilities.entries) {
-      final newValue = (entry.value * declineFactor).round().clamp(25, 150);
+      final newValue = (entry.value - declinePoints).round().clamp(25, 150);
       updatedMentalAbilities[entry.key] = newValue;
     }
     
-    // フィジカル面能力値に減退を適用
+    // フィジカル面能力値に減退を適用（ポイントベース）
     for (final entry in player.physicalAbilities.entries) {
-      final newValue = (entry.value * declineFactor).round().clamp(25, 150);
+      final newValue = (entry.value - declinePoints).round().clamp(25, 150);
       updatedPhysicalAbilities[entry.key] = newValue;
     }
     
@@ -1427,23 +1453,7 @@ class GameManager {
             print('GameManager._saveAllGrownPlayersToDatabase: プロ選手更新データなし - 名前: ${player.name}, ID: ${player.id}');
           }
           
-          // 引退したプロ選手のProfessionalPlayerテーブルも更新
-          if (player.isRetired) {
-            try {
-              batch.update(
-                'ProfessionalPlayer',
-                {
-                  'is_active': 0,
-                  'left_at': DateTime.now().toIso8601String(),
-                },
-                where: 'player_id = ?',
-                whereArgs: [player.id],
-              );
-              updateCount++;
-            } catch (e) {
-              print('GameManager._saveAllGrownPlayersToDatabase: プロ選手引退処理でエラー: $e');
-            }
-          }
+          // プロ野球選手の引退処理は年次処理で行うため、ここでは能力値の更新のみ
         }
       }
       
@@ -1849,8 +1859,18 @@ class GameManager {
       print('_refreshPlayersFromDb: データベース接続完了');
       final playerMaps = await db.query('Player');
       
-      // デバッグ用：最初のプレイヤーのデータ型を確認（必要に応じてコメントアウト）
-    
+      // デバッグ用：最初のプレイヤーのデータ型を確認
+      if (playerMaps.isNotEmpty) {
+        final firstPlayer = playerMaps.first;
+        print('_refreshPlayersFromDb: 最初のプレイヤーのデータ型確認:');
+        print('  id: ${firstPlayer['id']} (${firstPlayer['id'].runtimeType})');
+        print('  contact: ${firstPlayer['contact']} (${firstPlayer['contact'].runtimeType})');
+        print('  power: ${firstPlayer['power']} (${firstPlayer['power'].runtimeType})');
+        print('  grade: ${firstPlayer['grade']} (${firstPlayer['grade'].runtimeType})');
+        print('  fame: ${firstPlayer['fame']} (${firstPlayer['fame'].runtimeType})');
+        print('  talent: ${firstPlayer['talent']} (${firstPlayer['talent'].runtimeType})');
+      }
+      
     // school_idの分布を確認
     final schoolIdCounts = <int, int>{};
     for (final p in playerMaps) {
@@ -1931,6 +1951,10 @@ class GameManager {
         
         // Technical abilities復元
         try {
+          // デバッグ用：データベースの値を確認
+          _debugDatabaseValue('contact', p['contact'], playerId);
+          _debugDatabaseValue('power', p['power'], playerId);
+          
           technicalAbilities[TechnicalAbility.contact] = _safeIntCast(p['contact']);
           technicalAbilities[TechnicalAbility.power] = _safeIntCast(p['power']);
           technicalAbilities[TechnicalAbility.plateDiscipline] = _safeIntCast(p['plate_discipline']);
@@ -2250,9 +2274,9 @@ class GameManager {
       // 3月4週（週48）の終了時に学年アップ処理
       if (isGradeUp) {
         // 学年アップ処理が既に実行済みかチェック（重複実行を防ぐ）
-        final hasGradeUpProcessed = _currentGame!.schools.any((school) => 
-          school.players.any((player) => player.grade > 1 && !player.isDefaultPlayer)
-        );
+        // 現在の年で学年アップ処理が既に実行済みかチェック
+        // 学年アップ処理が実行済みかどうかは、現在の年で学年アップ処理が実行されたかどうかで判定
+        final hasGradeUpProcessed = _currentGame!.hasGradeUpProcessedThisYear ?? false;
         
         if (hasGradeUpProcessed) {
           print('GameManager.advanceWeekWithResults: 学年アップ処理は既に実行済みです。スキップします。');
@@ -2264,6 +2288,9 @@ class GameManager {
           try {
             await promoteAllStudents(dataService);
             await _refreshPlayersFromDb(dataService);
+            
+            // 学年アップ処理完了フラグを設定
+            _currentGame = _currentGame!.copyWith(hasGradeUpProcessedThisYear: true);
             
             _updateGrowthStatus(false, '学年アップ処理完了');
             print('GameManager.advanceWeekWithResults: 学年アップ処理完了');
@@ -2282,9 +2309,8 @@ class GameManager {
       // 4月1週（週1）の開始時に新入生生成
       if (isNewYear) {
         // 新年度処理が既に実行済みかチェック（重複実行を防ぐ）
-        final hasNewYearProcessed = _currentGame!.schools.any((school) => 
-          school.players.any((player) => (player.grade == 1 && player.age == 15) || player.isDefaultPlayer)
-        );
+        // 現在の年で新年度処理が既に実行済みかチェック
+        final hasNewYearProcessed = _currentGame!.hasNewYearProcessedThisYear ?? false;
         
         if (hasNewYearProcessed) {
           print('GameManager.advanceWeekWithResults: 新年度処理は既に実行済みです。スキップします。');
@@ -2297,6 +2323,8 @@ class GameManager {
           // 新入生生成処理
           await generateNewStudentsForAllSchoolsDb(dataService);
       
+          // 新年度処理完了フラグを設定
+          _currentGame = _currentGame!.copyWith(hasNewYearProcessedThisYear: true);
           
           _updateGrowthStatus(false, '新年度処理完了');
           print('GameManager.advanceWeekWithResults: 新年度処理完了');
@@ -2361,14 +2389,14 @@ class GameManager {
         
         results.add('$growthPeriodNameが終了しました。選手たちが大きく成長しました！');
         
-        // 成長後のニュース生成
-        _updateGrowthStatus(true, '成長ニュースを生成中...');
-        newsService.generateAllPlayerNews(
-          _currentGame!.schools,
-          year: _currentGame!.currentYear,
-          month: _currentGame!.currentMonth,
-          weekOfMonth: _currentGame!.currentWeekOfMonth,
-        );
+              // 成長後のニュース生成（ログ出力停止）
+      _updateGrowthStatus(true, '成長ニュースを生成中...');
+      // newsService.generateAllPlayerNews(
+      //   _currentGame!.schools,
+      //   year: _currentGame!.currentYear,
+      //   month: _currentGame!.currentMonth,
+      //   weekOfMonth: _currentGame!.currentWeekOfMonth,
+      // );
         
         _updateGrowthStatus(false, '成長処理完了');
         print('GameManager.advanceWeek: 成長処理完了');
@@ -2420,10 +2448,10 @@ class GameManager {
       rethrow;
     }
     
-    // 週送り時のニュース生成（毎週）
-    print('GameManager.advanceWeekWithResults: ニュース生成開始');
+    // 週送り時のニュース生成（毎週）（ログ出力停止）
+    // print('GameManager.advanceWeekWithResults: ニュース生成開始');
     _generateWeeklyNews(newsService);
-    print('GameManager.advanceWeekWithResults: ニュース生成完了');
+    // print('GameManager.advanceWeekWithResults: ニュース生成完了');
     
     // スカウトのAPを最大値まで回復
     if (_currentScout != null) {
@@ -2436,10 +2464,10 @@ class GameManager {
       print('GameManager.advanceWeekWithResults: スカウトAP回復処理完了 - 現在AP: ${_currentScout!.actionPoints}');
     }
     
-    // ニュースをゲームデータに保存
-    print('GameManager.advanceWeekWithResults: ニュース保存開始');
+    // ニュースをゲームデータに保存（ログ出力停止）
+    // print('GameManager.advanceWeekWithResults: ニュース保存開始');
     saveNewsToGame(newsService);
-    print('GameManager.advanceWeekWithResults: ニュース保存完了');
+    // print('GameManager.advanceWeekWithResults: ニュース保存完了');
     
     // オートセーブ（週送り完了後）
     print('GameManager.advanceWeekWithResults: オートセーブ開始');
@@ -2690,15 +2718,30 @@ class GameManager {
         for (final proMap in teamProPlayers) {
           final playerId = proMap['player_id'] as int;
           
+          print('GameManager._loadProfessionalPlayersFromDb: プロ選手データ - proMap: $proMap');
+          print('GameManager._loadProfessionalPlayersFromDb: playerId: $playerId');
+          
           // Playerテーブルから選手データを取得
           final playerMaps = await db.query('Player', where: 'id = ?', whereArgs: [playerId]);
-          if (playerMaps.isEmpty) continue;
+          if (playerMaps.isEmpty) {
+            print('GameManager._loadProfessionalPlayersFromDb: PlayerテーブルにplayerId=$playerIdのデータが見つかりません');
+            continue;
+          }
           
           final playerMap = playerMaps.first;
-          final personMaps = await db.query('Person', where: 'id = ?', whereArgs: [playerMap['person_id']]);
-          if (personMaps.isEmpty) continue;
+          print('GameManager._loadProfessionalPlayersFromDb: Playerデータ: $playerMap');
+          
+          final personId = playerMap['person_id'];
+          print('GameManager._loadProfessionalPlayersFromDb: personId: $personId');
+          
+          final personMaps = await db.query('Person', where: 'id = ?', whereArgs: [personId]);
+          if (personMaps.isEmpty) {
+            print('GameManager._loadProfessionalPlayersFromDb: PersonテーブルにpersonId=$personIdのデータが見つかりません');
+            continue;
+          }
           
           final personMap = personMaps.first;
+          print('GameManager._loadProfessionalPlayersFromDb: Personデータ: $personMap');
           
           // 能力値システムの復元
           final technicalAbilities = <TechnicalAbility, int>{};
@@ -2790,6 +2833,8 @@ class GameManager {
             professionalTeamId: null,
           );
           
+          print('GameManager._loadProfessionalPlayersFromDb: 作成されたPlayerオブジェクト - id: ${player.id}, name: ${player.name}');
+          
           // ProfessionalPlayerオブジェクトを作成
           final proPlayer = ProfessionalPlayer(
             id: proMap['id'] as int?,
@@ -2811,6 +2856,8 @@ class GameManager {
             teamShortName: team.shortName,
           );
           
+          print('GameManager._loadProfessionalPlayersFromDb: 作成されたProfessionalPlayerオブジェクト - id: ${proPlayer.id ?? 'null'}, playerId: ${proPlayer.playerId}, player.id: ${proPlayer.player?.id ?? 'null'}, player.name: ${proPlayer.player?.name ?? 'null'}');
+          
           validProPlayers.add(proPlayer);
         }
         
@@ -2823,6 +2870,19 @@ class GameManager {
       _currentGame = _currentGame!.copyWith(
         professionalTeams: ProfessionalTeamManager(teams: updatedTeams),
       );
+      
+      // デバッグ: 更新後のプロ選手の状態を確認
+      print('GameManager._loadProfessionalPlayersFromDb: 更新後のプロ選手状態確認');
+      for (final team in _currentGame!.professionalTeams.teams) {
+        print('GameManager._loadProfessionalPlayersFromDb: チーム ${team.shortName} - プロ選手数: ${team.professionalPlayers?.length ?? 0}');
+        if (team.professionalPlayers != null) {
+          for (int i = 0; i < team.professionalPlayers!.length && i < 3; i++) {
+            final proPlayer = team.professionalPlayers![i];
+            final player = proPlayer.player;
+            print('GameManager._loadProfessionalPlayersFromDb: プロ選手${i + 1} - playerId: ${proPlayer.playerId}, player.id: ${player?.id ?? 'null'}, player.name: ${player?.name ?? 'null'}');
+          }
+        }
+      }
       
       print('GameManager._loadProfessionalPlayersFromDb: プロ野球選手の読み込み完了');
       
@@ -3480,5 +3540,190 @@ class GameManager {
       case high_school_tournament.TournamentStage.national:
         return '全国大会';
     }
+  }
+
+  /// プロ選手をデータベースから読み込んでメモリに設定
+  Future<void> _loadProfessionalPlayersFromDatabase(DataService dataService) async {
+    try {
+      print('GameManager._loadProfessionalPlayersFromDatabase: 開始');
+      
+      final db = await dataService.database;
+      
+      // ProfessionalTeamテーブルから全チームを取得
+      final teamMaps = await db.query('ProfessionalTeam');
+      if (teamMaps.isEmpty) {
+        print('GameManager._loadProfessionalPlayersFromDatabase: プロ野球団が見つかりません');
+        return;
+      }
+      
+      // 各チームのプロ選手を取得
+      for (final teamMap in teamMaps) {
+        final teamId = teamMap['id'] as String;
+        final teamName = teamMap['name'] as String;
+        final teamShortName = teamMap['short_name'] as String;
+        
+        // チームのプロ選手を取得
+        final playerMaps = await db.query(
+          'ProfessionalPlayer',
+          where: 'team_id = ? AND is_active = 1',
+          whereArgs: [teamId],
+        );
+        
+        final professionalPlayers = <ProfessionalPlayer>[];
+        
+        for (final playerMap in playerMaps) {
+          final playerId = playerMap['player_id'] as int;
+          
+          // Playerテーブルから選手の詳細情報を取得
+          final playerDetailMaps = await db.query(
+            'Player',
+            where: 'id = ?',
+            whereArgs: [playerId],
+          );
+          
+          if (playerDetailMaps.isNotEmpty) {
+            final playerDetail = playerDetailMaps.first;
+            
+            // Personテーブルから個人情報を取得
+            final personId = playerDetail['person_id'] as int;
+            final personMaps = await db.query(
+              'Person',
+              where: 'id = ?',
+              whereArgs: [personId],
+            );
+            
+            if (personMaps.isNotEmpty) {
+              final personDetail = personMaps.first;
+              
+              // Playerオブジェクトを作成
+              final player = Player(
+                id: playerId,
+                name: personDetail['name'] as String,
+                school: 'プロ野球団',
+                grade: 0,
+                age: playerDetail['age'] as int? ?? 25,
+                position: playerDetail['position'] as String,
+                positionFit: _generateProfessionalPositionFit(playerDetail['position'] as String? ?? '投手'),
+                fame: playerDetail['fame'] as int? ?? 60,
+                isPubliclyKnown: (playerDetail['is_publicly_known'] as int? ?? 1) == 1,
+                isScoutFavorite: (playerDetail['is_scout_favorite'] as int? ?? 0) == 1,
+                isDiscovered: true,
+                isGraduated: true,
+                isRetired: (playerDetail['is_retired'] as int? ?? 0) == 1,
+                isDefaultPlayer: false,
+                growthRate: (playerDetail['growth_rate'] as double? ?? 1.0),
+                talent: playerDetail['talent'] as int? ?? 3,
+                growthType: playerDetail['growth_type'] as String? ?? 'normal',
+                mentalGrit: playerDetail['mental_grit'] as double? ?? 0.5,
+                peakAbility: playerDetail['peak_ability'] as int? ?? 100,
+                personality: personDetail['personality'] as String? ?? '普通',
+                technicalAbilities: {
+                  TechnicalAbility.contact: playerDetail['contact'] as int? ?? 50,
+                  TechnicalAbility.power: playerDetail['power'] as int? ?? 50,
+                  TechnicalAbility.plateDiscipline: playerDetail['plate_discipline'] as int? ?? 50,
+                  TechnicalAbility.bunt: playerDetail['bunt'] as int? ?? 50,
+                  TechnicalAbility.oppositeFieldHitting: playerDetail['opposite_field_hitting'] as int? ?? 50,
+                  TechnicalAbility.pullHitting: playerDetail['pull_hitting'] as int? ?? 50,
+                  TechnicalAbility.batControl: playerDetail['bat_control'] as int? ?? 50,
+                  TechnicalAbility.swingSpeed: playerDetail['swing_speed'] as int? ?? 50,
+                  TechnicalAbility.fielding: playerDetail['fielding'] as int? ?? 50,
+                  TechnicalAbility.throwing: playerDetail['throwing'] as int? ?? 50,
+                  TechnicalAbility.catcherAbility: playerDetail['catcher_ability'] as int? ?? 50,
+                  TechnicalAbility.control: playerDetail['control'] as int? ?? 50,
+                  TechnicalAbility.fastball: playerDetail['fastball'] as int? ?? 50,
+                  TechnicalAbility.breakingBall: playerDetail['breaking_ball'] as int? ?? 50,
+                  TechnicalAbility.pitchMovement: playerDetail['pitch_movement'] as int? ?? 50,
+                },
+                mentalAbilities: {
+                  MentalAbility.concentration: playerDetail['concentration'] as int? ?? 50,
+                  MentalAbility.anticipation: playerDetail['anticipation'] as int? ?? 50,
+                  MentalAbility.vision: playerDetail['vision'] as int? ?? 50,
+                  MentalAbility.composure: playerDetail['composure'] as int? ?? 50,
+                  MentalAbility.aggression: playerDetail['aggression'] as int? ?? 50,
+                  MentalAbility.bravery: playerDetail['bravery'] as int? ?? 50,
+                  MentalAbility.leadership: playerDetail['leadership'] as int? ?? 50,
+                  MentalAbility.workRate: playerDetail['work_rate'] as int? ?? 50,
+                  MentalAbility.selfDiscipline: playerDetail['self_discipline'] as int? ?? 50,
+                  MentalAbility.ambition: playerDetail['ambition'] as int? ?? 50,
+                  MentalAbility.teamwork: playerDetail['teamwork'] as int? ?? 50,
+                  MentalAbility.positioning: playerDetail['positioning'] as int? ?? 50,
+                  MentalAbility.pressureHandling: playerDetail['pressure_handling'] as int? ?? 50,
+                  MentalAbility.clutchAbility: playerDetail['clutch_ability'] as int? ?? 50,
+                },
+                physicalAbilities: {
+                  PhysicalAbility.acceleration: playerDetail['acceleration'] as int? ?? 50,
+                  PhysicalAbility.agility: playerDetail['agility'] as int? ?? 50,
+                  PhysicalAbility.balance: playerDetail['balance'] as int? ?? 50,
+                  PhysicalAbility.pace: playerDetail['pace'] as int? ?? 50,
+                  PhysicalAbility.stamina: playerDetail['stamina'] as int? ?? 50,
+                  PhysicalAbility.strength: playerDetail['strength'] as int? ?? 50,
+                  PhysicalAbility.flexibility: playerDetail['flexibility'] as int? ?? 50,
+                  PhysicalAbility.jumpingReach: playerDetail['jumping_reach'] as int? ?? 50,
+                  PhysicalAbility.naturalFitness: playerDetail['natural_fitness'] as int? ?? 50,
+                  PhysicalAbility.injuryProneness: playerDetail['injury_proneness'] as int? ?? 50,
+                },
+              );
+              
+              // ProfessionalPlayerオブジェクトを作成
+              final professionalPlayer = ProfessionalPlayer(
+                playerId: playerId,
+                teamId: teamId,
+                contractYear: playerMap['contract_year'] as int? ?? 1,
+                salary: playerMap['salary'] as int? ?? 1000,
+                contractType: ContractType.values.firstWhere(
+                  (e) => e.toString().split('.').last == (playerMap['contract_type'] as String? ?? 'regular'),
+                  orElse: () => ContractType.regular,
+                ),
+                draftYear: playerMap['draft_year'] as int? ?? DateTime.now().year - 1,
+                draftRound: playerMap['draft_round'] as int? ?? 1,
+                draftPosition: playerMap['draft_position'] as int? ?? 1,
+                isActive: (playerMap['is_active'] as int? ?? 1) == 1,
+                joinedAt: DateTime.parse(playerMap['joined_at'] as String? ?? DateTime.now().toIso8601String()),
+                leftAt: playerMap['left_at'] != null ? DateTime.parse(playerMap['left_at'] as String) : null,
+                createdAt: DateTime.parse(playerMap['created_at'] as String? ?? DateTime.now().toIso8601String()),
+                updatedAt: DateTime.parse(playerMap['updated_at'] as String? ?? DateTime.now().toIso8601String()),
+                player: player,
+                teamName: teamName,
+                teamShortName: teamShortName,
+              );
+              
+              professionalPlayers.add(professionalPlayer);
+            }
+          }
+        }
+        
+        // チームにプロ選手を設定
+        final teamIndex = _currentGame!.professionalTeams.teams.indexWhere((t) => t.id == teamId);
+        if (teamIndex != -1) {
+          _currentGame!.professionalTeams.teams[teamIndex] = _currentGame!.professionalTeams.teams[teamIndex].copyWith(
+            professionalPlayers: professionalPlayers,
+          );
+        }
+      }
+      
+      print('GameManager._loadProfessionalPlayersFromDatabase: 完了 - 全チームのプロ選手を読み込みました');
+      
+    } catch (e) {
+      print('GameManager._loadProfessionalPlayersFromDatabase: エラーが発生しました: $e');
+      rethrow;
+    }
+  }
+
+  /// プロ選手用のポジション適性を生成
+  Map<String, int> _generateProfessionalPositionFit(String position) {
+    final fit = <String, int>{};
+    
+    // メインポジションは90-100
+    fit[position] = 90 + (DateTime.now().millisecondsSinceEpoch % 11);
+    
+    // 他のポジションは適度に低く
+    final otherPositions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '左翼手', '中堅手', '右翼手'];
+    for (final otherPosition in otherPositions) {
+      if (otherPosition != position) {
+        fit[otherPosition] = 20 + (DateTime.now().millisecondsSinceEpoch % 41); // 20-60
+      }
+    }
+    
+    return fit;
   }
 } 

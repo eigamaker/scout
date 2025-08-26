@@ -332,7 +332,7 @@ class PlayerGenerator {
         final peakAbility = _calculatePeakAbilityByAge(talent, age);
         
         final player = Player(
-          name: 'プロ選手${i + 1}',
+          name: _generateProfessionalPlayerName(),
           school: 'プロ野球団',
           grade: 0, // プロ選手は学年なし
           position: position,
@@ -348,7 +348,7 @@ class PlayerGenerator {
           peakAbility: peakAbility,
           positionFit: _generatePositionFit(position, random),
           talent: talent,
-          growthType: _generateGrowthType(random),
+          growthType: _generateProfessionalGrowthType(random),
           individualPotentials: individualPotentials,
         );
         
@@ -424,14 +424,6 @@ class PlayerGenerator {
       // シニア：非常に低い成長率（0.75-0.85）
       return 0.75 + random.nextDouble() * 0.1;
     }
-  }
-  
-  // 年齢に基づく成長タイプを決定
-  static String _getGrowthTypeByAge(int age) {
-    if (age <= 22) return '若手成長型';
-    else if (age <= 28) return '全盛期型';
-    else if (age <= 32) return 'ベテラン型';
-    else return 'シニア型';
   }
   
   // プロ野球選手用の技術面能力値生成（ポテンシャルの90%程度で生成）
@@ -622,12 +614,21 @@ class PlayerGenerator {
   }
   
   // プロ野球選手用の成長タイプを決定
-  static String _generateGrowthType(Random random) {
-    final r = random.nextInt(100);
-    if (r < 30) return '若手成長型';
-    else if (r < 60) return '全盛期型';
-    else if (r < 90) return 'ベテラン型';
-    else return 'シニア型';
+  static String _generateProfessionalGrowthType(Random random) {
+    final types = ['early', 'normal', 'late'];
+    final weights = [20, 60, 20]; // early: 20%, normal: 60%, late: 20%
+    
+    final rand = random.nextInt(100);
+    int cumulativeWeight = 0;
+    
+    for (int i = 0; i < types.length; i++) {
+      cumulativeWeight += weights[i];
+      if (rand < cumulativeWeight) {
+        return types[i];
+      }
+    }
+    
+    return 'normal';
   }
   
   // プロ野球選手用の実績生成
