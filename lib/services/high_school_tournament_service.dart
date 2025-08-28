@@ -252,9 +252,119 @@ class HighSchoolTournamentService {
     final newEliminatedSchools = List<String>.from(tournament.eliminatedSchools);
     
     // 全試合スケジュールをコピー
-    final allGames = List<TournamentGame>.from(tournament.games);
+    var allGames = List<TournamentGame>.from(tournament.games);
     
     // 今週の試合を実行
+    // ラウンド順の事前処理（同週内の勝ち上がり生成）
+    allGames.sort((a, b) {
+      if (a.month != b.month) return a.month.compareTo(b.month);
+      if (a.week != b.week) return a.week.compareTo(b.week);
+      return a.dayOfWeek.compareTo(b.dayOfWeek);
+    });
+    final startMonth = allGames.first.month;
+    final startWeek = allGames.first.week;
+    final currentIndex = (month - startMonth) * 4 + (week - startWeek);
+    final participating = tournament.participatingSchools
+        .map((id) => schools.firstWhere((s) => s.id == id))
+        .toList()
+      ..sort((a, b) => b.rank.compareTo(a.rank));
+
+    if (currentIndex <= 0) {
+      // 1週目: 1回戦を先に実行
+      for (int j = 0; j < allGames.length; j++) {
+        final g = allGames[j];
+        if (g.month == month && g.week == week && g.round == GameRound.firstRound && !g.isCompleted) {
+          final r = _simulateGame(g, schools);
+          final cg = g.completeGame(r);
+          allGames[j] = cg;
+          newCompletedGames.add(cg);
+          _updateStandings(newStandings, r, schools);
+          if (r.loserSchoolId != null) newEliminatedSchools.add(r.loserSchoolId!);
+        }
+      }
+      // 2回戦（同週）を生成
+      allGames.removeWhere((g) => g.month == month && g.week == week && g.round == GameRound.secondRound);
+      final seeds = participating.take(14).toList();
+      final firstRoundWinners = allGames
+          .where((g) => g.round == GameRound.firstRound && g.month == month && g.week == week && g.isCompleted && g.result != null)
+          .map((g) => g.winnerSchoolId)
+          .map((id) => schools.firstWhere((s) => s.id == id))
+          .toList();
+      final pair = <School>[];
+      final leftover = <School>[];
+      for (int i2 = 0; i2 < firstRoundWinners.length; i2++) {
+        if (i2 < seeds.length) {
+          pair.add(seeds[i2]);
+          pair.add(firstRoundWinners[i2]);
+        } else {
+          leftover.add(firstRoundWinners[i2]);
+        }
+      }
+      for (int i2 = 0; i2 + 1 < leftover.length; i2 += 2) {
+        pair.add(leftover[i2]);
+        pair.add(leftover[i2 + 1]);
+      }
+      allGames.addAll(_createPairingGames(pair, GameRound.secondRound, month, week));
+    } else if (currentIndex == 1) {
+      // 2週目: 3回戦→準々決勝
+      allGames.removeWhere((g) => g.month == month && g.week == week && g.round == GameRound.thirdRound);
+      final secondWinners = allGames
+          .where((g) => g.round == GameRound.secondRound && g.isCompleted && g.result != null)
+          .map((g) => g.winnerSchoolId)
+          .map((id) => schools.firstWhere((s) => s.id == id))
+          .toList();
+      allGames.addAll(_createPairingGames(secondWinners, GameRound.thirdRound, month, week));
+      // 3回戦を実行
+      for (int j = 0; j < allGames.length; j++) {
+        final g = allGames[j];
+        if (g.month == month && g.week == week && g.round == GameRound.thirdRound && !g.isCompleted) {
+          final r = _simulateGame(g, schools);
+          final cg = g.completeGame(r);
+          allGames[j] = cg;
+          newCompletedGames.add(cg);
+          _updateStandings(newStandings, r, schools);
+          if (r.loserSchoolId != null) newEliminatedSchools.add(r.loserSchoolId!);
+        }
+      }
+      // 準々決勝を生成
+      allGames.removeWhere((g) => g.month == month && g.week == week && g.round == GameRound.quarterFinal);
+      final thirdWinners = allGames
+          .where((g) => g.round == GameRound.thirdRound && g.isCompleted && g.result != null)
+          .map((g) => g.winnerSchoolId)
+          .map((id) => schools.firstWhere((s) => s.id == id))
+          .toList();
+      allGames.addAll(_createPairingGames(thirdWinners, GameRound.quarterFinal, month, week));
+    } else if (currentIndex == 2) {
+      // 3週目: 準決勝→決勝
+      allGames.removeWhere((g) => g.month == month && g.week == week && g.round == GameRound.semiFinal);
+      final quarterWinners = allGames
+          .where((g) => g.round == GameRound.quarterFinal && g.isCompleted && g.result != null)
+          .map((g) => g.winnerSchoolId)
+          .map((id) => schools.firstWhere((s) => s.id == id))
+          .toList();
+      allGames.addAll(_createPairingGames(quarterWinners, GameRound.semiFinal, month, week));
+      // 準決勝を実行
+      for (int j = 0; j < allGames.length; j++) {
+        final g = allGames[j];
+        if (g.month == month && g.week == week && g.round == GameRound.semiFinal && !g.isCompleted) {
+          final r = _simulateGame(g, schools);
+          final cg = g.completeGame(r);
+          allGames[j] = cg;
+          newCompletedGames.add(cg);
+          _updateStandings(newStandings, r, schools);
+          if (r.loserSchoolId != null) newEliminatedSchools.add(r.loserSchoolId!);
+        }
+      }
+      // 決勝を生成
+      allGames.removeWhere((g) => g.month == month && g.week == week && g.round == GameRound.championship);
+      final semiWinners = allGames
+          .where((g) => g.round == GameRound.semiFinal && g.isCompleted && g.result != null)
+          .map((g) => g.winnerSchoolId)
+          .map((id) => schools.firstWhere((s) => s.id == id))
+          .toList();
+      allGames.addAll(_createPairingGames(semiWinners, GameRound.championship, month, week));
+    }
+
     for (int i = 0; i < allGames.length; i++) {
       final game = allGames[i];
       if (game.month == month && game.week == week && !game.isCompleted) {
@@ -779,8 +889,8 @@ class HighSchoolTournamentService {
     switch (round) {
       case GameRound.firstRound:
         // 1回戦: 36校 + 14校シード
-        final firstRoundSchools = schools.take(36).toList();
-        final seededSchools = schools.skip(36).take(14).toList();
+        final seededSchools = schools.take(14).toList();
+        final firstRoundSchools = schools.skip(14).take(36).toList();
         
         // 1回戦の組み合わせ
         for (int i = 0; i < firstRoundSchools.length; i += 2) {
@@ -916,6 +1026,34 @@ class HighSchoolTournamentService {
         break;
     }
     
+    return games;
+  }
+
+  /// 指定の参加校で順番にペアリングして試合を作成
+  static List<TournamentGame> _createPairingGames(
+    List<School> participants,
+    GameRound round,
+    int month,
+    int week,
+  ) {
+    final games = <TournamentGame>[];
+    for (int i = 0; i < participants.length; i += 2) {
+      if (i + 1 < participants.length) {
+        games.add(TournamentGame(
+          id: 'game_${month}_${week}_${round.name}_${i ~/ 2}',
+          homeSchoolId: participants[i].id,
+          awaySchoolId: participants[i + 1].id,
+          round: round,
+          month: month,
+          week: week,
+          dayOfWeek: (i ~/ 2) % 7 + 1,
+          isCompleted: false,
+          result: null,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ));
+      }
+    }
     return games;
   }
 
