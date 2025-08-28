@@ -4,8 +4,6 @@ import '../models/school/school.dart';
 
 class HighSchoolTournamentService {
   static const int _maxPrefecturalSchools = 50; // 県大会出場校数
-  static const int _maxNationalSchools = 47; // 全国大会出場校数
-  static const int _seededSchools = 17; // 全国大会シード校数
 
   /// 都道府県別の大会を作成
   static HighSchoolTournament createPrefecturalTournament(

@@ -1,11 +1,8 @@
 import 'dart:math';
 import '../models/game/game.dart';
 import '../models/player/player.dart';
-import '../models/player/player_abilities.dart';
 import '../models/news/news_item.dart';
 import 'news_service.dart';
-import 'growth_service.dart';
-import 'data_service.dart';
 
 class GameStateManager {
   
@@ -24,7 +21,9 @@ class GameStateManager {
       return p;
     }).toList();
     
-    return game.copyWith(discoveredPlayers: updatedPlayers);
+    // 更新された選手のIDリストを作成
+    final updatedPlayerIds = updatedPlayers.map((p) => p.id!).toList();
+    return game.copyWith(discoveredPlayerIds: updatedPlayerIds);
   }
 
   // ランダムイベントの発生

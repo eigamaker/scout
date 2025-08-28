@@ -69,9 +69,9 @@ class Game {
   final int currentWeekOfMonth; // 現在の月内の週（1-4）
   final GameState state; // ゲーム状態
   final List<School> schools; // 学校リスト
-  final List<Player> discoveredPlayers; // 発掘した選手リスト
-  final List<Player> watchedPlayers; // 注目選手リスト
-  final List<Player> favoritePlayers; // お気に入り選手リスト
+  final List<int> discoveredPlayerIds; // 発掘した選手IDリスト（重複排除）
+  final List<int> watchedPlayerIds; // 注目選手IDリスト（重複排除）
+  final List<int> favoritePlayerIds; // お気に入り選手IDリスト（重複排除）
   final int ap; // 今週のアクションポイント
   final int budget; // 予算
   final Map<ScoutSkill, int> scoutSkills; // スカウトスキル
@@ -95,9 +95,9 @@ class Game {
     required this.currentWeekOfMonth,
     required this.state,
     required this.schools,
-    required this.discoveredPlayers,
-    required this.watchedPlayers,
-    required this.favoritePlayers,
+    required this.discoveredPlayerIds,
+    required this.watchedPlayerIds,
+    required this.favoritePlayerIds,
     required this.ap,
     required this.budget,
     required this.scoutSkills,
@@ -146,47 +146,57 @@ class Game {
   
   // 選手を発掘
   Game discoverPlayer(Player player) {
-    final newDiscoveredPlayers = List<Player>.from(discoveredPlayers);
-    if (!newDiscoveredPlayers.any((p) => p.name == player.name)) {
-      newDiscoveredPlayers.add(player);
+    if (player.id == null) return this;
+    
+    final newDiscoveredPlayerIds = List<int>.from(discoveredPlayerIds);
+    if (!newDiscoveredPlayerIds.contains(player.id!)) {
+      newDiscoveredPlayerIds.add(player.id!);
     }
     
     return copyWith(
-      discoveredPlayers: newDiscoveredPlayers,
+      discoveredPlayerIds: newDiscoveredPlayerIds,
       experience: experience + 10, // 発掘で経験値獲得
     );
   }
   
   // 選手を注目に追加
   Game addWatchedPlayer(Player player) {
-    final newWatchedPlayers = List<Player>.from(watchedPlayers);
-    if (!newWatchedPlayers.any((p) => p.name == player.name)) {
-      newWatchedPlayers.add(player);
+    if (player.id == null) return this;
+    
+    final newWatchedPlayerIds = List<int>.from(watchedPlayerIds);
+    if (!newWatchedPlayerIds.contains(player.id!)) {
+      newWatchedPlayerIds.add(player.id!);
     }
     
-    return copyWith(watchedPlayers: newWatchedPlayers);
+    return copyWith(watchedPlayerIds: newWatchedPlayerIds);
   }
   
   // 選手を注目から削除
   Game removeWatchedPlayer(Player player) {
-    final newWatchedPlayers = watchedPlayers.where((p) => p.name != player.name).toList();
-    return copyWith(watchedPlayers: newWatchedPlayers);
+    if (player.id == null) return this;
+    
+    final newWatchedPlayerIds = watchedPlayerIds.where((id) => id != player.id).toList();
+    return copyWith(watchedPlayerIds: newWatchedPlayerIds);
   }
   
   // 選手をお気に入りに追加
   Game addFavoritePlayer(Player player) {
-    final newFavoritePlayers = List<Player>.from(favoritePlayers);
-    if (!newFavoritePlayers.any((p) => p.name == player.name)) {
-      newFavoritePlayers.add(player);
+    if (player.id == null) return this;
+    
+    final newFavoritePlayerIds = List<int>.from(favoritePlayerIds);
+    if (!newFavoritePlayerIds.contains(player.id!)) {
+      newFavoritePlayerIds.add(player.id!);
     }
     
-    return copyWith(favoritePlayers: newFavoritePlayers);
+    return copyWith(favoritePlayerIds: newFavoritePlayerIds);
   }
   
   // 選手をお気に入りから削除
   Game removeFavoritePlayer(Player player) {
-    final newFavoritePlayers = favoritePlayers.where((p) => p.name != player.name).toList();
-    return copyWith(favoritePlayers: newFavoritePlayers);
+    if (player.id == null) return this;
+    
+    final newFavoritePlayerIds = favoritePlayerIds.where((id) => id != player.id).toList();
+    return copyWith(favoritePlayerIds: newFavoritePlayerIds);
   }
   
   // 予算を変更
@@ -261,7 +271,7 @@ class Game {
     
     // 未発掘の選手のみを返す
     return allPlayers.where((player) => 
-      !discoveredPlayers.any((p) => p.name == player.name)
+      player.id != null && !discoveredPlayerIds.contains(player.id)
     ).toList();
   }
   
@@ -269,23 +279,59 @@ class Game {
   List<Player> getUpdatedWatchedPlayers() {
     final updatedPlayers = <Player>[];
     
-    for (final watchedPlayer in watchedPlayers) {
+    for (final watchedPlayerId in watchedPlayerIds) {
       // 学校から最新の選手情報を取得
       for (final school in schools) {
-        final player = school.players.firstWhere(
-          (p) => p.name == watchedPlayer.name,
-          orElse: () => watchedPlayer,
-        );
-        
-        if (player != watchedPlayer) {
-          updatedPlayers.add(player);
-        } else {
-          updatedPlayers.add(watchedPlayer);
+        final players = school.players.where((p) => p.id == watchedPlayerId);
+        if (players.isNotEmpty) {
+          updatedPlayers.add(players.first);
         }
       }
     }
     
     return updatedPlayers;
+  }
+
+  // 注目選手リストを取得
+  List<Player> get watchedPlayers {
+    final players = <Player>[];
+    for (final watchedPlayerId in watchedPlayerIds) {
+      for (final school in schools) {
+        final player = school.players.where((p) => p.id == watchedPlayerId);
+        if (player.isNotEmpty) {
+          players.add(player.first);
+        }
+      }
+    }
+    return players;
+  }
+
+  // お気に入り選手リストを取得
+  List<Player> get favoritePlayers {
+    final players = <Player>[];
+    for (final favoritePlayerId in favoritePlayerIds) {
+      for (final school in schools) {
+        final player = school.players.where((p) => p.id == favoritePlayerId);
+        if (player.isNotEmpty) {
+          players.add(player.first);
+        }
+      }
+    }
+    return players;
+  }
+
+  // 発掘選手リストを取得
+  List<Player> get discoveredPlayers {
+    final players = <Player>[];
+    for (final discoveredPlayerId in discoveredPlayerIds) {
+      for (final school in schools) {
+        final player = school.players.where((p) => p.id == discoveredPlayerId);
+        if (player.isNotEmpty) {
+          players.add(player.first);
+        }
+      }
+    }
+    return players;
   }
 
   // 週初にAP/予算をリセット
@@ -321,9 +367,9 @@ class Game {
     'currentWeekOfMonth': currentWeekOfMonth,
     'state': state.index,
     'schools': schools.map((s) => s.toJson()).toList(),
-    'discoveredPlayers': discoveredPlayers.map((p) => p.toJson()).toList(),
-    'watchedPlayers': watchedPlayers.map((p) => p.toJson()).toList(),
-    'favoritePlayers': favoritePlayers.map((p) => p.toJson()).toList(),
+    'discoveredPlayerIds': discoveredPlayerIds,
+    'watchedPlayerIds': watchedPlayerIds,
+    'favoritePlayerIds': favoritePlayerIds,
     'budget': budget,
     'reputation': reputation,
     'experience': experience,
@@ -368,9 +414,9 @@ class Game {
       currentWeekOfMonth: json['currentWeekOfMonth'] ?? 1,
       state: GameState.values[(json['state'] ?? 0)],
       schools: (json['schools'] as List?)?.map((s) => School.fromJson(s)).toList() ?? [],
-      discoveredPlayers: (json['discoveredPlayers'] as List?)?.map((p) => Player.fromJson(p)).toList() ?? [],
-      watchedPlayers: (json['watchedPlayers'] as List?)?.map((p) => Player.fromJson(p)).toList() ?? [],
-      favoritePlayers: (json['favoritePlayers'] as List?)?.map((p) => Player.fromJson(p)).toList() ?? [],
+      discoveredPlayerIds: (json['discoveredPlayerIds'] as List?)?.cast<int>() ?? [],
+      watchedPlayerIds: (json['watchedPlayerIds'] as List?)?.cast<int>() ?? [],
+      favoritePlayerIds: (json['favoritePlayerIds'] as List?)?.cast<int>() ?? [],
       ap: json['ap'] ?? 6,
       budget: json['budget'] ?? 1000000,
       scoutSkills: scoutSkills,
@@ -396,9 +442,9 @@ class Game {
     int? currentWeekOfMonth,
     GameState? state,
     List<School>? schools,
-    List<Player>? discoveredPlayers,
-    List<Player>? watchedPlayers,
-    List<Player>? favoritePlayers,
+    List<int>? discoveredPlayerIds,
+    List<int>? watchedPlayerIds,
+    List<int>? favoritePlayerIds,
     int? budget,
     int? reputation,
     int? experience,
@@ -422,9 +468,9 @@ class Game {
       currentWeekOfMonth: currentWeekOfMonth ?? this.currentWeekOfMonth,
       state: state ?? this.state,
       schools: schools ?? this.schools,
-      discoveredPlayers: discoveredPlayers ?? this.discoveredPlayers,
-      watchedPlayers: watchedPlayers ?? this.watchedPlayers,
-      favoritePlayers: favoritePlayers ?? this.favoritePlayers,
+      discoveredPlayerIds: discoveredPlayerIds ?? this.discoveredPlayerIds,
+      watchedPlayerIds: watchedPlayerIds ?? this.watchedPlayerIds,
+      favoritePlayerIds: favoritePlayerIds ?? this.favoritePlayerIds,
       budget: budget ?? this.budget,
       reputation: reputation ?? this.reputation,
       experience: experience ?? this.experience,

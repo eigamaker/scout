@@ -85,17 +85,9 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   void initState() {
     super.initState();
     _loadScoutAnalysisData();
-    _debugTableStructure();
   }
 
-  /// テーブル構造をデバッグ出力
-  Future<void> _debugTableStructure() async {
-    try {
-      await _scoutAnalysisService.debugTableStructure();
-    } catch (e) {
-      print('テーブル構造確認エラー: $e');
-    }
-  }
+
 
   /// スカウト分析データを読み込み
   Future<void> _loadScoutAnalysisData() async {

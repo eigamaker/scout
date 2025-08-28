@@ -8,14 +8,13 @@ import '../utils/name_generator.dart';
 
 /// 才能のある選手（ランク3以上）を生成するクラス
 class TalentedPlayerGenerator {
-  final DataService _dataService;
   final Random _random = Random();
   
   // 高校生の能力値生成設定（調整可能）
   static const double _minAbilityPercentage = 0.60; // ポテンシャルの60%
   static const double _maxAbilityPercentage = 0.70; // ポテンシャルの70%
 
-  TalentedPlayerGenerator(this._dataService);
+  TalentedPlayerGenerator();
 
   /// 才能のある選手を1000人生成（初期ゲーム開始時用）
   Future<List<Player>> generateTalentedPlayers() async {

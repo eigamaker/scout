@@ -1,7 +1,6 @@
 import 'dart:math';
 import '../models/player/player.dart';
 import '../models/player/player_abilities.dart';
-import 'data_service.dart';
 
 // 年齢段階の定義
 enum AgeStage { young, prime, mature, decline, retirement }

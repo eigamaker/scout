@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import '../models/player/player.dart';
 import '../models/school/school.dart';
 import '../models/player/player_abilities.dart';
-import '../models/player/pitch.dart';
 import 'data_service.dart';
 import 'default_player_templates.dart';
 import 'package:sqflite/sqflite.dart';
@@ -10,7 +9,6 @@ import 'package:sqflite/sqflite.dart';
 /// 選手を学校に配属するサービス
 class PlayerAssignmentService {
   final DataService _dataService;
-  final math.Random _random = math.Random();
 
   PlayerAssignmentService(this._dataService);
 
@@ -490,14 +488,7 @@ class PlayerAssignmentService {
     }
   }
 
-  /// 学校の選手リストを更新
-  Future<void> _updateSchoolPlayerLists(List<School> schools) async {
-    // 学校ごとの生成選手数を表示
-    for (final school in schools) {
-      final generatedCount = school.players.where((p) => p.talent >= 3).length;
-      print('${school.name} (${school.rank.name}): 生成選手${generatedCount}人');
-    }
-  }
+
 
   /// 選手配属の統計情報を取得
   Future<Map<SchoolRank, Map<String, int>>> getPlayerDistributionStats(List<School> schools) async {

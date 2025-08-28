@@ -289,7 +289,6 @@ class PlayerGenerator {
   /// 総合ポテンシャル値を計算
   static int _calculateOverallPotential(Map<String, int> individualPotentials, String position) {
     final allPotentials = individualPotentials.values.toList();
-    final overallPotential = allPotentials.reduce((a, b) => a + b) ~/ allPotentials.length;
     
     // ポジション別の重み付けを適用（能力値計算と同様）
     if (position == '投手') {
@@ -459,10 +458,10 @@ class PlayerGenerator {
         final peakAbility = _calculatePeakAbilityByAge(talent, age);
         
         // 総合ポテンシャル値を計算
-        final overallPotential = _calculateOverallPotential(individualPotentials, position);
-        final technicalPotential = _calculateTechnicalPotential(individualPotentials);
-        final mentalPotential = _calculateMentalPotential(individualPotentials);
-        final physicalPotential = _calculatePhysicalPotential(individualPotentials);
+        _calculateOverallPotential(individualPotentials, position);
+        _calculateTechnicalPotential(individualPotentials);
+        _calculateMentalPotential(individualPotentials);
+        _calculatePhysicalPotential(individualPotentials);
         
         final player = Player(
           name: _generateProfessionalPlayerName(),
@@ -543,24 +542,7 @@ class PlayerGenerator {
     }
   }
   
-  // 年齢に基づく成長率を計算
-  static double _calculateGrowthRateByAge(int age) {
-    final random = Random();
-    
-    if (age <= 22) {
-      // 若手：高い成長率（1.0-1.2）
-      return 1.0 + random.nextDouble() * 0.2;
-    } else if (age <= 28) {
-      // 全盛期：標準的な成長率（0.95-1.05）
-      return 0.95 + random.nextDouble() * 0.1;
-    } else if (age <= 32) {
-      // ベテラン：低い成長率（0.85-0.95）
-      return 0.85 + random.nextDouble() * 0.1;
-    } else {
-      // シニア：非常に低い成長率（0.75-0.85）
-      return 0.75 + random.nextDouble() * 0.1;
-    }
-  }
+
   
   // プロ野球選手用の技術面能力値生成（ポテンシャルの90%程度で生成）
   static Map<TechnicalAbility, int> _generateProfessionalTechnicalAbilities(int talent, String position, String ageGroup, String experienceLevel) {
@@ -767,113 +749,14 @@ class PlayerGenerator {
     return 'normal';
   }
   
-  // プロ野球選手用の実績生成
-  static List<Achievement> _generateProfessionalAchievements(int talent, int age) {
-    final achievements = <Achievement>[];
-    final random = Random();
-    
-    // 年齢に基づいて実績数を決定
-    int achievementCount;
-    if (age <= 22) {
-      achievementCount = 1 + random.nextInt(2); // 若手：1-2個
-    } else if (age <= 28) {
-      achievementCount = 2 + random.nextInt(3); // 全盛期：2-4個
-    } else if (age <= 32) {
-      achievementCount = 3 + random.nextInt(3); // ベテラン：3-5個
-    } else {
-      achievementCount = 4 + random.nextInt(3); // シニア：4-6個
-    }
-    
-    // 才能ランクによる調整
-    achievementCount += (talent - 3) * 2; // talent 3: +0, 4: +2, 5: +4
-    
-    // 実績の種類を年齢に応じて選択
-    final availableAchievements = <AchievementType>[];
-    
-    if (age <= 22) {
-      // 若手：ルーキー関連の実績
-      availableAchievements.addAll([
-        AchievementType.rookieOfTheYear,
-        AchievementType.allStar,
-        AchievementType.homeRunKing,
-        AchievementType.strikeoutKing,
-        AchievementType.bestPitcher,
-        AchievementType.bestBatter,
-      ]);
-    } else if (age <= 28) {
-      // 全盛期：主要な個人タイトル
-      availableAchievements.addAll([
-        AchievementType.mvp,
-        AchievementType.bestPitcher,
-        AchievementType.bestBatter,
-        AchievementType.homeRunKing,
-        AchievementType.strikeoutKing,
-        AchievementType.allStar,
-        AchievementType.goldenGlove,
-        AchievementType.noHitter,
-        AchievementType.perfectGame,
-      ]);
-    } else if (age <= 32) {
-      // ベテラン：長期的な実績
-      availableAchievements.addAll([
-        AchievementType.mvp,
-        AchievementType.bestPitcher,
-        AchievementType.bestBatter,
-        AchievementType.homeRunKing,
-        AchievementType.strikeoutKing,
-        AchievementType.allStar,
-        AchievementType.goldenGlove,
-        AchievementType.noHitter,
-        AchievementType.perfectGame,
-        AchievementType.cycleHit,
-        AchievementType.grandSlam,
-      ]);
-    } else {
-      // シニア：キャリア実績
-      availableAchievements.addAll([
-        AchievementType.mvp,
-        AchievementType.bestPitcher,
-        AchievementType.bestBatter,
-        AchievementType.homeRunKing,
-        AchievementType.strikeoutKing,
-        AchievementType.allStar,
-        AchievementType.goldenGlove,
-        AchievementType.noHitter,
-        AchievementType.perfectGame,
-        AchievementType.cycleHit,
-        AchievementType.grandSlam,
-        AchievementType.comebackPlayer,
-      ]);
-    }
-    
-    // 実績を生成
-    for (int i = 0; i < achievementCount && availableAchievements.isNotEmpty; i++) {
-      final type = availableAchievements[random.nextInt(availableAchievements.length)];
-      final year = 2024 - random.nextInt(age - 17); // 年齢に応じた年数
-      final month = random.nextInt(12) + 1;
-      
-      achievements.add(Achievement.create(
-        type: type,
-        year: year,
-        month: month,
-        team: 'プロ野球団',
-      ));
-      
-      // 同じ実績を重複させない
-      availableAchievements.remove(type);
-    }
-    
-    return achievements;
-  }
+
+
+
   
   // プロ野球選手用の名前生成
   static String _generateProfessionalPlayerName() {
     return NameGenerator.generateProfessionalPlayerName();
   }
   
-  // プロ野球選手用の性格生成
-  static String _generateProfessionalPersonality() {
-    final personalities = ['リーダー', '冷静', '積極的', '謙虚', '情熱的', '集中力', '責任感'];
-    return personalities[Random().nextInt(personalities.length)];
-  }
+
 }

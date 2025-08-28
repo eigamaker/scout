@@ -11,7 +11,7 @@ class LoadGameScreen extends StatefulWidget {
 }
 
 class _LoadGameScreenState extends State<LoadGameScreen> {
-  final List<bool> _hasData = [false, false, false, false];
+  final List<bool> _hasData = [false];
   bool _loading = true;
 
   @override
@@ -22,10 +22,7 @@ class _LoadGameScreenState extends State<LoadGameScreen> {
 
   Future<void> _checkSlots() async {
     final gameManager = Provider.of<GameManager>(context, listen: false);
-    for (int i = 0; i < 3; i++) {
-      _hasData[i] = await gameManager.hasGameData(i + 1);
-    }
-    _hasData[3] = await gameManager.hasGameData('autosave');
+    _hasData[0] = await gameManager.hasGameData();
     setState(() {
       _loading = false;
     });
@@ -41,28 +38,23 @@ class _LoadGameScreenState extends State<LoadGameScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
-              itemCount: 4, // 3スロット＋オートセーブ
+              itemCount: 1, // 単一セーブスロット
               itemBuilder: (context, index) {
-                final isAuto = index == 3;
-                final slotName = isAuto ? 'オートセーブ' : 'セーブスロット${index + 1}';
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
                   child: ListTile(
-                    leading: Icon(isAuto ? Icons.autorenew : Icons.save),
-                    title: Text(slotName),
-                    subtitle: Text(_hasData[index] ? 'セーブデータあり' : 'セーブデータなし'),
+                    leading: const Icon(Icons.save),
+                    title: const Text('セーブデータ'),
+                    subtitle: Text(_hasData[0] ? 'セーブデータあり' : 'セーブデータなし'),
                     trailing: ElevatedButton(
-                      onPressed: _hasData[index]
+                      onPressed: _hasData[0]
                           ? () async {
-                              final slot = isAuto ? 'autosave' : (index + 1);
-                              final gameManager = Provider.of<GameManager>(context, listen: false);
-                              final dataService = Provider.of<DataService>(context, listen: false);
-                              final loaded = await gameManager.loadGame(slot, dataService);
+                              final loaded = await gameManager.loadGame(dataService);
                               if (loaded) {
                                 Navigator.pushReplacementNamed(context, '/game');
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('ロードに失敗しました')),
+                                  const SnackBar(content: Text('ロードに失敗しました')),
                                 );
                               }
                             }

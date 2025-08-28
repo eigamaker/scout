@@ -1,29 +1,23 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'dart:io'; // Added for File
-import 'dart:math'; // Added for Random
+import 'dart:io';
+import 'dart:math';
 import '../utils/name_generator.dart';
+import '../models/game/game.dart';
 
 class DataService {
-  static const String saveKey = 'scout_game_save';
-  static const String autoSaveKey = 'scout_game_autosave';
+  // スロット機能は廃止、単一データベースファイルを使用
 
   static Database? _db;
 
   static const int _databaseVersion = 1;
 
-  String _currentSlot = 'セーブ1'; // デフォルト
-  set currentSlot(String slot) {
-    _currentSlot = slot;
-    _db = null; // スロット切り替え時にキャッシュクリア
-  }
-  String get currentSlot => _currentSlot;
+  // スロット機能は廃止、単一データベースファイルを使用
 
   Future<Database> get database async {
     if (_db != null) return _db!;
-    _db = await getDatabaseWithSlot(_currentSlot);
+    _db = await _initDb();
     return _db!;
   }
 
@@ -49,74 +43,146 @@ class DataService {
 
 
 
-  String _slotKey(dynamic slot) {
-    if (slot == 'autosave') return autoSaveKey;
-    return 'scout_game_save_$slot';
-  }
+  // スロット機能は廃止、データベースのみに保存
 
-  Future<void> saveGameDataToSlot(Map<String, dynamic> data, dynamic slot) async {
+  // データベースからゲームデータを読み込み
+  Future<Game?> loadGameDataFromDatabase() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final db = await database;
       
-      // メモリ使用量を削減するため、データを分割して保存
-      final jsonString = jsonEncode(data);
+      // ゲーム基本情報を読み込み
+      final gameInfo = await db.query('GameInfo', limit: 1);
+      if (gameInfo.isEmpty) return null;
       
-      // データサイズが大きすぎる場合は圧縮を検討
-      if (jsonString.length > 1000000) { // 1MB以上
-        print('警告: セーブデータが大きすぎます (${(jsonString.length / 1024 / 1024).toStringAsFixed(2)}MB)');
-        print('警告: データサイズを削減することを推奨します');
-      }
+      // 学校データを読み込み
+      final schools = await _loadSchoolsFromDatabase(db);
       
-      // メモリ使用量の監視
-      final dataSizeKB = jsonString.length / 1024;
-      if (dataSizeKB > 500) { // 500KB以上
-        print('注意: セーブデータが大きいです (${dataSizeKB.toStringAsFixed(2)}KB)');
-      }
+              // 発掘選手IDリストを読み込み
+        final discoveredPlayerIds = await _loadDiscoveredPlayerIdsFromDatabase(db);
+        
+        // 注目選手IDリストを読み込み
+        final watchedPlayerIds = await _loadWatchedPlayerIdsFromDatabase(db);
+        
+        // お気に入り選手IDリストを読み込み
+        final favoritePlayerIds = await _loadFavoritePlayerIdsFromDatabase(db);
       
-      await prefs.setString(_slotKey(slot), jsonString);
-      print('セーブデータを保存しました: スロット $slot (${dataSizeKB.toStringAsFixed(2)}KB)');
+      // プロ野球データを読み込み
+      final professionalTeams = await _loadProfessionalTeamsFromDatabase(db);
+      
+      // Gameオブジェクトを構築
+      final gameData = {
+        'scoutName': gameInfo.first['scoutName'],
+        'currentYear': gameInfo.first['currentYear'],
+        'currentMonth': gameInfo.first['currentMonth'],
+        'currentWeekOfMonth': gameInfo.first['currentWeekOfMonth'],
+        'state': gameInfo.first['state'],
+        'ap': gameInfo.first['ap'],
+        'budget': gameInfo.first['budget'],
+        'scoutSkills': jsonDecode(gameInfo.first['scoutSkills'] as String),
+        'reputation': gameInfo.first['reputation'],
+        'experience': gameInfo.first['experience'],
+        'level': gameInfo.first['level'],
+        'schools': schools,
+        'discoveredPlayerIds': discoveredPlayerIds,
+        'watchedPlayerIds': watchedPlayerIds,
+        'favoritePlayerIds': favoritePlayerIds,
+        'professionalTeams': professionalTeams,
+      };
+      
+      return Game.fromJson(gameData);
     } catch (e) {
-      print('セーブデータ保存エラー: $e');
-      
-      // メモリ不足エラーの場合は特別な処理
-      if (e.toString().contains('OutOfMemoryError') || e.toString().contains('OOM')) {
-        print('メモリ不足エラーが発生しました。データサイズを削減してください。');
-        print('推奨: 不要なデータを削除するか、データの分割保存を検討してください。');
-      }
-      
-      rethrow;
+      print('データベースからの読み込みエラー: $e');
+      return null;
     }
   }
 
-  Future<Map<String, dynamic>?> loadGameDataFromSlot(dynamic slot) async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(_slotKey(slot));
-    if (jsonString == null) return null;
-    return jsonDecode(jsonString);
-  }
-
-  Future<bool> hasGameDataInSlot(dynamic slot) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey(_slotKey(slot));
-  }
-
-  Future<void> saveAutoGameData(Map<String, dynamic> data) async {
+  // セーブデータが存在するかチェック
+  Future<bool> hasGameDataInDatabase() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final db = await database;
+      final gameInfo = await db.query('GameInfo', limit: 1);
+      return gameInfo.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 学校データをデータベースから読み込み
+  Future<List<Map<String, dynamic>>> _loadSchoolsFromDatabase(Database db) async {
+    try {
+      final schools = await db.query('School');
+      final result = <Map<String, dynamic>>[];
       
-      // オートセーブは軽量化したデータを使用
-      final lightData = _createLightSaveData(data);
-      final jsonString = jsonEncode(lightData);
-      
-      if (jsonString.length > 500000) { // 500KB以上
-        print('警告: オートセーブデータが大きすぎます (${(jsonString.length / 1024).toStringAsFixed(2)}KB)');
+      for (final school in schools) {
+        final schoolData = Map<String, dynamic>.from(school);
+        
+        // 学校の選手データも読み込み
+        final players = await db.query('Player', where: 'school = ?', whereArgs: [school['id']]);
+        schoolData['players'] = players;
+        
+        result.add(schoolData);
       }
       
-      await prefs.setString(autoSaveKey, jsonString);
-      print('オートセーブデータを保存しました (${(jsonString.length / 1024).toStringAsFixed(2)}KB)');
+      return result;
     } catch (e) {
-      print('オートセーブ保存エラー: $e');
-      // オートセーブエラーは致命的ではないので、エラーを投げない
+      print('学校データ読み込みエラー: $e');
+      return [];
+    }
+  }
+
+  // 発掘選手IDリストをデータベースから読み込み
+  Future<List<int>> _loadDiscoveredPlayerIdsFromDatabase(Database db) async {
+    try {
+      final players = await db.query('DiscoveredPlayer');
+      return players.map((p) => p['player_id'] as int).toList();
+    } catch (e) {
+      print('発掘選手IDリスト読み込みエラー: $e');
+      return [];
+    }
+  }
+
+  // 注目選手IDリストをデータベースから読み込み
+  Future<List<int>> _loadWatchedPlayerIdsFromDatabase(Database db) async {
+    try {
+      final players = await db.query('WatchedPlayer');
+      return players.map((p) => p['player_id'] as int).toList();
+    } catch (e) {
+      print('注目選手IDリスト読み込みエラー: $e');
+      return [];
+    }
+  }
+
+  // お気に入り選手IDリストをデータベースから読み込み
+  Future<List<int>> _loadFavoritePlayerIdsFromDatabase(Database db) async {
+    try {
+      final players = await db.query('FavoritePlayer');
+      return players.map((p) => p['player_id'] as int).toList();
+    } catch (e) {
+      print('お気に入り選手IDリスト読み込みエラー: $e');
+      return [];
+    }
+  }
+
+  // プロ野球データをデータベースから読み込み
+  Future<Map<String, dynamic>> _loadProfessionalTeamsFromDatabase(Database db) async {
+    try {
+      final teams = await db.query('ProfessionalTeam');
+      final result = <Map<String, dynamic>>[];
+      
+      for (final team in teams) {
+        final teamData = Map<String, dynamic>.from(team);
+        
+        // プロ選手データも読み込み
+        final players = await db.query('ProfessionalPlayer', where: 'team = ?', whereArgs: [team['id']]);
+        teamData['professionalPlayers'] = players;
+        
+        result.add(teamData);
+      }
+      
+      return {'teams': result};
+    } catch (e) {
+      print('プロ野球データ読み込みエラー: $e');
+      return {'teams': []};
     }
   }
   
@@ -164,32 +230,15 @@ class DataService {
       }).toList();
     }
     
-    // 発掘選手も軽量化
-    if (fullData['discoveredPlayers'] != null) {
-      final players = fullData['discoveredPlayers'] as List;
-      lightData['discoveredPlayers'] = players.map((player) {
-        final playerData = Map<String, dynamic>.from(player);
-        return {
-          'id': playerData['id'],
-          'name': playerData['name'],
-          'position': playerData['position'],
-          'age': playerData['age'],
-          'isGraduated': playerData['isGraduated'],
-          'isRetired': playerData['isRetired'],
-          'school': playerData['school'],
-        };
-      }).toList();
+    // 発掘選手IDリストも軽量化
+    if (fullData['discoveredPlayerIds'] != null) {
+      lightData['discoveredPlayerIds'] = fullData['discoveredPlayerIds'];
     }
     
     return lightData;
   }
 
-  Future<Map<String, dynamic>?> loadAutoGameData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(autoSaveKey);
-    if (jsonString == null) return null;
-    return jsonDecode(jsonString);
-  }
+  // オートセーブ機能は廃止
 
   Future<void> insertInitialData() async {
     final db = await database;
@@ -198,34 +247,9 @@ class DataService {
     await _insertProfessionalTeams(db);
   }
 
-  // スロットごとにDBファイル名を切り替える
-  Future<Database> getDatabaseWithSlot(String slot) async {
-    final dbPath = await getDatabasesPath();
-    final dbName = slot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(slot)}.db';
-    final path = join(dbPath, dbName);
-    return await openDatabase(
-              path,
-        version: _databaseVersion, // バージョンを40に更新
-        onCreate: (db, version) async {
-          // 最新のスキーマでテーブルを作成
-          await _createAllTables(db);
-        },
-        onUpgrade: (db, oldVersion, newVersion) async {
-          // ゲーム未リリースのため、最新スキーマで再作成
-          print('データベーススキーマを最新版で再作成中...');
-          await _createAllTables(db);
-        },
-    );
-  }
+  // スロット機能は廃止、単一データベースファイルを使用
   
-  // スロット用DBファイルを削除
-  Future<void> deleteDatabaseWithSlot(String slot) async {
-    final dbPath = await getDatabasesPath();
-    final dbName = slot == 'オートセーブ' ? 'autosave.db' : 'save${_slotNumber(slot)}.db';
-    final path = join(dbPath, dbName);
-    await deleteDatabaseAtPath(path);
-    print('DB削除: $path, exists= ${await File(path).exists()}');
-  }
+  // スロット機能は廃止
 
   // データベースファイルを削除（新しいスキーマで再作成するため）
   Future<void> deleteDatabase() async {
@@ -939,6 +963,61 @@ class DataService {
     await db.execute('CREATE INDEX idx_professional_team_league ON ProfessionalTeam(league)');
     await db.execute('CREATE INDEX idx_professional_team_division ON ProfessionalTeam(division)');
     await db.execute('CREATE INDEX idx_team_history_team_year ON TeamHistory(team_id, year)');
+    
+    // GameInfoテーブル（ゲーム基本情報）
+    await db.execute('''
+      CREATE TABLE GameInfo (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scoutName TEXT NOT NULL,
+        currentYear INTEGER NOT NULL,
+        currentMonth INTEGER NOT NULL,
+        currentWeekOfMonth INTEGER NOT NULL,
+        state INTEGER NOT NULL,
+        ap INTEGER NOT NULL,
+        budget INTEGER NOT NULL,
+        scoutSkills TEXT NOT NULL,
+        reputation INTEGER NOT NULL,
+        experience INTEGER NOT NULL,
+        level INTEGER NOT NULL,
+        timestamp INTEGER NOT NULL
+      )
+    ''');
+    
+    // DiscoveredPlayerテーブル（発掘選手ID）
+    await db.execute('''
+      CREATE TABLE DiscoveredPlayer (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER NOT NULL,
+        discovered_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (player_id) REFERENCES Player (id)
+      )
+    ''');
+    
+    // WatchedPlayerテーブル（注目選手ID）
+    await db.execute('''
+      CREATE TABLE WatchedPlayer (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER NOT NULL,
+        watched_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (player_id) REFERENCES Player (id)
+      )
+    ''');
+    
+    // FavoritePlayerテーブル（お気に入り選手ID）
+    await db.execute('''
+      CREATE TABLE FavoritePlayer (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER NOT NULL,
+        favorited_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (player_id) REFERENCES Player (id)
+      )
+    ''');
+    
+    // 追加のインデックス
+    await db.execute('CREATE INDEX idx_game_info_timestamp ON GameInfo(timestamp)');
+    await db.execute('CREATE INDEX idx_discovered_player_id ON DiscoveredPlayer(player_id)');
+    await db.execute('CREATE INDEX idx_watched_player_id ON WatchedPlayer(player_id)');
+    await db.execute('CREATE INDEX idx_favorite_player_id ON FavoritePlayer(player_id)');
   }
 
   // プロ野球団の初期データを挿入
@@ -2042,9 +2121,19 @@ class DataService {
           await _saveSchoolsInBatches(txn, data['schools'] as List);
         }
         
-        // 発掘選手データを分割して保存
-        if (data['discoveredPlayers'] != null) {
-          await _saveDiscoveredPlayersInBatches(txn, data['discoveredPlayers'] as List);
+        // 発掘選手IDリストを保存
+        if (data['discoveredPlayerIds'] != null) {
+          await _saveDiscoveredPlayerIdsInBatches(txn, (data['discoveredPlayerIds'] as List).cast<int>());
+        }
+
+        // 注目選手IDリストを保存
+        if (data['watchedPlayerIds'] != null) {
+          await _saveWatchedPlayerIdsInBatches(txn, (data['watchedPlayerIds'] as List).cast<int>());
+        }
+
+        // お気に入り選手IDリストを保存
+        if (data['favoritePlayerIds'] != null) {
+          await _saveFavoritePlayerIdsInBatches(txn, (data['favoritePlayerIds'] as List).cast<int>());
         }
         
         // プロ野球データを保存
@@ -2079,9 +2168,9 @@ class DataService {
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
   
-  /// 学校データをバッチ処理で保存
+  /// 学校データをバッチ処理で保存（最適化版）
   Future<void> _saveSchoolsInBatches(Transaction txn, List schools) async {
-    const batchSize = 50; // バッチサイズを制限
+    const batchSize = 1000; // バッチサイズを最適化（50 → 1000）
     
     for (int i = 0; i < schools.length; i += batchSize) {
       final end = (i + batchSize < schools.length) ? i + batchSize : schools.length;
@@ -2116,9 +2205,9 @@ class DataService {
     return schoolId;
   }
   
-  /// 学校の選手データをバッチ処理で保存
+  /// 学校の選手データをバッチ処理で保存（最適化版）
   Future<void> _saveSchoolPlayersInBatches(Transaction txn, List players, int schoolId) async {
-    const batchSize = 100; // 選手データのバッチサイズ
+    const batchSize = 5000; // バッチサイズを最適化（100 → 5000）
     
     for (int i = 0; i < players.length; i += batchSize) {
       final end = (i + batchSize < players.length) ? i + batchSize : players.length;
@@ -2148,31 +2237,60 @@ class DataService {
     }
   }
   
-  /// 発掘選手データをバッチ処理で保存
-  Future<void> _saveDiscoveredPlayersInBatches(Transaction txn, List players) async {
-    const batchSize = 100;
+  /// 発掘選手IDリストをバッチ処理で保存（最適化版）
+  Future<void> _saveDiscoveredPlayerIdsInBatches(Transaction txn, List<int> playerIds) async {
+    const batchSize = 5000; // バッチサイズを最適化（100 → 5000）
     
-    for (int i = 0; i < players.length; i += batchSize) {
-      final end = (i + batchSize < players.length) ? i + batchSize : players.length;
-      final batch = players.sublist(i, end);
+    for (int i = 0; i < playerIds.length; i += batchSize) {
+      final end = (i + batchSize < playerIds.length) ? i + batchSize : playerIds.length;
+      final batch = playerIds.sublist(i, end);
       
-      for (final playerData in batch) {
-        final player = Map<String, dynamic>.from(playerData);
-        
+      for (final playerId in batch) {
         await txn.insert('DiscoveredPlayer', {
-          'id': player['id'],
-          'name': player['name'] ?? '',
-          'position': player['position'] ?? '',
-          'age': player['age'] ?? 0,
-          'isGraduated': player['isGraduated'] ?? false ? 1 : 0,
-          'isRetired': player['isRetired'] ?? false ? 1 : 0,
-          'fame': player['fame'] ?? 0,
-          'growth_rate': player['growth_rate'] ?? 0,
-          'talent': player['talent'] ?? 0,
+          'player_id': playerId,
+          'discovered_at': DateTime.now().millisecondsSinceEpoch,
         }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
       
-      print('発掘選手データバッチ処理完了: ${i + 1}-$end / ${players.length}');
+      print('発掘選手IDリストバッチ処理完了: ${i + 1}-$end / ${playerIds.length}');
+    }
+  }
+
+  /// 注目選手IDリストをバッチ処理で保存（最適化版）
+  Future<void> _saveWatchedPlayerIdsInBatches(Transaction txn, List<int> playerIds) async {
+    const batchSize = 5000; // バッチサイズを最適化（100 → 5000）
+    
+    for (int i = 0; i < playerIds.length; i += batchSize) {
+      final end = (i + batchSize < playerIds.length) ? i + batchSize : playerIds.length;
+      final batch = playerIds.sublist(i, end);
+      
+      for (final playerId in batch) {
+        await txn.insert('WatchedPlayer', {
+          'player_id': playerId,
+          'watched_at': DateTime.now().millisecondsSinceEpoch,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      
+      print('注目選手IDリストバッチ処理完了: ${i + 1}-$end / ${playerIds.length}');
+    }
+  }
+
+  /// お気に入り選手IDリストをバッチ処理で保存（最適化版）
+  Future<void> _saveFavoritePlayerIdsInBatches(Transaction txn, List<int> playerIds) async {
+    const batchSize = 5000; // バッチサイズを最適化（100 → 5000）
+    
+    for (int i = 0; i < playerIds.length; i += batchSize) {
+      final end = (i + batchSize < playerIds.length) ? i + batchSize : playerIds.length;
+      final batch = playerIds.sublist(i, end);
+      
+      for (final playerId in batch) {
+        await txn.insert('FavoritePlayer', {
+          'player_id': playerId,
+          'favorited_at': DateTime.now().millisecondsSinceEpoch,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      
+      print('お気に入り選手IDリストバッチ処理完了: ${i + 1}-$end / ${playerIds.length}');
     }
   }
   

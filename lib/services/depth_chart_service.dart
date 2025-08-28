@@ -11,7 +11,6 @@ class DepthChartService {
     List<ProfessionalPlayer> players,
   ) {
     final positionCharts = <String, PositionDepthChart>{};
-    final random = Random();
 
     // ポジション別に選手を分類
     final positionGroups = <String, List<ProfessionalPlayer>>{};

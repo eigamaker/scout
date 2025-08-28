@@ -495,13 +495,11 @@ class GameManager {
     }
   }
 
-  final DataService _dataService;
-  final NewsService? _newsService;
+  late final DataService _dataService;
   
-  GameManager(DataService dataService, {NewsService? newsService}) 
-      : _dataService = dataService,
-        _newsService = newsService {
+  GameManager(DataService dataService, {NewsService? newsService}) {
     _gameDataManager = GameDataManager(dataService);
+    _dataService = dataService;
   }
 
   // 新しい選手生成・配属システム
@@ -527,7 +525,7 @@ class GameManager {
       await schoolDataService.insertDefaultSchools();
       
       // 2. 才能のある選手（ランク3以上）を1000人生成
-      final talentedPlayerGenerator = TalentedPlayerGenerator(dataService);
+      final talentedPlayerGenerator = TalentedPlayerGenerator();
       final talentedPlayers = await talentedPlayerGenerator.generateTalentedPlayers();
       
       // 3. 選手を学校に配属
@@ -585,9 +583,9 @@ class GameManager {
         currentWeekOfMonth: 1,
         state: GameState.scouting,
         schools: schools,
-        discoveredPlayers: players,
-        watchedPlayers: [],
-        favoritePlayers: [],
+        discoveredPlayerIds: players.map((p) => p.id!).toList(),
+        watchedPlayerIds: [],
+        favoritePlayerIds: [],
         ap: 15,
         budget: 1000000,
         scoutSkills: {
@@ -619,12 +617,12 @@ class GameManager {
       // generateInitialStudentsForAllSchoolsDbで更新された学校リストを取得
       final updatedSchools = _currentGame!.schools;
       
-      // 全選手をdiscoveredPlayersにも追加
-      final allPlayers = <Player>[];
+      // 全選手をdiscoveredPlayerIdsにも追加
+      final allPlayerIds = <int>[];
       for (final school in updatedSchools) {
-        allPlayers.addAll(school.players);
+        allPlayerIds.addAll(school.players.map((p) => p.id!).where((id) => id != null));
       }
-      _currentGame = _currentGame!.copyWith(discoveredPlayers: allPlayers);
+      _currentGame = _currentGame!.copyWith(discoveredPlayerIds: allPlayerIds);
       
 
       
@@ -687,7 +685,7 @@ class GameManager {
       print('GameManager.generateNewStudentsForAllSchoolsDb: 新年度新1年生生成開始');
       
       // TalentedPlayerGeneratorを使用して新1年生のみを生成
-      final talentedPlayerGenerator = TalentedPlayerGenerator(dataService);
+      final talentedPlayerGenerator = TalentedPlayerGenerator();
       final newFirstYears = await talentedPlayerGenerator.generateNewFirstYearStudents();
       
       // 新1年生のみをフィルタリング（学年を1年生に設定）
@@ -879,90 +877,7 @@ class GameManager {
     }
   }
 
-  // プロ野球選手の年齢更新処理
-  Future<void> _updateProfessionalPlayersAge(DataService dataService) async {
-    if (_currentGame == null) return;
-    
-    print('GameManager._updateProfessionalPlayersAge: プロ野球選手の年齢更新処理開始');
-    
-    try {
-      final db = await dataService.database;
-      final batch = db.batch();
-      int updateCount = 0;
-      
-      for (final team in _currentGame!.professionalTeams.teams) {
-        if (team.professionalPlayers == null) continue;
-        
-        for (final proPlayer in team.professionalPlayers!) {
-          final player = proPlayer.player;
-          if (player == null) continue;
-          
-          // 引退した選手は年齢更新をスキップ
-          if (player.isRetired) continue;
-          
-          final newAge = player.age + 1;
-          print('GameManager._updateProfessionalPlayersAge: プロ選手 ${player.name} の年齢を ${player.age}歳 → ${newAge}歳 に更新');
-          
-          // 引退判定
-          if (newAge >= 18) { // プロ選手は18歳以上
-            final shouldRetire = _shouldPlayerRetire(player, newAge);
-            if (shouldRetire) {
-              print('GameManager._updateProfessionalPlayersAge: プロ選手 ${player.name} が年齢更新時の引退判定で引退');
-              
-              // 引退フラグを設定
-              batch.update(
-                'Player',
-                {
-                  'is_retired': 1,
-                  'retired_at': DateTime.now().toIso8601String(),
-                  'age': newAge,
-                },
-                where: 'id = ?',
-                whereArgs: [player.id]
-              );
-              
-              // ProfessionalPlayerテーブルも更新
-              batch.update(
-                'ProfessionalPlayer',
-                {
-                  'is_active': 0,
-                  'left_at': DateTime.now().toIso8601String(),
-                },
-                where: 'player_id = ?',
-                whereArgs: [player.id]
-              );
-              
-              updateCount += 2;
-              continue;
-            }
-          }
-          
-          // 年齢を更新
-          batch.update(
-            'Player',
-            {'age': newAge},
-            where: 'id = ?',
-            whereArgs: [player.id]
-          );
-          
-          updateCount++;
-        }
-      }
-      
-      // バッチ更新を実行
-      if (updateCount > 0) {
-        print('GameManager._updateProfessionalPlayersAge: $updateCount件のプロ選手データをバッチ更新で保存中...');
-        await batch.commit(noResult: true);
-        print('GameManager._updateProfessionalPlayersAge: プロ選手データのバッチ更新完了');
-      } else {
-        print('GameManager._updateProfessionalPlayersAge: 更新するプロ選手データはありません');
-      }
-      
-    } catch (e) {
-      print('GameManager._updateProfessionalPlayersAge: エラーが発生しました: $e');
-      rethrow;
-    }
-  }
+
 
   // プロ野球選手の引退処理（12月4週の終了時に実行）
   Future<void> _processProfessionalPlayerRetirements(DataService dataService) async {
@@ -2261,15 +2176,15 @@ class GameManager {
       }).toList();
 
       // 発掘選手リストを更新
-      final discoveredPlayers = updatedSchools.expand((school) => school.players.where((p) => p.isDiscovered)).toList();
+      final discoveredPlayerIds = updatedSchools.expand((school) => school.players.where((p) => p.isDiscovered).map((p) => p.id!)).toList();
 
       // ゲーム状態を更新
       _currentGame = _currentGame!.copyWith(
         schools: updatedSchools,
-        discoveredPlayers: discoveredPlayers,
+        discoveredPlayerIds: discoveredPlayerIds,
       );
 
-      print('_refreshPlayersFromDb: 完了 - 学校数: ${updatedSchools.length}, 発掘選手数: ${discoveredPlayers.length}');
+      print('_refreshPlayersFromDb: 完了 - 学校数: ${updatedSchools.length}, 発掘選手数: ${discoveredPlayerIds.length}');
     } catch (e) {
       print('_refreshPlayersFromDb: エラーが発生しました: $e');
       
@@ -2649,16 +2564,15 @@ class GameManager {
     saveNewsToGame(newsService);
     // print('GameManager.advanceWeekWithResults: ニュース保存完了');
     
-    // オートセーブ（週送り完了後）
-    print('GameManager.advanceWeekWithResults: オートセーブ開始');
+    // ゲーム保存（週送り完了後）
+    print('GameManager.advanceWeekWithResults: ゲーム保存開始');
     try {
       await saveGame();
-      await _gameDataManager.saveAutoGameData(_currentGame!);
-      print('GameManager.advanceWeekWithResults: オートセーブ完了');
+      print('GameManager.advanceWeekWithResults: ゲーム保存完了');
     } catch (e) {
-      print('オートセーブエラー: $e');
-      // オートセーブエラーは致命的ではないので、ゲーム進行を継続
-      print('オートセーブに失敗しましたが、ゲーム進行は継続します');
+      print('ゲーム保存エラー: $e');
+      // 保存エラーは致命的ではないので、ゲーム進行を継続
+      print('ゲーム保存に失敗しましたが、ゲーム進行は継続します');
     }
     
     print('GameManager.advanceWeekWithResults: 週送り処理完了');
@@ -2732,11 +2646,7 @@ class GameManager {
     }
   }
 
-  // 月の週数を取得（1年間48週、4週固定）
-  int _getWeeksInMonth(int month) {
-    // 全月4週固定（シンプルで分かりやすい）
-    return 4;
-  }
+
 
   // 現在の週番号を計算（4月1週を1週目として計算）
   int _calculateCurrentWeek(int month, int weekOfMonth) {
@@ -2774,9 +2684,8 @@ class GameManager {
         print('スカウトアクション実行結果: ${scoutResults.join(', ')}');
       }
       
-      // オートセーブ
+      // ゲーム保存
       await saveGame();
-      await _gameDataManager.saveAutoGameData(_currentGame!);
     }
   }
 
@@ -2825,15 +2734,15 @@ class GameManager {
   // セーブ
   Future<void> saveGame() async {
     if (_currentGame != null) {
-      await _gameDataManager.saveGameData(_currentGame!, 1);
+      await _gameDataManager.saveGameData(_currentGame!);
     }
   }
 
   // ロード
-  Future<bool> loadGame(dynamic slot, DataService dataService) async {
+  Future<bool> loadGame(DataService dataService) async {
     try {
-      print('GameManager: loadGame開始 - スロット: $slot');
-      final game = await _gameDataManager.loadGameData(slot);
+      print('GameManager: loadGame開始');
+      final game = await _gameDataManager.loadGameData();
       if (game != null) {
         _currentGame = game;
         print('GameManager: ゲームデータ読み込み完了');
@@ -3081,9 +2990,9 @@ class GameManager {
     }
   }
 
-  // 指定スロットにセーブデータが存在するかチェック
-  Future<bool> hasGameData(dynamic slot) async {
-    return await _gameDataManager.hasGameData(slot);
+  // セーブデータが存在するかチェック
+  Future<bool> hasGameData() async {
+    return await _gameDataManager.hasGameData();
   }
   
   // データベース修復を手動で実行
@@ -3544,13 +3453,13 @@ class GameManager {
       saveNewsToGame(newsService);
       
       // ゲームデータを保存
-      await _gameDataManager.saveGameData(_currentGame!, _currentGame!.scoutName);
+      await _gameDataManager.saveGameData(_currentGame!);
     }
   }
 
   /// ゲーム読み込み時にニュースも復元
-  Future<void> loadGameWithNews(NewsService newsService, dynamic slot) async {
-    final game = await _gameDataManager.loadGameData(slot);
+  Future<void> loadGameWithNews(NewsService newsService) async {
+    final game = await _gameDataManager.loadGameData();
     if (game != null) {
       _currentGame = game;
       
@@ -3641,41 +3550,7 @@ class GameManager {
     }
   }
 
-  /// 進行が遅れている大会を自動調整（必要に応じて）
-  high_school_tournament.HighSchoolTournament _autoAdjustSlowTournamentIfNeeded(
-    high_school_tournament.HighSchoolTournament tournament,
-    int month,
-    int week,
-  ) {
-    // 進行状況の予測を取得
-    final prediction = HighSchoolTournamentService.predictTournamentProgress(tournament, month, week);
-    
-    // スケジュール通りに進行している場合は調整不要
-    if (prediction.isOnSchedule) {
-      return tournament;
-    }
-    
-    print('GameManager._autoAdjustSlowTournamentIfNeeded: 進行遅延を検出 - 大会: ${tournament.id}, 完了予定: ${prediction.estimatedCompletionDate}');
-    print('GameManager._autoAdjustSlowTournamentIfNeeded: 推奨アクション: ${prediction.recommendationsText}');
-    
-    // 自動調整を実行
-    final adjustedTournament = HighSchoolTournamentService.autoAdjustSlowTournament(
-      tournament,
-      month,
-      week,
-    );
-    
-    // 調整後の進行状況をログ出力
-    final adjustedPrediction = HighSchoolTournamentService.predictTournamentProgress(
-      adjustedTournament,
-      month,
-      week,
-    );
-    
-    print('GameManager._autoAdjustSlowTournamentIfNeeded: 自動調整完了 - 調整後完了予定: ${adjustedPrediction.estimatedCompletionDate}');
-    
-    return adjustedTournament;
-  }
+
 
   /// 全大会の効率性を評価してレポートを生成
   Map<String, dynamic> generateTournamentEfficiencyReport() {
@@ -4229,167 +4104,5 @@ class GameManager {
     }
   }
 
-  /// メモリ使用量を監視・制御
-  void _manageMemoryUsage() {
-    try {
-      // メモリ使用量の概算
-      final estimatedMemoryUsage = _estimateCurrentMemoryUsage();
-      print('現在の推定メモリ使用量: ${(estimatedMemoryUsage / 1024 / 1024).toStringAsFixed(2)}MB');
-      
-      // メモリ使用量が大きい場合は解放処理を実行
-      if (estimatedMemoryUsage > 100 * 1024 * 1024) { // 100MB以上
-        print('メモリ使用量が大きいため、メモリ解放処理を実行します');
-        _performMemoryCleanup();
-      }
-      
-      // 定期的なメモリ解放（週送りごと）
-      _performPeriodicMemoryCleanup();
-    } catch (e) {
-      print('メモリ管理エラー: $e');
-    }
-  }
-  
-  /// 現在のメモリ使用量を概算
-  int _estimateCurrentMemoryUsage() {
-    try {
-      if (_currentGame == null) return 0;
-      
-      int totalSize = 0;
-      
-      // ゲーム基本情報
-      totalSize += _currentGame!.scoutName.length * 2; // UTF-16文字
-      totalSize += 8 * 4; // int型の基本データ
-      
-      // 学校データ
-      for (final school in _currentGame!.schools) {
-        totalSize += school.name.length * 2;
-        totalSize += school.shortName.length * 2;
-        totalSize += school.location.length * 2;
-        totalSize += school.prefecture.length * 2;
-        totalSize += 8 * 3; // int型の基本データ
-        
-        // 選手データ
-        for (final player in school.players) {
-          totalSize += player.name.length * 2;
-          totalSize += player.position.length * 2;
-          totalSize += 8 * 20; // 数値データ（概算）
-        }
-      }
-      
-      // 発掘選手データ
-      for (final player in _currentGame!.discoveredPlayers) {
-        totalSize += player.name.length * 2;
-        totalSize += player.position.length * 2;
-        totalSize += 8 * 20; // 数値データ（概算）
-        }
-      
-      return totalSize;
-    } catch (e) {
-      print('メモリ使用量推定エラー: $e');
-      return 0;
-    }
-  }
-  
-  /// メモリ解放処理を実行
-  void _performMemoryCleanup() {
-    try {
-      // 不要なデータの削除
-      _cleanupUnusedData();
-      
-      // キャッシュのクリア
-      _clearCaches();
-      
-      // ガベージコレクションの促進
-      _promoteGarbageCollection();
-      
-      print('メモリ解放処理が完了しました');
-    } catch (e) {
-      print('メモリ解放処理エラー: $e');
-    }
-  }
-  
-  /// 不要なデータを削除
-  void _cleanupUnusedData() {
-    try {
-      // 引退した選手の詳細データを削除
-      for (final school in _currentGame?.schools ?? []) {
-        school.players.removeWhere((player) => player.isRetired);
-      }
-      
-      // 発掘選手から引退した選手を削除
-      _currentGame?.discoveredPlayers.removeWhere((player) => player.isRetired);
-      
-      print('不要なデータの削除が完了しました');
-    } catch (e) {
-      print('不要なデータ削除エラー: $e');
-    }
-  }
-  
-  /// キャッシュをクリア
-  void _clearCaches() {
-    try {
-      // データベース接続のキャッシュをクリア
-      if (_dataService != null) {
-        // 必要に応じてデータベース接続をリセット
-        print('データベースキャッシュをクリアしました');
-      }
-      
-      print('キャッシュのクリアが完了しました');
-    } catch (e) {
-      print('キャッシュクリアエラー: $e');
-    }
-  }
-  
-  /// ガベージコレクションを促進
-  void _promoteGarbageCollection() {
-    try {
-      // Dartでは自動的にガベージコレクションが実行されるが、
-      // メモリ使用量が多い場合は明示的にメモリを解放
-      
-      // 大きなオブジェクトへの参照を一時的に解除
-      final tempGame = _currentGame;
-      _currentGame = null;
-      
-      // 少し待機してから復元
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _currentGame = tempGame;
-      });
-      
-      print('ガベージコレクションの促進が完了しました');
-    } catch (e) {
-      print('ガベージコレクション促進エラー: $e');
-    }
-  }
-  
-  /// 定期的なメモリ解放処理
-  void _performPeriodicMemoryCleanup() {
-    try {
-      // 週送りごとに実行される軽量なメモリ解放
-      
-      // 古いニュースデータを削除（NewsServiceにclearOldNewsメソッドがない場合はコメントアウト）
-      // if (_newsService != null) {
-      //   _newsService!.clearOldNews();
-      // }
-      
-      // 一時的なデータをクリア
-      _clearTemporaryData();
-      
-      print('定期的なメモリ解放処理が完了しました');
-    } catch (e) {
-      print('定期的なメモリ解放処理エラー: $e');
-    }
-  }
-  
-  /// 一時的なデータをクリア
-  void _clearTemporaryData() {
-    try {
-      // 週送り処理で使用される一時的なデータをクリア
-      // _weeklyResults.clear();
-      // _monthlyResults.clear();
-      
-      print('一時的なデータのクリアが完了しました');
-    } catch (e) {
-      print('一時的なデータクリアエラー: $e');
-    }
-  }
+
 } 

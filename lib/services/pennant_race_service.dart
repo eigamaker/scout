@@ -7,7 +7,6 @@ import '../models/professional/player_stats.dart';
 import 'depth_chart_service.dart';
 
 class PennantRaceService {
-  static const int _gamesPerWeek = 5; // 週5試合
   static const int _seasonStartMonth = 4; // 4月開始
   static const int _seasonStartWeek = 1; // 1週目開始
   static const int _seasonEndMonth = 10; // 10月終了
