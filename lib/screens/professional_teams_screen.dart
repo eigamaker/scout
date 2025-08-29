@@ -95,25 +95,22 @@ class _ProfessionalTeamsScreenState extends State<ProfessionalTeamsScreen>
           return const Center(child: Text('ゲームデータが見つかりません'));
         }
 
-        List<ProfessionalTeam> teams = game.professionalTeams.getTeamsByLeague(league);
-        
+        List<ProfessionalTeam> teams =
+            game.professionalTeams.getTeamsByLeague(league);
+
         // ソート
         switch (_sortBy) {
           case 'draftOrder':
-            teams = teams.where((team) => team.league == league).toList()
-              ..sort((a, b) => a.draftOrder.compareTo(b.draftOrder));
+            teams.sort((a, b) => a.draftOrder.compareTo(b.draftOrder));
             break;
           case 'strength':
-            teams = teams.where((team) => team.league == league).toList()
-              ..sort((a, b) => b.totalStrength.compareTo(a.totalStrength));
+            teams.sort((a, b) => b.totalStrength.compareTo(a.totalStrength));
             break;
           case 'budget':
-            teams = teams.where((team) => team.league == league).toList()
-              ..sort((a, b) => b.budget.compareTo(a.budget));
+            teams.sort((a, b) => b.budget.compareTo(a.budget));
             break;
           case 'popularity':
-            teams = teams.where((team) => team.league == league).toList()
-              ..sort((a, b) => b.popularity.compareTo(a.popularity));
+            teams.sort((a, b) => b.popularity.compareTo(a.popularity));
             break;
         }
 

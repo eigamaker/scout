@@ -10,9 +10,7 @@ import '../screens/school_list_screen.dart';
 import '../screens/scout_skill_screen.dart';
 import '../screens/team_requests_screen.dart';
 import '../screens/professional_teams_screen.dart';
-import '../screens/team_detail_screen.dart';
 import '../screens/pennant_race_screen.dart';
-import '../screens/tournament_screen.dart';
 import '../screens/draft_screen.dart';
 
 import 'theme.dart';
