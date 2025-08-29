@@ -20,6 +20,16 @@ class _SchoolListScreenState extends State<SchoolListScreen> {
   static const int _schoolsPerPage = 50;
 
   @override
+  void initState() {
+    super.initState();
+    final gameManager = Provider.of<GameManager>(context, listen: false);
+    final prefecture = gameManager.currentGame?.scoutPrefecture;
+    if (prefecture != null && prefecture.isNotEmpty) {
+      _selectedPrefecture = prefecture;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final gameManager = Provider.of<GameManager>(context);
     final game = gameManager.currentGame;

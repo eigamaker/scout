@@ -13,6 +13,8 @@ class DefaultSchoolData {
     '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
   ];
 
+  static List<String> get prefectures => _prefectures;
+
   // 各都道府県の主要都市・地域
   static const Map<String, List<String>> _majorCities = {
     '北海道': ['札幌', '旭川', '函館', '小樽', '室蘭', '苫小牧', '帯広', '北見', '釧路', '網走'],

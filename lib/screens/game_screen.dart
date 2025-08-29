@@ -78,7 +78,7 @@ class _GameScreenState extends State<GameScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${game.scoutName}のダッシュボード'),
+        title: Text('${game.scoutPrefecture} - ${game.scoutName}のダッシュボード'),
       ),
       drawer: Drawer(
         child: ListView(
@@ -88,13 +88,15 @@ class _GameScreenState extends State<GameScreen> {
               decoration: BoxDecoration(color: Theme.of(context).primaryColor),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(game.scoutName, style: const TextStyle(color: Colors.white, fontSize: 20)),
-                  const SizedBox(height: 8),
-                  Text('ランク: Freelance', style: const TextStyle(color: Colors.white70)),
-                ],
-              ),
+              children: [
+                Text(game.scoutName, style: const TextStyle(color: Colors.white, fontSize: 20)),
+                const SizedBox(height: 8),
+                Text('所在地: ${game.scoutPrefecture}', style: const TextStyle(color: Colors.white70)),
+                const SizedBox(height: 4),
+                Text('ランク: Freelance', style: const TextStyle(color: Colors.white70)),
+              ],
             ),
+          ),
             ListTile(
               leading: const Icon(Icons.school),
               title: const Text('学校リスト'),
