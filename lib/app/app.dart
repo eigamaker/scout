@@ -14,6 +14,7 @@ import '../screens/team_detail_screen.dart';
 import '../screens/pennant_race_screen.dart';
 import '../screens/tournament_screen.dart';
 import '../screens/draft_screen.dart';
+import '../screens/scout_profile_screen.dart';
 
 import 'theme.dart';
 import '../models/player/player.dart';
@@ -37,6 +38,7 @@ class ScoutGameApp extends StatelessWidget {
         '/load': (context) => const LoadGameScreen(),
         '/schools': (context) => const SchoolListScreen(),
         '/scoutSkill': (context) => const ScoutSkillScreen(),
+        '/scoutProfile': (context) => const ScoutProfileScreen(),
         '/teamRequests': (context) => const TeamRequestsScreen(),
         '/professionalTeams': (context) => const ProfessionalTeamsScreen(),
         '/pennantRace': (context) => const PennantRaceScreen(),

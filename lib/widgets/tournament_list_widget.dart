@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/game/high_school_tournament.dart';
 import '../models/school/school.dart';
+import '../services/game_manager.dart';
 import 'tournament_bracket_widget.dart';
 
 class TournamentListWidget extends StatefulWidget {
@@ -21,6 +23,13 @@ class _TournamentListWidgetState extends State<TournamentListWidget> {
   String? _selectedPrefecture;
   String? _selectedYear;
   bool _showArchived = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final gameManager = Provider.of<GameManager>(context, listen: false);
+    _selectedPrefecture = gameManager.currentGame?.scoutPrefecture;
+  }
 
   @override
   Widget build(BuildContext context) {

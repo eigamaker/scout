@@ -26,7 +26,9 @@ class _ScoutSkillScreenState extends State<ScoutSkillScreen> {
     }
 
     // スカウト情報を取得
-    final scout = gameManager.currentScout ?? Scout.createDefault(game.scoutName);
+    final scout = gameManager.currentScout ??
+        Scout.createDefault(game.scoutName,
+            prefecture: game.scoutPrefecture);
 
     return Scaffold(
       appBar: AppBar(
@@ -81,6 +83,8 @@ class _ScoutSkillScreenState extends State<ScoutSkillScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            _infoRow('所在地', scout.prefecture, Icons.location_on),
             const SizedBox(height: 12),
             Row(
               children: [

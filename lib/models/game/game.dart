@@ -63,6 +63,7 @@ class GameAction {
 
 class Game {
   final String scoutName; // スカウト名
+  final String scoutPrefecture; // スカウトの所在地
   final int scoutSkill; // スカウトスキル 0-100
   final int currentYear; // 現在の年
   final int currentMonth; // 現在の月（1-12）
@@ -86,9 +87,10 @@ class Game {
   final List<HighSchoolTournament> highSchoolTournaments; // 高校野球大会
   final bool? hasGradeUpProcessedThisYear; // 今年の学年アップ処理が実行済みか
   final bool? hasNewYearProcessedThisYear; // 今年の新年度処理が実行済みか
-  
+
   Game({
     required this.scoutName,
+    required this.scoutPrefecture,
     required this.scoutSkill,
     required this.currentYear,
     required this.currentMonth,
@@ -361,6 +363,7 @@ class Game {
 
   Map<String, dynamic> toJson() => {
     'scoutName': scoutName,
+    'scoutPrefecture': scoutPrefecture,
     'scoutSkill': scoutSkill,
     'currentYear': currentYear,
     'currentMonth': currentMonth,
@@ -430,12 +433,14 @@ class Game {
       highSchoolTournaments: (json['highSchoolTournaments'] as List?)?.map((t) => HighSchoolTournament.fromJson(t)).toList() ?? [],
       hasGradeUpProcessedThisYear: json['hasGradeUpProcessedThisYear'] as bool? ?? false,
       hasNewYearProcessedThisYear: json['hasNewYearProcessedThisYear'] as bool? ?? false,
+      scoutPrefecture: json['scoutPrefecture'] as String? ?? '',
     );
   }
   
   // コピーメソッド
   Game copyWith({
     String? scoutName,
+    String? scoutPrefecture,
     int? scoutSkill,
     int? currentYear,
     int? currentMonth,
@@ -462,6 +467,7 @@ class Game {
   }) {
     return Game(
       scoutName: scoutName ?? this.scoutName,
+      scoutPrefecture: scoutPrefecture ?? this.scoutPrefecture,
       scoutSkill: scoutSkill ?? this.scoutSkill,
       currentYear: currentYear ?? this.currentYear,
       currentMonth: currentMonth ?? this.currentMonth,

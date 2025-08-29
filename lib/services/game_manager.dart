@@ -561,7 +561,7 @@ class GameManager {
     }
   }
 
-  Future<void> startNewGameWithDb(String scoutName, DataService dataService) async {
+  Future<void> startNewGameWithDb(String scoutName, String scoutPrefecture, DataService dataService) async {
     try {
       // 初期データ投入（初回のみ）
       await dataService.insertInitialData();
@@ -572,11 +572,12 @@ class GameManager {
       final schools = <School>[];
       final players = <Player>[];
       // スカウトインスタンス生成
-      _currentScout = Scout.createDefault(scoutName);
+      _currentScout = Scout.createDefault(scoutName, prefecture: scoutPrefecture);
       
       // Gameインスタンス生成
       _currentGame = Game(
         scoutName: scoutName,
+        scoutPrefecture: scoutPrefecture,
         scoutSkill: 50,
         currentYear: DateTime.now().year,
         currentMonth: 4,
@@ -3303,7 +3304,9 @@ class GameManager {
           
           final result = await scouting.ActionService.interview(
             targetPlayer: targetPlayer,
-            scout: _currentScout ?? Scout.createDefault('デフォルトスカウト'),
+            scout: _currentScout ??
+                Scout.createDefault('デフォルトスカウト',
+                    prefecture: _currentGame!.scoutPrefecture),
             scoutSkills: _currentGame!.scoutSkills,
             currentWeek: _currentGame!.currentWeekOfMonth,
           );
