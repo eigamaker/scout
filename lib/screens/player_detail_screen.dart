@@ -8,6 +8,10 @@ import '../services/scouting/accuracy_calculator.dart';
 import '../services/scouting/scout_analysis_service.dart';
 import '../services/data_service.dart';
 import '../services/game_manager.dart';
+import '../services/scouting/scouting_service.dart';
+import '../screens/scout_report_screen.dart';
+import '../screens/school_detail_screen.dart';
+import '../models/school/school.dart';
 
 
 // カテゴリ状況の判定
@@ -657,7 +661,14 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         ),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        actions: [],
+        actions: [
+          // スカウトレポート作成ボタン
+          IconButton(
+            onPressed: () => _createScoutReport(context),
+            icon: const Icon(Icons.assessment),
+            tooltip: 'スカウトレポート作成',
+          ),
+        ],
       ),
       backgroundColor: Colors.black,
       body: Stack(
@@ -775,12 +786,36 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '${widget.player.school} ${widget.player.grade}年',
-                        style: TextStyle(
-                          color: textColor.withOpacity(0.8),
-                          fontSize: 16,
-                        ),
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => _navigateToSchoolDetail(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                              ),
+                              child: Text(
+                                widget.player.school,
+                                style: TextStyle(
+                                  color: textColor.withOpacity(0.8),
+                                  fontSize: 16,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${widget.player.grade}年',
+                            style: TextStyle(
+                              color: textColor.withOpacity(0.8),
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Row(
@@ -1855,4 +1890,71 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     if (fit >= 4) return Colors.orange;
     return Colors.red;
   }
-} 
+  
+  // スカウトレポート作成画面に遷移
+  void _createScoutReport(BuildContext context) {
+    // 分析が完了しているかチェック
+    if (!ScoutingService.isPlayerAnalysisComplete(_scoutAnalysisData)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('スカウトレポートを作成するには、すべての分析を完了する必要があります'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    // スカウトレポート作成画面に遷移
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ScoutReportScreen(
+          player: widget.player,
+          scoutId: 'scout_1', // 仮のスカウトID
+          scoutName: 'あなた', // 仮のスカウト名
+        ),
+      ),
+    );
+  }
+
+  // 学校詳細画面に遷移
+  void _navigateToSchoolDetail(BuildContext context) {
+    final gameManager = Provider.of<GameManager>(context, listen: false);
+    final game = gameManager.currentGame;
+    
+    if (game == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ゲームが読み込まれていません'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 選手の学校を検索
+    School? targetSchool;
+    for (final school in game.schools) {
+      if (school.name == widget.player.school) {
+        targetSchool = school;
+        break;
+      }
+    }
+
+    if (targetSchool == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('学校が見つかりません'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 学校詳細画面に遷移
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => SchoolDetailScreen(school: targetSchool!),
+      ),
+    );
+  }
+}

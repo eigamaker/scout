@@ -5,8 +5,9 @@ import '../models/player/pitch.dart';
 import '../models/school/school.dart';
 import 'data_service.dart';
 import '../utils/name_generator.dart';
+import 'dart:io'; // Stopwatchを使用するために追加
 
-/// 才能のある選手（ランク3以上）を生成するクラス
+/// 才能のある選手を生成するサービス
 class TalentedPlayerGenerator {
   final Random _random = Random();
   
@@ -16,26 +17,36 @@ class TalentedPlayerGenerator {
 
   TalentedPlayerGenerator();
 
-  /// 才能のある選手を1000人生成（初期ゲーム開始時用）
+  /// 才能のある選手を生成
   Future<List<Player>> generateTalentedPlayers() async {
-    final players = <Player>[];
-    
-    // 都道府県別の選手数を決定（1都道府県あたり最大25人）
-    final prefecturePlayerCounts = _determinePrefecturePlayerCounts();
-    
-    // 各都道府県で選手を生成
-    for (final entry in prefecturePlayerCounts.entries) {
-      final prefecture = entry.key;
-      final count = entry.value;
+    try {
+      final overallStopwatch = Stopwatch()..start();
+      print('TalentedPlayerGenerator.generateTalentedPlayers: 開始');
       
-      for (int i = 0; i < count; i++) {
-        final player = await _generateTalentedPlayer(prefecture);
-        players.add(player);
+      final List<Player> talentedPlayers = [];
+      
+      // 都道府県別の選手数を決定（1都道府県あたり最大25人）
+      final prefecturePlayerCounts = _determinePrefecturePlayerCounts();
+      
+      // 各都道府県で選手を生成
+      for (final entry in prefecturePlayerCounts.entries) {
+        final prefecture = entry.key;
+        final count = entry.value;
+        
+        for (int i = 0; i < count; i++) {
+          final player = await _generateTalentedPlayer(prefecture);
+          talentedPlayers.add(player);
+        }
       }
+      
+      overallStopwatch.stop();
+      print('TalentedPlayerGenerator.generateTalentedPlayers: 全体完了 - ${overallStopwatch.elapsedMilliseconds}ms (${talentedPlayers.length}人)');
+      
+      return talentedPlayers;
+    } catch (e) {
+      print('才能のある選手の生成でエラー: $e');
+      rethrow;
     }
-    
-    print('才能のある選手を${players.length}人生成しました');
-    return players;
   }
 
   /// 新1年生のみを生成（新年度処理用）

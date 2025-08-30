@@ -34,9 +34,6 @@ class TournamentBracketWidget extends StatelessWidget {
 
   Widget _buildTournamentInfo() {
     final tournamentName = _getTournamentName(tournament.type);
-    final progress = tournament.isCompleted 
-        ? '大会終了' 
-        : '${tournament.completedGames.length}/${tournament.games.length}試合完了';
     
     return Card(
       margin: const EdgeInsets.all(16.0),
@@ -53,12 +50,19 @@ class TournamentBracketWidget extends StatelessWidget {
                 color: Colors.red,
               ),
             ),
-            const SizedBox(height: 8),
-            Text('進捗: $progress'),
-            if (tournament.championSchoolName != null)
-              Text('優勝: ${tournament.championSchoolName}'),
-            if (tournament.runnerUpSchoolName != null)
-              Text('準優勝: ${tournament.runnerUpSchoolName}'),
+            if (tournament.championSchoolName != null || tournament.runnerUpSchoolName != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (tournament.championSchoolName != null)
+                    Text('優勝: ${tournament.championSchoolName}'),
+                  if (tournament.championSchoolName != null && tournament.runnerUpSchoolName != null)
+                    const SizedBox(width: 16),
+                  if (tournament.runnerUpSchoolName != null)
+                    Text('準優勝: ${tournament.runnerUpSchoolName}'),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -92,12 +96,7 @@ class TournamentBracketWidget extends StatelessWidget {
                   width: 160,
                   child: _buildRoundColumn(round),
                 ),
-                // 最後のラウンド以外は接続線を表示
-                if (!isLastRound)
-                  SizedBox(
-                    width: 40,
-                    child: _buildConnectionLines(round),
-                  ),
+                // 勝ち上がり線は削除（シンプルな表示にする）
               ],
             );
           }).toList(),
@@ -106,30 +105,7 @@ class TournamentBracketWidget extends StatelessWidget {
     );
   }
 
-  /// ラウンド間の接続線を表示
-  Widget _buildConnectionLines(GameRound round) {
-    final nextRound = _getNextRound(round);
-    if (nextRound == null) return const SizedBox.shrink();
-    
-    final currentGames = _getRoundGames(round);
-    final nextGames = _getRoundGames(nextRound);
-    // 推定の縦サイズ（各カード約64px間隔）を与えて無限高さを回避
-    final estimatedHeight = (currentGames.length > nextGames.length
-            ? currentGames.length
-            : nextGames.length) * 64.0;
-    final finiteHeight = estimatedHeight > 0 ? estimatedHeight : 64.0;
 
-    return SizedBox(
-      height: finiteHeight,
-      child: CustomPaint(
-        size: Size(40, finiteHeight),
-        painter: TournamentConnectionPainter(
-          currentGameCount: currentGames.length,
-          nextGameCount: nextGames.length,
-        ),
-      ),
-    );
-  }
 
   /// 次のラウンドを取得
   GameRound? _getNextRound(GameRound round) {
@@ -184,11 +160,8 @@ class TournamentBracketWidget extends StatelessWidget {
   List<TournamentGame?> _getRoundGames(GameRound round) {
     switch (round) {
       case GameRound.firstRound:
-        // 1回戦は参加校数に基づいて試合数を決定
-        final firstRoundGames = tournament.games
-            .where((game) => game.round == GameRound.firstRound)
-            .toList();
-        return firstRoundGames;
+        // 1回戦は25枚のカードを配置（50校 ÷ 2 = 25試合）
+        return _buildFirstRoundGames();
         
       case GameRound.secondRound:
         // 2回戦は1回戦の勝者数に基づいて試合数を決定
@@ -243,6 +216,41 @@ class TournamentBracketWidget extends StatelessWidget {
     }
   }
 
+  /// 1回戦の25枚のカードを構築
+  List<TournamentGame?> _buildFirstRoundGames() {
+    final result = <TournamentGame?>[];
+    
+    // 1回戦の試合を取得
+    final firstRoundGames = tournament.games
+        .where((game) => game.round == GameRound.firstRound)
+        .toList();
+    
+    // 通常の対戦（2校対戦）を追加
+    final regularGames = firstRoundGames
+        .where((game) => game.awaySchoolId != null && 
+                         game.awaySchoolId.isNotEmpty && 
+                         game.awaySchoolId != '未定')
+        .toList();
+    
+    // シード校の試合（1校のみ）を追加
+    final seedGames = firstRoundGames
+        .where((game) => game.awaySchoolId == '未定')
+        .toList();
+    
+    // 通常の対戦を先に配置（18試合）
+    result.addAll(regularGames);
+    
+    // シード校の試合を配置（7試合）
+    result.addAll(seedGames);
+    
+    // 25枚のカードになるまで空のカードを追加
+    while (result.length < 25) {
+      result.add(null);
+    }
+    
+    return result;
+  }
+
   /// 指定ラウンドの勝者を取得
   List<String> _getWinnersFromRound(GameRound round) {
     final roundGames = tournament.games.where((game) => game.round == round).toList();
@@ -264,9 +272,12 @@ class TournamentBracketWidget extends StatelessWidget {
   List<TournamentGame?> _fillRoundGames(List<TournamentGame> games, int neededGames) {
     final result = <TournamentGame?>[];
     
-    // 既存の試合を追加
+    // 既存の試合を追加（対戦相手が決まっている試合のみ）
     for (final game in games) {
-      result.add(game);
+      // 対戦相手が決まっている試合のみ追加
+      if (game.awaySchoolId != null && game.awaySchoolId.isNotEmpty) {
+        result.add(game);
+      }
     }
     
     // 不足分を空のカードで埋める
@@ -291,9 +302,25 @@ class TournamentBracketWidget extends StatelessWidget {
       );
     }
 
+    // 対戦相手が決まっていない場合はブランク表示
+    if (game.awaySchoolId == null || game.awaySchoolId.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 4.0),
+        height: 60,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!, width: 1),
+          borderRadius: BorderRadius.circular(4),
+          color: Colors.grey[50],
+        ),
+      );
+    }
+
     final homeSchool = _getSchoolName(game.homeSchoolId);
     final awaySchool = _getSchoolName(game.awaySchoolId);
     final isCompleted = game.isCompleted;
+    
+    // 1回戦でのシード判定：対戦相手が「未定」の場合はシード校
+    final isSeed = game.round == GameRound.firstRound && game.awaySchoolId == '未定';
     
     return Container(
       margin: const EdgeInsets.only(bottom: 4.0),
@@ -308,75 +335,120 @@ class TournamentBracketWidget extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // ホームチーム
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  homeSchool,
-                  style: const TextStyle(fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (isCompleted && game.result != null)
-                Text(
-                  '${game.result!.homeScore}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
+          if (isSeed) ...[
+            // シードの場合：1チームのみ表示
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    homeSchool,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-            ],
-          ),
-          // vs
-          const Text(
-            'vs',
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'シード',
+                    style: TextStyle(
+                      fontSize: 8,
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          // アウェイチーム
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  awaySchool,
-                  style: const TextStyle(fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (isCompleted && game.result != null)
-                Text(
-                  '${game.result!.awayScore}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
+          ] else ...[
+            // 通常の対戦：2チーム表示
+            // ホームチーム
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    homeSchool,
+                    style: const TextStyle(fontSize: 11),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-            ],
-          ),
+                if (isCompleted && game.result != null)
+                  Text(
+                    '${game.result!.homeScore}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+              ],
+            ),
+            // vs
+            const Text(
+              'vs',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey,
+              ),
+            ),
+            // アウェイチーム
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    awaySchool,
+                    style: const TextStyle(fontSize: 11),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isCompleted && game.result != null)
+                  Text(
+                    '${game.result!.awayScore}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
+
+
   String _getSchoolName(String schoolId) {
-    final school = schools.firstWhere(
-      (s) => s.id == schoolId,
-      orElse: () => School(
-        id: schoolId,
-        name: '不明',
-        shortName: '不明',
-        location: '不明',
-        prefecture: '不明',
-        rank: SchoolRank.weak,
-        players: [],
-        coachTrust: 50,
-        coachName: '不明',
-      ),
-    );
-    return school.shortName;
+    // 無効なIDの場合は空文字を返す
+    if (schoolId.isEmpty) return '';
+    
+    try {
+      final school = schools.firstWhere(
+        (s) => s.id == schoolId,
+        orElse: () => School(
+          id: schoolId,
+          name: '不明',
+          shortName: '不明',
+          location: '不明',
+          prefecture: '不明',
+          rank: SchoolRank.weak,
+          players: [],
+          coachTrust: 50,
+          coachName: '不明',
+        ),
+      );
+      return school.shortName;
+    } catch (e) {
+      // エラーが発生した場合は空文字を返す
+      return '';
+    }
   }
 
   String _getRoundName(GameRound round) {
@@ -410,63 +482,4 @@ class TournamentBracketWidget extends StatelessWidget {
   }
 }
 
-/// トーナメントの接続線を描画するカスタムペインター
-class TournamentConnectionPainter extends CustomPainter {
-  final int currentGameCount;
-  final int nextGameCount;
 
-  TournamentConnectionPainter({
-    required this.currentGameCount,
-    required this.nextGameCount,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.grey[400]!
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    // 各試合から次のラウンドへの接続線を描画
-    for (int i = 0; i < currentGameCount; i++) {
-      final startY = (i * 64.0) + 32.0; // 試合カードの中心位置
-      final endY = _calculateNextRoundPosition(i, currentGameCount, nextGameCount);
-      
-      // 水平線
-      canvas.drawLine(
-        Offset(0, startY),
-        Offset(size.width * 0.5, startY),
-        paint,
-      );
-      
-      // 垂直線
-      canvas.drawLine(
-        Offset(size.width * 0.5, startY),
-        Offset(size.width * 0.5, endY),
-        paint,
-      );
-      
-      // 次のラウンドへの水平線
-      canvas.drawLine(
-        Offset(size.width * 0.5, endY),
-        Offset(size.width, endY),
-        paint,
-      );
-    }
-  }
-
-  /// 次のラウンドでの位置を計算
-  double _calculateNextRoundPosition(int currentIndex, int currentCount, int nextCount) {
-    if (nextCount == 0) return 0;
-    if (currentCount <= 1) {
-      // 単一カードのときは中央へ
-      return 32.0;
-    }
-    // 現在の位置を次のラウンドの範囲にマッピング
-    final ratio = currentIndex / (currentCount - 1);
-    return ratio * ((nextCount - 1) * 64.0) + 32.0;
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}

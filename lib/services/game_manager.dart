@@ -69,13 +69,15 @@ class GameManager {
   /// ペナントレースを初期化
   void _initializePennantRace() {
     if (_currentGame != null && _currentGame!.pennantRace == null) {
+      final stopwatch = Stopwatch()..start();
       final pennantRace = PennantRaceService.createInitialPennantRace(
         _currentGame!.currentYear,
         _currentGame!.professionalTeams.teams,
       );
       
       _currentGame = _currentGame!.copyWith(pennantRace: pennantRace);
-      print('GameManager: ペナントレースを初期化しました');
+      stopwatch.stop();
+      print('GameManager: ペナントレースを初期化しました - ${stopwatch.elapsedMilliseconds}ms');
     }
   }
 
@@ -502,69 +504,93 @@ class GameManager {
     _dataService = dataService;
   }
 
-  // 新しい選手生成・配属システム
+  // 新しい選手生成・配属システム（CSVデータ使用）
   Future<void> generateInitialStudentsForAllSchoolsDb(DataService dataService) async {
     try {
+      final overallStopwatch = Stopwatch()..start();
       print('GameManager.generateInitialStudentsForAllSchoolsDb: 開始');
       print('GameManager.generateInitialStudentsForAllSchoolsDb: 更新前の学校数: ${_currentGame!.schools.length}');
       
-      // 1. 47都道府県×50校の学校を生成（デフォルトデータから）
-      final allSchools = DefaultSchoolData.getAllSchools();
-      print('GameManager.generateInitialStudentsForAllSchoolsDb: DefaultSchoolData.getAllSchools()で生成された学校数: ${allSchools.length}');
+      final db = await dataService.database;
+      final schoolDataService = SchoolDataService(db);
+      
+      // パフォーマンス比較用：一時的に古いメソッドを使用
+      print('=== パフォーマンス比較テスト開始 ===');
+      
+      // 古いメソッドでテスト
+      print('--- 古いメソッド（DefaultSchoolData）テスト ---');
+      await schoolDataService.insertDefaultSchools();
+      
+      // CSVメソッドでテスト
+      print('--- CSVメソッドテスト ---');
+      await schoolDataService.insertSchoolsFromCsv();
+      
+      // JSONメソッドでテスト
+      print('--- JSONメソッドテスト ---');
+      await schoolDataService.insertSchoolsFromJson();
+      
+      print('=== パフォーマンス比較テスト完了 ===');
+      
+      // 2. データベースから学校データを取得
+      final schoolDataStart = Stopwatch()..start();
+      final allSchools = await schoolDataService.getAllSchools();
+      schoolDataStart.stop();
+      print('GameManager.generateInitialStudentsForAllSchoolsDb: 学校データ取得完了 - ${schoolDataStart.elapsedMilliseconds}ms (${allSchools.length}校)');
+      
       if (allSchools.isNotEmpty) {
         print('GameManager.generateInitialStudentsForAllSchoolsDb: 最初の5校の情報:');
-        for (int i = 0; i < allSchools.length && i < 5; i++) {
-          final school = allSchools[i];
-          print('GameManager.generateInitialStudentsForAllSchoolsDb: 学校$i: ID=${school.id}, 名前=${school.name}, 都道府県=${school.prefecture}');
+        for (int i = 0; i < 5 && i < allSchools.length; i++) {
+          print('GameManager.generateInitialStudentsForAllSchoolsDb: 学校$i: ID=${allSchools[i].id}, 名前=${allSchools[i].name}, 都道府県=${allSchools[i].prefecture}');
         }
       }
       
-      // 1.5. 学校データをデータベースに挿入
-      final db = await dataService.database;
-      final schoolDataService = SchoolDataService(db);
-      await schoolDataService.insertDefaultSchools();
-      
-      // 2. 才能のある選手（ランク3以上）を1000人生成
+      // 3. 才能のある選手（ランク3以上）を1000人生成
+      final studentGenerationStart = Stopwatch()..start();
       final talentedPlayerGenerator = TalentedPlayerGenerator();
       final talentedPlayers = await talentedPlayerGenerator.generateTalentedPlayers();
+      studentGenerationStart.stop();
+      print('GameManager.generateInitialStudentsForAllSchoolsDb: 才能選手生成完了 - ${studentGenerationStart.elapsedMilliseconds}ms (${talentedPlayers.length}人)');
       
-      // 3. 選手を学校に配属
+      // 4. 選手を学校に配属
+      final playerAssignmentStart = Stopwatch()..start();
       final playerAssignmentService = PlayerAssignmentService(dataService);
       await playerAssignmentService.assignPlayersToSchools(allSchools, talentedPlayers, isNewYear: false);
+      playerAssignmentStart.stop();
+      print('GameManager.generateInitialStudentsForAllSchoolsDb: 選手配属完了 - ${playerAssignmentStart.elapsedMilliseconds}ms');
       
-      // 4. 学校リストを更新
-      print('GameManager.generateInitialStudentsForAllSchoolsDb: _currentGame!.copyWith実行前');
+      // 5. 学校リストを更新
+      final gameUpdateStart = Stopwatch()..start();
+      print('GameManager.generateInitialStudentsForAllStudentsDb: _currentGame!.copyWith実行前');
       _currentGame = _currentGame!.copyWith(schools: allSchools);
       print('GameManager.generateInitialStudentsForAllSchoolsDb: _currentGame!.copyWith実行後');
+      gameUpdateStart.stop();
+      print('GameManager.generateInitialStudentsForAllSchoolsDb: ゲーム状態更新完了 - ${gameUpdateStart.elapsedMilliseconds}ms');
+      
+      overallStopwatch.stop();
+      print('GameManager.generateInitialStudentsForAllSchoolsDb: 全体完了 - ${overallStopwatch.elapsedMilliseconds}ms');
       print('GameManager.generateInitialStudentsForAllSchoolsDb: 更新後の学校数: ${_currentGame!.schools.length}');
       if (_currentGame!.schools.isNotEmpty) {
         print('GameManager.generateInitialStudentsForAllSchoolsDb: 更新後の最初の5校の情報:');
-        for (int i = 0; i < _currentGame!.schools.length && i < 5; i++) {
-          final school = _currentGame!.schools[i];
-          print('GameManager.generateInitialStudentsForAllSchoolsDb: 学校$i: ID=${school.id}, 名前=${school.name}, 都道府県=${school.prefecture}');
+        for (int i = 0; i < 5 && i < _currentGame!.schools.length; i++) {
+          print('GameManager.generateInitialStudentsForAllSchoolsDb: 学校$i: ID=${_currentGame!.schools[i].id}, 名前=${_currentGame!.schools[i].name}, 都道府県=${_currentGame!.schools[i].prefecture}');
         }
       }
-      
-      // 5. 統計情報を表示
-      final stats = await playerAssignmentService.getPlayerDistributionStats(allSchools);
-      print('選手配属完了:');
-
-      
     } catch (e) {
       print('選手生成・配属でエラー: $e');
-      
-      // エラーが発生した場合はゲーム状態をリセット
-      _currentGame = null;
-      _currentScout = null;
-      
       rethrow;
     }
   }
 
   Future<void> startNewGameWithDb(String scoutName, DataService dataService) async {
     try {
+      final overallGameStartStopwatch = Stopwatch()..start();
+      print('GameManager.startNewGameWithDb: 開始');
+      
       // 初期データ投入（初回のみ）
+      final initialDataStart = Stopwatch()..start();
       await dataService.insertInitialData();
+      initialDataStart.stop();
+      print('GameManager.startNewGameWithDb: 初期データ投入完了 - ${initialDataStart.elapsedMilliseconds}ms');
       
       final db = await dataService.database;
       
@@ -606,25 +632,38 @@ class GameManager {
         professionalTeams: ProfessionalTeamManager(teams: ProfessionalTeamManager.generateDefaultTeams()),
       );
       // 全学校に1〜3年生を生成
+      final schoolDataStart = Stopwatch()..start();
       await generateInitialStudentsForAllSchoolsDb(dataService);
+      schoolDataStart.stop();
+      print('GameManager.startNewGameWithDb: 学校データ生成・挿入完了 - ${schoolDataStart.elapsedMilliseconds}ms');
       
       // プロ野球団に選手を生成（データベースから読み込み）
+      final proPlayerLoadStart = Stopwatch()..start();
       await _loadProfessionalPlayersFromDatabase(dataService);
+      proPlayerLoadStart.stop();
+      print('GameManager.startNewGameWithDb: プロ選手読み込み完了 - ${proPlayerLoadStart.elapsedMilliseconds}ms');
       
       // ペナントレースを初期化
+      final pennantRaceStart = Stopwatch()..start();
       _initializePennantRace();
+      pennantRaceStart.stop();
+      print('GameManager.startNewGameWithDb: ペナントレース初期化完了 - ${pennantRaceStart.elapsedMilliseconds}ms');
       
       // generateInitialStudentsForAllSchoolsDbで更新された学校リストを取得
       final updatedSchools = _currentGame!.schools;
       
       // 全選手をdiscoveredPlayerIdsにも追加
+      final playerIdUpdateStart = Stopwatch()..start();
       final allPlayerIds = <int>[];
       for (final school in updatedSchools) {
         allPlayerIds.addAll(school.players.map((p) => p.id!).where((id) => id != null));
       }
       _currentGame = _currentGame!.copyWith(discoveredPlayerIds: allPlayerIds);
+      playerIdUpdateStart.stop();
+      print('GameManager.startNewGameWithDb: 選手ID更新完了 - ${playerIdUpdateStart.elapsedMilliseconds}ms');
       
-
+      overallGameStartStopwatch.stop();
+      print('GameManager.startNewGameWithDb: 全体完了 - ${overallGameStartStopwatch.elapsedMilliseconds}ms');
       
     } catch (e, stackTrace) {
       print('GameManager.startNewGameWithDb: エラーが発生しました: $e');
@@ -3609,6 +3648,7 @@ class GameManager {
   /// プロ選手をデータベースから読み込んでメモリに設定
   Future<void> _loadProfessionalPlayersFromDatabase(DataService dataService) async {
     try {
+      final stopwatch = Stopwatch()..start();
       print('GameManager._loadProfessionalPlayersFromDatabase: 開始');
       
       final db = await dataService.database;
@@ -3765,7 +3805,8 @@ class GameManager {
         }
       }
       
-      print('GameManager._loadProfessionalPlayersFromDatabase: 完了 - 全チームのプロ選手を読み込みました');
+      stopwatch.stop();
+      print('GameManager._loadProfessionalPlayersFromDatabase: 完了 - 全チームのプロ選手を読み込みました - ${stopwatch.elapsedMilliseconds}ms');
       
     } catch (e) {
       print('GameManager._loadProfessionalPlayersFromDatabase: エラーが発生しました: $e');

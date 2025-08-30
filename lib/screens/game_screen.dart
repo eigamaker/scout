@@ -1037,7 +1037,6 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _buildTournamentSummary(HighSchoolTournament tournament) {
     final tournamentName = _getTournamentName(tournament.type);
-    final progress = '${tournament.completedGames.length}/${tournament.games.length}試合完了';
     
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
@@ -1053,15 +1052,28 @@ class _GameScreenState extends State<GameScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(tournamentName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(progress, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                if (tournament.championSchoolName != null || tournament.runnerUpSchoolName != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (tournament.championSchoolName != null)
+                        Text(
+                          '優勝: ${tournament.championSchoolName}',
+                          style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
+                        ),
+                      if (tournament.championSchoolName != null && tournament.runnerUpSchoolName != null)
+                        const SizedBox(width: 12),
+                      if (tournament.runnerUpSchoolName != null)
+                        Text(
+                          '準優勝: ${tournament.runnerUpSchoolName}',
+                          style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
-          if (tournament.championSchoolName != null)
-            Text(
-              '優勝: ${tournament.championSchoolName}',
-              style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
-            ),
         ],
       ),
     );

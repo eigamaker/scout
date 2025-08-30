@@ -211,13 +211,7 @@ class _TournamentListWidgetState extends State<TournamentListWidget> {
               ),
               if (championInfo.isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text(
-                  championInfo,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.blue,
-                  ),
-                ),
+                _buildChampionDisplay(tournament),
               ],
             ],
           ),
@@ -287,6 +281,73 @@ class _TournamentListWidgetState extends State<TournamentListWidget> {
       return '優勝校：${championSchool.name}';
     }
     return '';
+  }
+
+  Widget _buildChampionDisplay(HighSchoolTournament tournament) {
+    if (!tournament.isCompleted) return const SizedBox.shrink();
+    
+    final championSchool = tournament.championSchoolId != null 
+        ? widget.schools.firstWhere(
+            (s) => s.id == tournament.championSchoolId,
+            orElse: () => School(
+              id: 'unknown', 
+              name: '不明', 
+              shortName: '不明',
+              location: '不明',
+              prefecture: '不明', 
+              rank: SchoolRank.weak, 
+              players: [],
+              coachTrust: 50,
+              coachName: '不明'
+            ),
+          )
+        : null;
+    
+    final runnerUpSchool = tournament.runnerUpSchoolId != null 
+        ? widget.schools.firstWhere(
+            (s) => s.id == tournament.runnerUpSchoolId,
+            orElse: () => School(
+              id: 'unknown', 
+              name: '不明', 
+              shortName: '不明',
+              location: '不明',
+              prefecture: '不明', 
+              rank: SchoolRank.weak, 
+              players: [],
+              coachTrust: 50,
+              coachName: '不明'
+            ),
+          )
+        : null;
+
+    if (championSchool == null && runnerUpSchool == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Row(
+      children: [
+        if (championSchool != null)
+          Text(
+            '優勝: ${championSchool.name}',
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        if (championSchool != null && runnerUpSchool != null)
+          const SizedBox(width: 16),
+        if (runnerUpSchool != null)
+          Text(
+            '準優勝: ${runnerUpSchool.name}',
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.blue,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _buildEmptyState() {

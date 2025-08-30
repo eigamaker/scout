@@ -11,12 +11,17 @@ class DataService {
 
   static Database? _db;
 
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
 
   // スロット機能は廃止、単一データベースファイルを使用
 
+  /// データベースインスタンスを取得
   Future<Database> get database async {
-    if (_db != null) return _db!;
+    if (_db != null) {
+      return _db!;
+    }
+    
+    // データベースが存在しない場合は初期化
     _db = await _initDb();
     return _db!;
   }
@@ -24,18 +29,28 @@ class DataService {
   Future<Database> _initDb() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'scout_game.db');
+    
+    // 既存のデータベースファイルを削除（スキーマ変更のため）
+    final dbFile = File(path);
+    if (await dbFile.exists()) {
+      await dbFile.delete();
+      print('既存のデータベースファイルを削除しました（スキーマ変更のため）');
+      // 静的変数もリセットして、確実に新しいスキーマで再作成されるようにする
+      _db = null;
+    }
+    
     return await openDatabase(
-              path,
-        version: _databaseVersion, // バージョンを1に設定（ゲーム未リリースのため簡素化）
-        onCreate: (db, version) async {
-          // 最新のスキーマでテーブルを作成
-          await _createAllTables(db);
-        },
-        onUpgrade: (db, oldVersion, newVersion) async {
-          // ゲーム未リリースのため、最新スキーマで再作成
-          print('データベーススキーマを最新版で再作成中...');
-          await _createAllTables(db);
-        },
+      path,
+      version: _databaseVersion,
+      onCreate: (db, version) async {
+        // 最新のスキーマでテーブルを作成
+        await _createAllTables(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        // ゲーム未リリースのため、最新スキーマで再作成
+        print('データベーススキーマを最新版で再作成中...');
+        await _createAllTables(db);
+      },
     );
   }
 
@@ -564,15 +579,13 @@ class DataService {
     // Schoolテーブル（学校情報）
     await db.execute('''
       CREATE TABLE School (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         type TEXT NOT NULL,
         location TEXT NOT NULL,
         prefecture TEXT NOT NULL,
         rank TEXT NOT NULL,
         school_strength INTEGER DEFAULT 50,
-        last_year_strength INTEGER DEFAULT 50,
-        scouting_popularity INTEGER DEFAULT 50,
         coach_trust INTEGER DEFAULT 50,
         coach_name TEXT DEFAULT '未設定',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -1013,11 +1026,39 @@ class DataService {
       )
     ''');
     
+    // スカウトレポートテーブル（スカウトレポート）
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS scout_reports (
+        id TEXT PRIMARY KEY,
+        player_id TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        scout_id TEXT NOT NULL,
+        scout_name TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        future_potential TEXT NOT NULL,
+        overall_rating REAL NOT NULL,
+        expected_draft_position TEXT NOT NULL,
+        player_type TEXT NOT NULL,
+        position_suitability TEXT NOT NULL,
+        mental_strength REAL NOT NULL,
+        injury_risk REAL NOT NULL,
+        years_to_mlb INTEGER NOT NULL,
+        strengths TEXT NOT NULL,
+        weaknesses TEXT NOT NULL,
+        development_plan TEXT NOT NULL,
+        additional_notes TEXT NOT NULL,
+        is_analysis_complete INTEGER NOT NULL
+      )
+    ''');
+
     // 追加のインデックス
     await db.execute('CREATE INDEX idx_game_info_timestamp ON GameInfo(timestamp)');
     await db.execute('CREATE INDEX idx_discovered_player_id ON DiscoveredPlayer(player_id)');
     await db.execute('CREATE INDEX idx_watched_player_id ON WatchedPlayer(player_id)');
     await db.execute('CREATE INDEX idx_favorite_player_id ON FavoritePlayer(player_id)');
+    await db.execute('CREATE INDEX idx_scout_reports_player_id ON scout_reports(player_id)');
+    await db.execute('CREATE INDEX idx_scout_reports_scout_id ON scout_reports(scout_id)');
   }
 
   // プロ野球団の初期データを挿入
@@ -2325,5 +2366,7 @@ class DataService {
       }
     }
   }
+
+
 
 } 

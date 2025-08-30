@@ -5,6 +5,7 @@ import '../models/player/player_abilities.dart';
 import 'data_service.dart';
 import 'default_player_templates.dart';
 import 'package:sqflite/sqflite.dart';
+import 'dart:io'; // Stopwatchを使用するために追加
 
 /// 選手を学校に配属するサービス
 class PlayerAssignmentService {
@@ -13,21 +14,26 @@ class PlayerAssignmentService {
   PlayerAssignmentService(this._dataService);
 
   /// 選手を学校に配属
-  Future<void> assignPlayersToSchools(List<School> schools, List<Player> talentedPlayers, {bool isNewYear = false}) async {
-    print('PlayerAssignmentService.assignPlayersToSchools: 開始 - 学校数: ${schools.length}, 才能選手数: ${talentedPlayers.length}, 新年度処理: $isNewYear');
-    
+  Future<void> assignPlayersToSchools(List<School> schools, List<Player> talentedPlayers, {required bool isNewYear}) async {
     try {
-      // 1. 各学校にデフォルト選手を配置（新年度処理時はスキップ）
-      if (!isNewYear) {
-        await _assignDefaultPlayersToSchools(schools);
-      } else {
+      final overallStopwatch = Stopwatch()..start();
+      print('PlayerAssignmentService.assignPlayersToSchools: 開始 - 学校数: ${schools.length}, 才能選手数: ${talentedPlayers.length}, 新年度処理: $isNewYear');
+      
+      if (isNewYear) {
         print('PlayerAssignmentService.assignPlayersToSchools: 新年度処理のため、デフォルト選手の配置をスキップします');
+        overallStopwatch.stop();
+        print('PlayerAssignmentService.assignPlayersToSchools: 完了 - ${overallStopwatch.elapsedMilliseconds}ms');
+        return;
       }
+
+      // デフォルト選手を各学校に配属
+      final defaultAssignmentStart = Stopwatch()..start();
+      await _assignDefaultPlayersToSchools(schools);
+      defaultAssignmentStart.stop();
+      print('PlayerAssignmentService.assignPlayersToSchools: デフォルト選手配属完了 - ${defaultAssignmentStart.elapsedMilliseconds}ms');
       
-      // 2. 才能のある選手を学校に配属
-      await _assignTalentedPlayersToSchools(schools, talentedPlayers);
-      
-      print('PlayerAssignmentService.assignPlayersToSchools: 完了');
+      overallStopwatch.stop();
+      print('PlayerAssignmentService.assignPlayersToSchools: 完了 - ${overallStopwatch.elapsedMilliseconds}ms');
     } catch (e) {
       print('PlayerAssignmentService.assignPlayersToSchools: エラーが発生しました: $e');
       rethrow;
@@ -36,33 +42,40 @@ class PlayerAssignmentService {
 
   /// 各学校にデフォルト選手を配置
   Future<void> _assignDefaultPlayersToSchools(List<School> schools) async {
-    print('PlayerAssignmentService._assignDefaultPlayersToSchools: 開始 - 学校数: ${schools.length}');
-    
-    for (final school in schools) {
-      try {
-        // 学校ランクに応じたデフォルト選手を生成
-        final defaultPlayer = DefaultPlayerTemplate.getTemplateByRank(school.rank, school.name);
-        
-        // 学校の選手リストに追加
-        school.players.add(defaultPlayer);
-        
-        // データベースに保存
-        final savedPlayer = await _savePlayerToDatabase(defaultPlayer, school);
-        
-        // 保存された選手（ID付き）でリストを更新
-        final playerIndex = school.players.indexOf(defaultPlayer);
-        if (playerIndex != -1) {
-          school.players[playerIndex] = savedPlayer;
+    try {
+      final stopwatch = Stopwatch()..start();
+      print('PlayerAssignmentService._assignDefaultPlayersToSchools: 開始 - 学校数: ${schools.length}');
+      
+      for (final school in schools) {
+        try {
+          // 学校ランクに応じたデフォルト選手を生成
+          final defaultPlayer = DefaultPlayerTemplate.getTemplateByRank(school.rank, school.name);
+          
+          // 学校の選手リストに追加
+          school.players.add(defaultPlayer);
+          
+          // データベースに保存
+          final savedPlayer = await _savePlayerToDatabase(defaultPlayer, school);
+          
+          // 保存された選手（ID付き）でリストを更新
+          final playerIndex = school.players.indexOf(defaultPlayer);
+          if (playerIndex != -1) {
+            school.players[playerIndex] = savedPlayer;
+          }
+          
+          // 個別の学校への配置ログは削除
+        } catch (e) {
+          print('PlayerAssignmentService._assignDefaultPlayersToSchools: ${school.name}でエラー: $e');
+          // エラーが発生しても処理を継続
         }
-        
-        // 個別の学校への配置ログは削除
-      } catch (e) {
-        print('PlayerAssignmentService._assignDefaultPlayersToSchools: ${school.name}でエラー: $e');
-        // エラーが発生しても処理を継続
       }
+      
+      stopwatch.stop();
+      print('PlayerAssignmentService._assignDefaultPlayersToSchools: 完了 - ${stopwatch.elapsedMilliseconds}ms');
+    } catch (e) {
+      print('PlayerAssignmentService._assignDefaultPlayersToSchools: エラーが発生しました: $e');
+      rethrow;
     }
-    
-    print('PlayerAssignmentService._assignDefaultPlayersToSchools: 完了');
   }
 
   /// 才能のある選手を学校に配属（指定された確率で）

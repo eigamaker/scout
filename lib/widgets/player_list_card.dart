@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/player/player.dart';
 import '../models/game/game.dart';
+import '../models/school/school.dart';
 import '../services/game_manager.dart';
 import '../services/data_service.dart';
+import '../services/scouting/scouting_service.dart';
+import '../screens/scout_report_screen.dart';
+import '../screens/school_detail_screen.dart';
 
 class PlayerListCard extends StatefulWidget {
   final Player player;
@@ -58,11 +62,24 @@ class _PlayerListCardState extends State<PlayerListCard> {
                     ),
                   ),
                   if (widget.showSchool) ...[
-                    Text(
-                      _player.school,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
+                    // 学校名をタップ可能にする
+                    GestureDetector(
+                      onTap: () => _navigateToSchoolDetail(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          _player.school,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -132,29 +149,39 @@ class _PlayerListCardState extends State<PlayerListCard> {
                   ),
                   if (widget.showActions) ...[
                     const Spacer(),
-                    // インタビューボタン
-                    ElevatedButton.icon(
+                    // インタビューボタン（アイコンのみ）
+                    IconButton(
                       onPressed: () => _addInterviewAction(context),
-                      icon: const Icon(Icons.chat, size: 16),
-                      label: const Text('インタビュー', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
+                      icon: const Icon(Icons.chat, size: 20),
+                      tooltip: 'インタビュー',
+                      style: IconButton.styleFrom(
                         backgroundColor: Colors.green.withOpacity(0.1),
                         foregroundColor: Colors.green[700],
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        minimumSize: const Size(0, 32),
+                        padding: const EdgeInsets.all(8),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    // ビデオ分析ボタン
-                    ElevatedButton.icon(
+                    const SizedBox(width: 4),
+                    // ビデオ分析ボタン（アイコンのみ）
+                    IconButton(
                       onPressed: () => _addVideoAnalyzeAction(context),
-                      icon: const Icon(Icons.video_library, size: 16),
-                      label: const Text('ビデオ分析', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
+                      icon: const Icon(Icons.video_library, size: 20),
+                      tooltip: 'ビデオ分析',
+                      style: IconButton.styleFrom(
                         backgroundColor: Colors.purple.withOpacity(0.1),
                         foregroundColor: Colors.purple[700],
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        minimumSize: const Size(0, 32),
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    // スカウトレポート作成ボタン（アイコンのみ）
+                    IconButton(
+                      onPressed: () => _createScoutReport(context),
+                      icon: const Icon(Icons.assessment, size: 20),
+                      tooltip: 'スカウトレポート',
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.blue.withOpacity(0.1),
+                        foregroundColor: Colors.blue[700],
+                        padding: const EdgeInsets.all(8),
                       ),
                     ),
                   ],
@@ -301,5 +328,72 @@ class _PlayerListCardState extends State<PlayerListCard> {
         ),
       );
     }
+  }
+  
+  // スカウトレポート作成画面に遷移
+  void _createScoutReport(BuildContext context) {
+    // 分析が完了しているかチェック
+    if (!ScoutingService.isPlayerAnalysisComplete(_player.scoutAnalysisData)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('スカウトレポートを作成するには、すべての分析を完了する必要があります'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    // スカウトレポート作成画面に遷移
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ScoutReportScreen(
+          player: _player,
+          scoutId: 'scout_1', // 仮のスカウトID
+          scoutName: 'あなた', // 仮のスカウト名
+        ),
+      ),
+    );
+  }
+
+  // 学校詳細画面に遷移
+  void _navigateToSchoolDetail(BuildContext context) {
+    final gameManager = Provider.of<GameManager>(context, listen: false);
+    final game = gameManager.currentGame;
+    
+    if (game == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ゲームが読み込まれていません'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 選手の学校を検索
+    School? targetSchool;
+    for (final school in game.schools) {
+      if (school.name == _player.school) {
+        targetSchool = school;
+        break;
+      }
+    }
+
+    if (targetSchool == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('学校が見つかりません'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 学校詳細画面に遷移
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => SchoolDetailScreen(school: targetSchool!),
+      ),
+    );
   }
 }
