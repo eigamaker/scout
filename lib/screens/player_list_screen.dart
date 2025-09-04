@@ -146,8 +146,17 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     final gameManager = Provider.of<GameManager>(context);
-    // 全学校の全選手を取得（注目選手を含むため）
-    final List<Player> allPlayers = gameManager.getAllPlayers();
+    // 全学校の全選手を取得し、所在地でフィルタリング
+    final scoutPrefecture = gameManager.currentGame?.scoutPrefecture;
+    final schoolPrefMap = {
+      for (var s in gameManager.currentGame?.schools ?? []) s.name: s.prefecture
+    };
+    final List<Player> allPlayers = gameManager
+        .getAllPlayers()
+        .where((player) {
+          if (scoutPrefecture == null || scoutPrefecture.isEmpty) return true;
+          return schoolPrefMap[player.school] == scoutPrefecture;
+        }).toList();
     
     return Scaffold(
       appBar: AppBar(

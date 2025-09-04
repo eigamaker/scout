@@ -87,6 +87,7 @@ class DataService {
       // Gameオブジェクトを構築
       final gameData = {
         'scoutName': gameInfo.first['scoutName'],
+        'scoutPrefecture': gameInfo.first['scoutPrefecture'],
         'currentYear': gameInfo.first['currentYear'],
         'currentMonth': gameInfo.first['currentMonth'],
         'currentWeekOfMonth': gameInfo.first['currentWeekOfMonth'],
@@ -982,6 +983,7 @@ class DataService {
       CREATE TABLE GameInfo (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         scoutName TEXT NOT NULL,
+        scoutPrefecture TEXT NOT NULL,
         currentYear INTEGER NOT NULL,
         currentMonth INTEGER NOT NULL,
         currentWeekOfMonth INTEGER NOT NULL,
@@ -2195,6 +2197,7 @@ class DataService {
     // GameInfoテーブルに保存
     await txn.insert('GameInfo', {
       'scoutName': data['scoutName'] ?? '',
+      'scoutPrefecture': data['scoutPrefecture'] ?? '',
       'currentYear': data['currentYear'] ?? 1,
       'currentMonth': data['currentMonth'] ?? 4,
       'currentWeekOfMonth': data['currentWeekOfMonth'] ?? 1,

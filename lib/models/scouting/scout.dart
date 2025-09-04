@@ -51,6 +51,7 @@ const Map<ScoutSkill, IconData> skillIcons = {
 // スカウトクラス
 class Scout {
   final String name;
+  final String prefecture;
   final int level;
   final int experience;
   final int maxExperience;
@@ -68,6 +69,7 @@ class Scout {
   
   const Scout({
     required this.name,
+    required this.prefecture,
     required this.level,
     required this.experience,
     required this.maxExperience,
@@ -85,9 +87,10 @@ class Scout {
   });
 
   // デフォルトスカウト作成
-  factory Scout.createDefault(String name) {
+  factory Scout.createDefault(String name, {String prefecture = '未設定'}) {
     return Scout(
       name: name,
+      prefecture: prefecture,
       level: 1,
       experience: 0,
       maxExperience: 100,
@@ -221,6 +224,7 @@ class Scout {
   // JSON変換
   Map<String, dynamic> toJson() => {
     'name': name,
+    'prefecture': prefecture,
     'level': level,
     'experience': experience,
     'maxExperience': maxExperience,
@@ -252,6 +256,7 @@ class Scout {
 
     return Scout(
       name: json['name'] as String,
+      prefecture: json['prefecture'] as String? ?? '未設定',
       level: json['level'] as int,
       experience: json['experience'] as int,
       maxExperience: json['maxExperience'] as int,
@@ -272,6 +277,7 @@ class Scout {
   // コピーメソッド
   Scout copyWith({
     String? name,
+    String? prefecture,
     int? level,
     int? experience,
     int? maxExperience,
@@ -289,6 +295,7 @@ class Scout {
   }) {
     return Scout(
       name: name ?? this.name,
+      prefecture: prefecture ?? this.prefecture,
       level: level ?? this.level,
       experience: experience ?? this.experience,
       maxExperience: maxExperience ?? this.maxExperience,
@@ -311,13 +318,14 @@ class Scout {
     if (identical(this, other)) return true;
     return other is Scout &&
         other.name == name &&
+        other.prefecture == prefecture &&
         other.level == level &&
         other.experience == experience;
   }
 
   @override
   int get hashCode {
-    return name.hashCode ^ level.hashCode ^ experience.hashCode;
+    return name.hashCode ^ prefecture.hashCode ^ level.hashCode ^ experience.hashCode;
   }
 
   @override
