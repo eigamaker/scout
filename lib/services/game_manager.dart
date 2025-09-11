@@ -514,22 +514,9 @@ class GameManager {
       final db = await dataService.database;
       final schoolDataService = SchoolDataService(db);
       
-      // パフォーマンス比較用：一時的に古いメソッドを使用
-      print('=== パフォーマンス比較テスト開始 ===');
-      
-      // 古いメソッドでテスト
-      print('--- 古いメソッド（DefaultSchoolData）テスト ---');
-      await schoolDataService.insertDefaultSchools();
-      
-      // CSVメソッドでテスト
-      print('--- CSVメソッドテスト ---');
+      // CSVファイルから学校データを読み込み
+      print('--- CSVファイルから学校データ読み込み ---');
       await schoolDataService.insertSchoolsFromCsv();
-      
-      // JSONメソッドでテスト
-      print('--- JSONメソッドテスト ---');
-      await schoolDataService.insertSchoolsFromJson();
-      
-      print('=== パフォーマンス比較テスト完了 ===');
       
       // 2. データベースから学校データを取得
       final schoolDataStart = Stopwatch()..start();

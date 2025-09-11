@@ -2,7 +2,6 @@ import '../../models/school/school.dart';
 import '../../models/player/player.dart';
 import '../data_service.dart';
 import '../school_data_service.dart';
-import '../default_school_data.dart';
 
 /// 学校管理に関する機能を担当するサービス
 class SchoolManagementService {
@@ -11,28 +10,21 @@ class SchoolManagementService {
 
   SchoolManagementService(this._dataService, this._schoolDataService);
 
-  /// 初期学校データを生成してデータベースに挿入
+  /// 初期学校データをCSVから読み込んでデータベースに挿入
   Future<void> generateInitialSchools() async {
-    print('SchoolManagementService: 初期学校データ生成開始');
+    print('SchoolManagementService: CSVから初期学校データ読み込み開始');
     final stopwatch = Stopwatch()..start();
     
     try {
-      // デフォルト学校データを取得
-      final defaultSchools = DefaultSchoolData.getDefaultSchools();
-      print('SchoolManagementService: ${defaultSchools.length}校のデフォルト学校データを取得しました');
-      
-      // 各学校をデータベースに挿入
-      for (final schoolData in defaultSchools) {
-        await _dataService.insertSchool(schoolData);
-        print('SchoolManagementService: 学校を挿入: ${schoolData['name']}');
-      }
+      // CSVファイルから学校データを読み込み
+      await _schoolDataService.insertSchoolsFromCsv();
       
       stopwatch.stop();
-      print('SchoolManagementService: 初期学校データ生成完了 - ${stopwatch.elapsedMilliseconds}ms');
+      print('SchoolManagementService: CSVから初期学校データ読み込み完了 - ${stopwatch.elapsedMilliseconds}ms');
       
     } catch (e) {
       stopwatch.stop();
-      print('SchoolManagementService: 初期学校データ生成エラー: $e');
+      print('SchoolManagementService: CSVから初期学校データ読み込みエラー: $e');
       rethrow;
     }
   }

@@ -3,7 +3,7 @@ import 'package:path/path.dart';
 
 /// データベーススキーマ管理に関する機能を担当するサービス
 class DatabaseSchemaService {
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
 
   /// データベースの全テーブルを作成
   Future<void> createAllTables(Database db) async {
@@ -20,8 +20,6 @@ class DatabaseSchemaService {
           prefecture TEXT NOT NULL,
           rank TEXT NOT NULL,
           school_strength INTEGER DEFAULT 50,
-          coach_trust INTEGER DEFAULT 50,
-          coach_name TEXT DEFAULT '未設定',
           created_at TEXT DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )

@@ -1,7 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import '../models/school/school.dart';
-import 'default_school_data.dart';
 import 'dart:io'; // Stopwatchを使用するために追加
 import 'dart:convert'; // JSONデコード用
 
@@ -136,7 +135,7 @@ class SchoolDataService {
       
       for (final line in dataLines) {
         final fields = line.split(',');
-        if (fields.length >= 9) {
+        if (fields.length >= 7) {
           try {
             // CSVの各フィールドを取得
             final id = fields[0].trim();
@@ -146,8 +145,6 @@ class SchoolDataService {
             final prefecture = fields[4].trim();
             final rankStr = fields[5].trim();
             final schoolStrength = int.tryParse(fields[6].trim()) ?? 50;
-            final coachTrust = int.tryParse(fields[7].trim()) ?? 0;
-            final coachName = fields[8].trim();
             
             // ランクの変換
             SchoolRank rank;
@@ -177,8 +174,6 @@ class SchoolDataService {
               'prefecture': prefecture,
               'rank': rank.name,
               'school_strength': schoolStrength,
-              'coach_trust': coachTrust,
-              'coach_name': coachName,
               'created_at': DateTime.now().toIso8601String(),
               'updated_at': DateTime.now().toIso8601String(),
             });
@@ -221,56 +216,6 @@ class SchoolDataService {
     }
   }
 
-  /// デフォルトの学校データをデータベースに挿入（無効化）
-  @Deprecated('CSVデータを使用するため、このメソッドは使用しないでください')
-  Future<void> insertDefaultSchools() async {
-    print('警告: insertDefaultSchools()は無効化されています。代わりにinsertSchoolsFromCsv()を使用してください');
-    // 一時的に有効化してパフォーマンス比較用
-    try {
-      final stopwatch = Stopwatch()..start();
-      print('SchoolDataService.insertDefaultSchools: 開始');
-      
-      // 既存の学校データを削除
-      final deleteStart = Stopwatch()..start();
-      await _db.delete('School');
-      deleteStart.stop();
-      print('SchoolDataService.insertDefaultSchools: 既存データ削除完了 - ${deleteStart.elapsedMilliseconds}ms');
-      
-      // デフォルトの学校データを取得
-      final dataPrepStart = Stopwatch()..start();
-      final schools = DefaultSchoolData.getAllSchools();
-      dataPrepStart.stop();
-      print('SchoolDataService.insertDefaultSchools: データ準備完了 - ${dataPrepStart.elapsedMilliseconds}ms (${schools.length}件)');
-      
-      // データベースに挿入
-      final insertStart = Stopwatch()..start();
-      await _db.transaction((txn) async {
-        for (final school in schools) {
-          await txn.insert('School', {
-            'id': school.id,
-            'name': school.name,
-            'type': '高校',
-            'location': school.location,
-            'prefecture': school.prefecture,
-            'rank': school.rank.name,
-            'school_strength': 50,
-            'coach_trust': school.coachTrust,
-            'coach_name': school.coachName,
-            'created_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          });
-        }
-      });
-      insertStart.stop();
-      print('SchoolDataService.insertDefaultSchools: バッチ挿入完了 - ${insertStart.elapsedMilliseconds}ms');
-      
-      stopwatch.stop();
-      print('SchoolDataService.insertDefaultSchools: 全体完了 - ${stopwatch.elapsedMilliseconds}ms (${schools.length}校挿入)');
-    } catch (e) {
-      print('学校データの挿入でエラー: $e');
-      rethrow;
-    }
-  }
 
   /// データベースから学校データを取得
   Future<List<School>> getAllSchools() async {
