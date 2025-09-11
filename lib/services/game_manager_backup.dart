@@ -525,9 +525,6 @@ class GameManager {
       print('--- CSVメソッドテスト ---');
       await schoolDataService.insertSchoolsFromCsv();
       
-      // JSONメソッドでテスト
-      print('--- JSONメソッドテスト ---');
-      await schoolDataService.insertSchoolsFromJson();
       
       print('=== パフォーマンス比較テスト完了 ===');
       

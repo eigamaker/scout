@@ -65,7 +65,6 @@ flutter:
   assets:
     - assets/data/
     - assets/data/School.csv
-    - assets/data/schools.json
   # assets:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg

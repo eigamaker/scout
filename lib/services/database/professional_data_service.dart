@@ -14,6 +14,9 @@ class ProfessionalDataService {
     final stopwatch = Stopwatch()..start();
     
     try {
+      // 既存のプロ野球団データを削除
+      await _db.delete('ProfessionalTeam');
+      
       final teams = _getDefaultProfessionalTeams();
       
       for (final team in teams) {

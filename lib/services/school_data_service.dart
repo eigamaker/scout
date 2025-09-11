@@ -2,7 +2,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import '../models/school/school.dart';
 import 'dart:io'; // Stopwatchを使用するために追加
-import 'dart:convert'; // JSONデコード用
 
 /// 学校データのデータベース操作を専門に扱うサービス
 class SchoolDataService {
@@ -10,101 +9,6 @@ class SchoolDataService {
 
   SchoolDataService(this._db);
 
-  /// JSONファイルから学校データをデータベースに挿入
-  Future<void> insertSchoolsFromJson() async {
-    try {
-      final stopwatch = Stopwatch()..start();
-      print('SchoolDataService.insertSchoolsFromJson: 開始');
-      
-      // 既存の学校データを削除
-      final deleteStart = Stopwatch()..start();
-      await _db.delete('School');
-      deleteStart.stop();
-      print('SchoolDataService.insertSchoolsFromJson: 既存データ削除完了 - ${deleteStart.elapsedMilliseconds}ms');
-      
-      // JSONファイルをアセットから読み込み
-      final jsonReadStart = Stopwatch()..start();
-      final jsonContent = await rootBundle.loadString('assets/data/schools.json');
-      final List<dynamic> jsonData = jsonDecode(jsonContent);
-      jsonReadStart.stop();
-      print('SchoolDataService.insertSchoolsFromJson: JSON読み込み完了 - ${jsonReadStart.elapsedMilliseconds}ms (${jsonData.length}件)');
-      
-      // 事前にデータを準備
-      final dataPrepStart = Stopwatch()..start();
-      final List<Map<String, dynamic>> allData = [];
-      
-      for (final schoolData in jsonData) {
-        try {
-          // ランクの変換
-          SchoolRank rank;
-          switch (schoolData['rank']) {
-            case '名門':
-              rank = SchoolRank.elite;
-              break;
-            case '強豪':
-              rank = SchoolRank.strong;
-              break;
-            case '中堅':
-              rank = SchoolRank.average;
-              break;
-            case '弱小':
-              rank = SchoolRank.weak;
-              break;
-            default:
-              rank = SchoolRank.weak;
-          }
-          
-          // データをリストに追加
-          allData.add({
-            'id': schoolData['id'],
-            'name': schoolData['name'],
-            'type': schoolData['type'],
-            'location': schoolData['location'],
-            'prefecture': schoolData['prefecture'],
-            'rank': rank.name,
-            'school_strength': schoolData['school_strength'],
-            'coach_trust': schoolData['coach_trust'],
-            'coach_name': schoolData['coach_name'],
-            'created_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          });
-        } catch (e) {
-          print('JSONデータの処理でエラー: $schoolData, エラー: $e');
-        }
-      }
-      
-      dataPrepStart.stop();
-      print('SchoolDataService.insertSchoolsFromJson: データ準備完了 - ${dataPrepStart.elapsedMilliseconds}ms (${allData.length}件)');
-      
-      // より効率的なバッチ挿入実行（大きなバッチサイズで分割）
-      final insertStart = Stopwatch()..start();
-      const int batchSize = 200; // 200件ずつバッチ処理
-      int totalInserted = 0;
-      
-      for (int i = 0; i < allData.length; i += batchSize) {
-        final end = (i + batchSize < allData.length) ? i + batchSize : allData.length;
-        final batch = allData.sublist(i, end);
-        
-        await _db.transaction((txn) async {
-          for (final data in batch) {
-            await txn.insert('School', data);
-          }
-        });
-        
-        totalInserted += batch.length;
-        print('SchoolDataService.insertSchoolsFromJson: バッチ挿入進捗: $totalInserted/${allData.length}件完了');
-      }
-      
-      insertStart.stop();
-      print('SchoolDataService.insertSchoolsFromJson: バッチ挿入完了 - ${insertStart.elapsedMilliseconds}ms');
-      
-      stopwatch.stop();
-      print('SchoolDataService.insertSchoolsFromJson: 全体完了 - ${stopwatch.elapsedMilliseconds}ms (${totalInserted}校挿入)');
-    } catch (e) {
-      print('JSONからの学校データ挿入でエラー: $e');
-      rethrow;
-    }
-  }
 
   /// CSVファイルから学校データをデータベースに挿入
   Future<void> insertSchoolsFromCsv() async {

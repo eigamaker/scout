@@ -1063,6 +1063,9 @@ class DataService {
 
   // プロ野球団の初期データを挿入
   Future<void> _insertProfessionalTeams(Database db) async {
+    // 既存のプロ野球団データを削除
+    await db.delete('ProfessionalTeam');
+    
     final teams = [
       // セ・リーグ
       {
