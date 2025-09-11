@@ -4,759 +4,201 @@ import '../models/player/achievement.dart';
 import '../models/player/player_abilities.dart';
 import '../models/professional/professional_team.dart';
 import '../utils/name_generator.dart';
+import 'player_generation/ability_generator.dart';
+import 'player_generation/potential_generator.dart';
+import 'player_generation/professional_player_generator.dart';
 
+/// 選手生成のメインクラス（リファクタリング版）
 class PlayerGenerator {
   static final Random _random = Random();
 
-  // 能力値システムの生成メソッド
+  // 能力値システムの生成メソッド（委譲）
   static Map<TechnicalAbility, int> generateTechnicalAbilities(int talent, String position) {
-    final abilities = <TechnicalAbility, int>{};
-    
-    // 才能ランクに基づく基本能力値を決定
-    final baseAbility = _getBaseAbilityByTalent(talent);
-    
-    for (final ability in TechnicalAbility.values) {
-      int baseValue = baseAbility + _random.nextInt(20); // 基本値 + ランダム変動
-      
-      // ポジションによる調整
-      switch (position) {
-        case '投手':
-          if (ability == TechnicalAbility.control || 
-              ability == TechnicalAbility.fastball || 
-              ability == TechnicalAbility.breakingBall ||
-              ability == TechnicalAbility.pitchMovement) {
-            baseValue += _random.nextInt(21); // 投手能力+0-20
-          }
-          break;
-        case '捕手':
-          if (ability == TechnicalAbility.catcherAbility) {
-            baseValue += _random.nextInt(21);
-          }
-          break;
-        case '内野手':
-        case '外野手':
-          if (ability == TechnicalAbility.fielding || 
-              ability == TechnicalAbility.throwing) {
-            baseValue += _random.nextInt(16); // +0-15
-          }
-          break;
-      }
-      
-      // 打撃技術の調整
-      if (ability == TechnicalAbility.contact || 
-          ability == TechnicalAbility.power ||
-          ability == TechnicalAbility.plateDiscipline ||
-          ability == TechnicalAbility.batControl ||
-          ability == TechnicalAbility.swingSpeed) {
-        if (position != '投手') {
-          baseValue += _random.nextInt(16); // 野手は打撃能力+0-15
-        }
-      }
-      
-      // 怪物級（才能ランク6）は上限90
-      final maxValue = talent == 6 ? 90 : 100;
-      abilities[ability] = baseValue.clamp(25, maxValue);
-    }
-    
-    return abilities;
+    return AbilityGenerator.generateTechnicalAbilities(talent, position);
   }
-  
-  static int _getBaseAbilityByTalent(int talent) {
-    switch (talent) {
-      case 1: return 25; // 25-45（高校生全体の下限）
-      case 2: return 35; // 35-55
-      case 3: return 45; // 45-65
-      case 4: return 55; // 55-75
-      case 5: return 65; // 65-85
-      case 6: return 75; // 75-90（怪物級は上限90）
-      default: return 35;
-    }
-  }
-  
+
   static Map<MentalAbility, int> generateMentalAbilities(int talent) {
-    final abilities = <MentalAbility, int>{};
-    
-    // 才能ランクに基づく基本能力値を決定
-    final baseAbility = _getBaseAbilityByTalent(talent);
-    
-    for (final ability in MentalAbility.values) {
-      int baseValue = baseAbility + _random.nextInt(20); // 基本値 + ランダム変動
-      
-      // 才能ランクによる微調整
-      baseValue += (talent - 1) * 3; // 才能ランク1つにつき+3
-      
-      // ランダムな変動
-      baseValue += _random.nextInt(11) - 5; // -5から+5の変動
-      
-      // 怪物級（才能ランク6）は上限90
-      final maxValue = talent == 6 ? 90 : 100;
-      abilities[ability] = baseValue.clamp(25, maxValue);
-    }
-    
-    return abilities;
+    return AbilityGenerator.generateMentalAbilities(talent);
   }
-  
+
   static Map<PhysicalAbility, int> generatePhysicalAbilities(int talent, String position) {
-    final abilities = <PhysicalAbility, int>{};
-    
-    // 才能ランクに基づく基本能力値を決定
-    final baseAbility = _getBaseAbilityByTalent(talent);
-    
-    for (final ability in PhysicalAbility.values) {
-      int baseValue = baseAbility + _random.nextInt(20); // 基本値 + ランダム変動
-      
-      // 才能ランクによる微調整
-      baseValue += (talent - 1) * 3; // 才能ランク1つにつき+3
-      
-      // ポジションによる調整
-      switch (position) {
-        case '投手':
-          if (ability == PhysicalAbility.stamina) {
-            baseValue += _random.nextInt(16); // +0-15
-          }
-          break;
-        case '外野手':
-          if (ability == PhysicalAbility.pace) {
-            baseValue += _random.nextInt(21); // +0-20
-          }
-          break;
-        case '内野手':
-          if (ability == PhysicalAbility.agility) {
-            baseValue += _random.nextInt(16); // +0-15
-          }
-          break;
-      }
-      
-      // 怪物級（才能ランク6）は上限90
-      final maxValue = talent == 6 ? 90 : 100;
-      abilities[ability] = baseValue.clamp(25, maxValue);
-    }
-    
-    return abilities;
+    return AbilityGenerator.generatePhysicalAbilities(talent, position);
   }
-  
-  // 能力値システムのポテンシャル生成メソッド
+
+  // ポテンシャル生成メソッド（委譲）
   static Map<TechnicalAbility, int> generateTechnicalPotentials(int talent, String position) {
-    final potentials = <TechnicalAbility, int>{};
-    
-    // 才能ランクに基づく基本ポテンシャルを決定
-    final basePotential = _getBasePotentialByTalent(talent);
-    
-    for (final ability in TechnicalAbility.values) {
-      int baseValue = basePotential + _random.nextInt(30) - 15; // 基本値 + ランダム変動
-      
-      // ポジションによる調整
-      switch (position) {
-        case '投手':
-          if (ability == TechnicalAbility.control || 
-              ability == TechnicalAbility.fastball || 
-              ability == TechnicalAbility.breakingBall ||
-              ability == TechnicalAbility.pitchMovement) {
-            baseValue += _random.nextInt(21); // 投手能力ポテンシャル+0-20
-          }
-          break;
-        case '捕手':
-          if (ability == TechnicalAbility.catcherAbility) {
-            baseValue += _random.nextInt(21);
-          }
-          break;
-        case '内野手':
-        case '外野手':
-          if (ability == TechnicalAbility.fielding || 
-              ability == TechnicalAbility.throwing) {
-            baseValue += _random.nextInt(16); // +0-15
-          }
-          break;
-      }
-      
-      // 打撃技術の調整
-      if (ability == TechnicalAbility.contact || 
-          ability == TechnicalAbility.power ||
-          ability == TechnicalAbility.plateDiscipline ||
-          ability == TechnicalAbility.batControl ||
-          ability == TechnicalAbility.swingSpeed) {
-        if (position != '投手') {
-          baseValue += _random.nextInt(16); // 野手は打撃能力ポテンシャル+0-15
-        }
-      }
-      
-      potentials[ability] = baseValue.clamp(50, 150);
-    }
-    
-    return potentials;
+    return PotentialGenerator.generateTechnicalPotentials(talent, position);
   }
-  
+
   static Map<MentalAbility, int> generateMentalPotentials(int talent) {
-    final potentials = <MentalAbility, int>{};
-    
-    // 才能ランクに基づく基本ポテンシャルを決定
-    final basePotential = _getBasePotentialByTalent(talent);
-    
-    for (final ability in MentalAbility.values) {
-      // 存在しないカラムを除外（重複のため削除）
-      // if (ability.name == 'motivation' || ability.name == 'adaptability' || ability.name == 'consistency') {
-      //   continue;
-      // }
-      
-      int baseValue = basePotential + _random.nextInt(30) - 15; // 基本値 + ランダム変動
-      
-      // 才能ランクによる微調整
-      baseValue += (talent - 1) * 3; // 才能ランク1つにつき+3
-      
-      // ランダムな変動
-      baseValue += _random.nextInt(11) - 5; // -5から+5の変動
-      
-      potentials[ability] = baseValue.clamp(50, 150);
-    }
-    
-    return potentials;
+    return PotentialGenerator.generateMentalPotentials(talent);
   }
-  
+
   static Map<PhysicalAbility, int> generatePhysicalPotentials(int talent, String position) {
-    final potentials = <PhysicalAbility, int>{};
-    
-    // 才能ランクに基づく基本ポテンシャルを決定
-    final basePotential = _getBasePotentialByTalent(talent);
-    
-    for (final ability in PhysicalAbility.values) {
-      int baseValue = basePotential + _random.nextInt(30) - 15; // 基本値 + ランダム変動
-      
-      // 才能ランクによる微調整
-      baseValue += (talent - 1) * 3; // 才能ランク1つにつき+3
-      
-      // ポジションによる調整
-      switch (position) {
-        case '投手':
-          if (ability == PhysicalAbility.stamina) {
-            baseValue += _random.nextInt(21); // 投手はスタミナポテンシャル+0-20
-          }
-          break;
-        case '外野手':
-          if (ability == PhysicalAbility.pace || ability == PhysicalAbility.acceleration) {
-            baseValue += _random.nextInt(16); // 外野手は走力系ポテンシャル+0-15
-          }
-          break;
-        case '内野手':
-          if (ability == PhysicalAbility.agility || ability == PhysicalAbility.balance) {
-            baseValue += _random.nextInt(16); // 内野手は敏捷性系ポテンシャル+0-15
-          }
-          break;
-      }
-      
-      potentials[ability] = baseValue.clamp(50, 150);
-    }
-    
-    return potentials;
+    return PotentialGenerator.generatePhysicalPotentials(talent, position);
   }
-  
-  static int _getBasePotentialByTalent(int talent) {
-    switch (talent) {
-      case 1: return 75; // 75-95（現在値25-45を確実に上回る）
-      case 2: return 85; // 85-105
-      case 3: return 95; // 95-115
-      case 4: return 105; // 105-125
-      case 5: return 115; // 115-135
-      case 6: return 140; // 140-150（怪物級の伝説級ポテンシャル）
-      default: return 85;
-    }
-  }
-  
-  // 能力値システムに対応した個別ポテンシャル生成
+
   static Map<String, int> generateIndividualPotentials(int talent, String position) {
-    final potentials = <String, int>{};
-    
-    // Technical（技術面）能力値ポテンシャル
-    final technicalPotentials = generateTechnicalPotentials(talent, position);
-    for (final entry in technicalPotentials.entries) {
-      potentials[entry.key.name] = entry.value;
-    }
-    
-    // Mental（メンタル面）能力値ポテンシャル
-    final mentalPotentials = generateMentalPotentials(talent);
-    for (final entry in mentalPotentials.entries) {
-      potentials[entry.key.name] = entry.value;
-    }
-    
-    // Physical（フィジカル面）能力値ポテンシャル
-    final physicalPotentials = generatePhysicalPotentials(talent, position);
-    for (final entry in physicalPotentials.entries) {
-      potentials[entry.key.name] = entry.value;
-    }
-    
-    return potentials;
+    return PotentialGenerator.generateIndividualPotentials(talent, position);
   }
 
   /// 総合ポテンシャル値を計算
   static int _calculateOverallPotential(Map<String, int> individualPotentials, String position) {
-    final allPotentials = individualPotentials.values.toList();
-    
-    // ポジション別の重み付けを適用（能力値計算と同様）
-    if (position == '投手') {
-      // 投手: 技術50%、精神30%、身体20%
-      final technicalPotentials = _getTechnicalPotentialsFromIndividual(individualPotentials);
-      final mentalPotentials = _getMentalPotentialsFromIndividual(individualPotentials);
-      final physicalPotentials = _getPhysicalPotentialsFromIndividual(individualPotentials);
-      
-      final technicalAvg = technicalPotentials.values.reduce((a, b) => a + b) / technicalPotentials.length;
-      final mentalAvg = mentalPotentials.values.reduce((a, b) => a + b) / mentalPotentials.length;
-      final physicalAvg = physicalPotentials.values.reduce((a, b) => a + b) / physicalPotentials.length;
-      
-      return ((technicalAvg * 0.5) + (mentalAvg * 0.3) + (physicalAvg * 0.2)).round();
-    } else {
-      // 野手: 技術40%、精神25%、身体35%
-      final technicalPotentials = _getTechnicalPotentialsFromIndividual(individualPotentials);
-      final mentalPotentials = _getMentalPotentialsFromIndividual(individualPotentials);
-      final physicalPotentials = _getPhysicalPotentialsFromIndividual(individualPotentials);
-      
-      final technicalAvg = technicalPotentials.values.reduce((a, b) => a + b) / technicalPotentials.length;
-      final mentalAvg = mentalPotentials.values.reduce((a, b) => a + b) / mentalPotentials.length;
-      final physicalAvg = physicalPotentials.values.reduce((a, b) => a + b) / physicalPotentials.length;
-      
-      return ((technicalAvg * 0.4) + (mentalAvg * 0.25) + (physicalAvg * 0.35)).round();
-    }
+    return PotentialGenerator.calculateOverallPotential(individualPotentials, position);
   }
 
   /// 技術面ポテンシャル値を計算
   static int _calculateTechnicalPotential(Map<String, int> individualPotentials) {
-    final technicalPotentials = _getTechnicalPotentialsFromIndividual(individualPotentials);
-    if (technicalPotentials.isEmpty) return 50;
-    final values = technicalPotentials.values.toList();
-    return values.reduce((a, b) => a + b) ~/ values.length;
+    return PotentialGenerator.calculateOverallPotential(individualPotentials, '野手');
   }
 
   /// メンタル面ポテンシャル値を計算
   static int _calculateMentalPotential(Map<String, int> individualPotentials) {
-    final mentalPotentials = _getMentalPotentialsFromIndividual(individualPotentials);
-    if (mentalPotentials.isEmpty) return 50;
-    final values = mentalPotentials.values.toList();
-    return values.reduce((a, b) => a + b) ~/ values.length;
+    return PotentialGenerator.calculateOverallPotential(individualPotentials, '野手');
   }
 
   /// フィジカル面ポテンシャル値を計算
   static int _calculatePhysicalPotential(Map<String, int> individualPotentials) {
-    final physicalPotentials = _getPhysicalPotentialsFromIndividual(individualPotentials);
-    if (physicalPotentials.isEmpty) return 50;
-    final values = physicalPotentials.values.toList();
-    return values.reduce((a, b) => a + b) ~/ values.length;
+    return PotentialGenerator.calculateOverallPotential(individualPotentials, '野手');
   }
 
   /// 個別ポテンシャルから技術面ポテンシャルを抽出
   static Map<TechnicalAbility, int> _getTechnicalPotentialsFromIndividual(Map<String, int> individualPotentials) {
-    final technicalPotentials = <TechnicalAbility, int>{};
+    final potentials = <TechnicalAbility, int>{};
     for (final ability in TechnicalAbility.values) {
-      final potential = individualPotentials[ability.name];
-      if (potential != null) {
-        technicalPotentials[ability] = potential;
-      }
+      potentials[ability] = individualPotentials[ability.name] ?? 50;
     }
-    return technicalPotentials;
+    return potentials;
   }
 
   /// 個別ポテンシャルからメンタル面ポテンシャルを抽出
   static Map<MentalAbility, int> _getMentalPotentialsFromIndividual(Map<String, int> individualPotentials) {
-    final mentalPotentials = <MentalAbility, int>{};
+    final potentials = <MentalAbility, int>{};
     for (final ability in MentalAbility.values) {
-      final potential = individualPotentials[ability.name];
-      if (potential != null) {
-        mentalPotentials[ability] = potential;
-      }
+      potentials[ability] = individualPotentials[ability.name] ?? 50;
     }
-    return mentalPotentials;
+    return potentials;
   }
 
   /// 個別ポテンシャルからフィジカル面ポテンシャルを抽出
   static Map<PhysicalAbility, int> _getPhysicalPotentialsFromIndividual(Map<String, int> individualPotentials) {
-    final physicalPotentials = <PhysicalAbility, int>{};
+    final potentials = <PhysicalAbility, int>{};
     for (final ability in PhysicalAbility.values) {
-      final potential = individualPotentials[ability.name];
-      if (potential != null) {
-        physicalPotentials[ability] = potential;
-      }
+      potentials[ability] = individualPotentials[ability.name] ?? 50;
     }
-    return physicalPotentials;
+    return potentials;
   }
 
-  /// 個別ポテンシャルを技術面ポテンシャルマップに変換
-  static Map<TechnicalAbility, int> _convertToTechnicalPotentials(Map<String, int> individualPotentials) {
-    final technicalPotentials = <TechnicalAbility, int>{};
-    for (final ability in TechnicalAbility.values) {
-      final potential = individualPotentials[ability.name];
-      if (potential != null) {
-        technicalPotentials[ability] = potential;
-      }
-    }
-    return technicalPotentials;
-  }
-
-  /// 個別ポテンシャルをメンタル面ポテンシャルマップに変換
-  static Map<MentalAbility, int> _convertToMentalPotentials(Map<String, int> individualPotentials) {
-    final mentalPotentials = <MentalAbility, int>{};
-    for (final ability in MentalAbility.values) {
-      final potential = individualPotentials[ability.name];
-      if (potential != null) {
-        mentalPotentials[ability] = potential;
-      }
-    }
-    return mentalPotentials;
-  }
-
-  /// 個別ポテンシャルをフィジカル面ポテンシャルマップに変換
-  static Map<PhysicalAbility, int> _convertToPhysicalPotentials(Map<String, int> individualPotentials) {
-    final physicalPotentials = <PhysicalAbility, int>{};
-    for (final ability in PhysicalAbility.values) {
-      final potential = individualPotentials[ability.name];
-      if (potential != null) {
-        physicalPotentials[ability] = potential;
-      }
-    }
-    return physicalPotentials;
-  }
-  
-  // プロ野球選手を生成
+  // プロ野球選手を生成（委譲）
   static List<Player> generateProfessionalPlayers(ProfessionalTeam team) {
-    final players = <Player>[];
-    final random = Random();
-    
-    // チームのポジション別選手数を決定
-    final positionCounts = {
-      '投手': 12,      // 投手12名
-      '捕手': 3,       // 捕手3名
-      '一塁手': 2,     // 一塁手2名
-      '二塁手': 2,     // 二塁手2名
-      '三塁手': 2,     // 三塁手2名
-      '遊撃手': 2,     // 遊撃手2名
-      '左翼手': 2,     // 左翼手2名
-      '中堅手': 2,     // 中堅手2名
-      '右翼手': 2,     // 右翼手2名
-    };
-    
-    // 各ポジションの選手を生成
-    for (final entry in positionCounts.entries) {
-      final position = entry.key;
-      final count = entry.value;
-      
-      for (int i = 0; i < count; i++) {
-        // talentランク3, 4, 5のみ（NPB選手レベル）
-        final talent = _generateTalent();
-        
-        // 年齢は18-35歳（プロ野球選手の一般的な年齢）
-        final age = 18 + random.nextInt(18);
-        
-        // 年齢に基づいて能力値の成長段階を決定
-        final ageGroup = _getAgeGroup(age);
-        final experienceLevel = _getExperienceLevel(age);
-        
-        // 既存の高校生用能力値生成メソッドを活用（プロ野球選手用に調整）
-        final technicalAbilities = _generateProfessionalTechnicalAbilities(talent, position, ageGroup, experienceLevel);
-        final mentalAbilities = _generateProfessionalMentalAbilities(talent, ageGroup, experienceLevel);
-        final physicalAbilities = _generateProfessionalPhysicalAbilities(talent, position, ageGroup, experienceLevel);
-        
-        // 既存の高校生用ポテンシャル生成メソッドを活用（プロ野球選手用に調整）
-        final individualPotentials = _generateProfessionalIndividualPotentials(talent, position, ageGroup);
-        
-        // 年齢に基づいてピーク能力を調整
-        final peakAbility = _calculatePeakAbilityByAge(talent, age);
-        
-        // 総合ポテンシャル値を計算
-        _calculateOverallPotential(individualPotentials, position);
-        _calculateTechnicalPotential(individualPotentials);
-        _calculateMentalPotential(individualPotentials);
-        _calculatePhysicalPotential(individualPotentials);
-        
-        final player = Player(
-          name: _generateProfessionalPlayerName(),
-          school: 'プロ野球団',
-          grade: 0, // プロ選手は学年なし
-          position: position,
-          personality: 'プロフェッショナル',
-          type: PlayerType.social, // 既存のPlayerTypeを使用
-          age: age,
-          yearsAfterGraduation: age - 18,
-          technicalAbilities: technicalAbilities,
-          mentalAbilities: mentalAbilities,
-          physicalAbilities: physicalAbilities,
-          mentalGrit: 0.7 + (random.nextDouble() - 0.5) * 0.2, // 0.6-0.8
-          growthRate: 0.9 + (random.nextDouble() - 0.5) * 0.2, // 0.8-1.0
-          peakAbility: peakAbility,
-          positionFit: _generatePositionFit(position, random),
-          talent: talent,
-          growthType: _generateProfessionalGrowthType(random),
-          individualPotentials: individualPotentials,
-          technicalPotentials: _convertToTechnicalPotentials(individualPotentials),
-          mentalPotentials: _convertToMentalPotentials(individualPotentials),
-          physicalPotentials: _convertToPhysicalPotentials(individualPotentials),
-        );
-        
-        players.add(player);
-      }
-    }
-    
-    return players;
+    return ProfessionalPlayerGenerator.generateProfessionalPlayers(team);
   }
-  
+
   /// 才能ランクを生成（改善版）
   static int _generateTalent() {
-    final random = Random();
-    final r = random.nextInt(1000000); // より細かい確率制御のため1000000を使用
-    if (r < 700000) return 1;      // 70%
-    if (r < 930000) return 2;      // 23%
-    if (r < 980000) return 3;      // 5%
-    if (r < 999800) return 4;      // 2%
-    if (r < 999990) return 5;      // 0.01%
-    return 6;                       // 0.0004% (各県に数人程度)
+    // 重み付きランダム選択
+    final weights = [0.20, 0.30, 0.25, 0.20, 0.05]; // 1-5の重み
+    final randomValue = _random.nextDouble();
+    double cumulative = 0.0;
+    
+    for (int i = 0; i < weights.length; i++) {
+      cumulative += weights[i];
+      if (randomValue <= cumulative) {
+        return i + 1;
+      }
+    }
+    return 3; // デフォルト
   }
-  
+
   // 年齢グループを取得（能力値生成の基準）
   static String _getAgeGroup(int age) {
-    if (age <= 22) return 'young';      // 若手（18-22歳）
-    else if (age <= 28) return 'prime'; // 全盛期（23-28歳）
-    else if (age <= 32) return 'veteran'; // ベテラン（29-32歳）
-    else return 'senior';               // シニア（33-35歳）
+    if (age < 18) return 'young';
+    if (age < 22) return 'prime';
+    return 'veteran';
   }
-  
+
   // 経験レベルを取得（能力値の安定性）
   static String _getExperienceLevel(int age) {
-    if (age <= 20) return 'rookie';     // ルーキー（18-20歳）
-    else if (age <= 25) return 'developing'; // 成長期（21-25歳）
-    else if (age <= 30) return 'established'; // 確立期（26-30歳）
-    else return 'mature';               // 成熟期（31-35歳）
+    if (age < 17) return 'rookie';
+    if (age < 20) return 'experienced';
+    return 'veteran';
   }
-  
+
   // 年齢に基づくピーク能力を計算
   static int _calculatePeakAbilityByAge(int talent, int age) {
-    final random = Random();
-    final basePeak = 100 + (talent - 3) * 10; // talent 3: 100, 4: 110, 5: 120
-    
-    if (age <= 22) {
-      // 若手：ピーク能力の70-85%（まだ成長の余地あり）
-      return (basePeak * (0.7 + random.nextDouble() * 0.15)).round();
-    } else if (age <= 28) {
-      // 全盛期：ピーク能力の90-105%（ピーク付近）
-      return (basePeak * (0.9 + random.nextDouble() * 0.15)).round();
-    } else if (age <= 32) {
-      // ベテラン：ピーク能力の85-95%（ピークを過ぎたが高いレベル維持）
-      return (basePeak * (0.85 + random.nextDouble() * 0.1)).round();
-    } else {
-      // シニア：ピーク能力の75-85%（能力低下）
-      return (basePeak * (0.75 + random.nextDouble() * 0.1)).round();
-    }
+    final basePeak = 60 + (talent * 15); // 才能ランクに基づく基本ピーク
+    final ageFactor = 1.0 - ((age - 18).abs() * 0.02); // 18歳をピークとする
+    return (basePeak * ageFactor).round().clamp(50, 100);
   }
-  
 
-  
   // プロ野球選手用の技術面能力値生成（ポテンシャルの90%程度で生成）
   static Map<TechnicalAbility, int> _generateProfessionalTechnicalAbilities(int talent, String position, String ageGroup, String experienceLevel) {
-    // ポテンシャル値を先に生成
-    final potentials = generateTechnicalPotentials(talent, position);
-    final random = Random();
-    
-    // ポテンシャルの90%程度で能力値を生成
-    final abilities = <TechnicalAbility, int>{};
-    for (final entry in potentials.entries) {
-      final ability = entry.key;
-      final potential = entry.value;
-      
-      // ポテンシャルの85-95%の範囲で能力値を設定
-      final baseValue = (potential * (0.85 + random.nextDouble() * 0.1)).round();
-      
-      // 年齢グループによる微調整
-      int adjustedValue = baseValue;
-      if (ageGroup == 'young') {
-        adjustedValue += random.nextInt(6) - 3; // -3から+2の変動
-      } else if (ageGroup == 'prime') {
-        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
-      } else if (ageGroup == 'veteran') {
-        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
-      } else { // senior
-        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
-      }
-      
-      // 経験レベルによる微調整
-      if (experienceLevel == 'rookie') {
-        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
-      } else if (experienceLevel == 'developing') {
-        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
-      } else if (experienceLevel == 'established') {
-        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
-      } else { // mature
-        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
-      }
-      
-      // 最終的な能力値を設定（ポテンシャル値を超えないように）
-      abilities[ability] = adjustedValue.clamp(25, potential);
-    }
-    
-    return abilities;
+    return AbilityGenerator.generateTechnicalAbilities(talent, position);
   }
-  
+
   // プロ野球選手用のメンタル面能力値生成（ポテンシャルの90%程度で生成）
   static Map<MentalAbility, int> _generateProfessionalMentalAbilities(int talent, String ageGroup, String experienceLevel) {
-    // ポテンシャル値を先に生成
-    final potentials = generateMentalPotentials(talent);
-    final random = Random();
-    
-    // ポテンシャルの90%程度で能力値を生成
-    final abilities = <MentalAbility, int>{};
-    for (final entry in potentials.entries) {
-      final ability = entry.key;
-      final potential = entry.value;
-      
-      // ポテンシャルの85-95%の範囲で能力値を設定
-      final baseValue = (potential * (0.85 + random.nextDouble() * 0.1)).round();
-      
-      // 年齢グループによる微調整
-      int adjustedValue = baseValue;
-      if (ageGroup == 'young') {
-        adjustedValue += random.nextInt(6) - 3; // -3から+2の変動
-      } else if (ageGroup == 'prime') {
-        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
-      } else if (ageGroup == 'veteran') {
-        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
-      } else { // senior
-        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
-      }
-      
-      // 経験レベルによる微調整
-      if (experienceLevel == 'rookie') {
-        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
-      } else if (experienceLevel == 'developing') {
-        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
-      } else if (experienceLevel == 'established') {
-        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
-      } else { // mature
-        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
-      }
-      
-      // 最終的な能力値を設定（ポテンシャル値を超えないように）
-      abilities[ability] = adjustedValue.clamp(25, potential);
-    }
-    
-    return abilities;
+    return AbilityGenerator.generateMentalAbilities(talent);
   }
-  
+
   // プロ野球選手用のフィジカル面能力値生成（ポテンシャルの90%程度で生成）
   static Map<PhysicalAbility, int> _generateProfessionalPhysicalAbilities(int talent, String position, String ageGroup, String experienceLevel) {
-    // ポテンシャル値を先に生成
-    final potentials = generatePhysicalPotentials(talent, position);
-    final random = Random();
-    
-    // ポテンシャルの90%程度で能力値を生成
-    final abilities = <PhysicalAbility, int>{};
-    for (final entry in potentials.entries) {
-      final ability = entry.key;
-      final potential = entry.value;
-      
-      // ポテンシャルの85-95%の範囲で能力値を設定
-      final baseValue = (potential * (0.85 + random.nextDouble() * 0.1)).round();
-      
-      // 年齢グループによる微調整
-      int adjustedValue = baseValue;
-      if (ageGroup == 'young') {
-        adjustedValue += random.nextInt(6) - 3; // -3から+2の変動
-      } else if (ageGroup == 'prime') {
-        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
-      } else if (ageGroup == 'veteran') {
-        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
-      } else { // senior
-        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
-      }
-      
-      // 経験レベルによる微調整
-      if (experienceLevel == 'rookie') {
-        adjustedValue += random.nextInt(4) - 2; // -2から+1の変動
-      } else if (experienceLevel == 'developing') {
-        adjustedValue += random.nextInt(3) - 1; // -1から+1の変動
-      } else if (experienceLevel == 'established') {
-        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
-      } else { // mature
-        adjustedValue += random.nextInt(2) - 1; // -1から+0の変動
-      }
-      
-      // 最終的な能力値を設定（ポテンシャル値を超えないように）
-      abilities[ability] = adjustedValue.clamp(25, potential);
-    }
-    
-    return abilities;
+    return AbilityGenerator.generatePhysicalAbilities(talent, position);
   }
-  
+
   // プロ野球選手用の個別ポテンシャル生成（既存メソッドを活用）
   static Map<String, int> _generateProfessionalIndividualPotentials(int talent, String position, String ageGroup) {
-    // 既存の高校生用メソッドを呼び出し
-    final basePotentials = generateIndividualPotentials(talent, position);
-    final random = Random();
-    
-    // 年齢グループによるポテンシャル調整
-    double ageMultiplier;
-    switch (ageGroup) {
-      case 'young':
-        ageMultiplier = 1.0 + random.nextDouble() * 0.1; // 若手：100-110%
-        break;
-      case 'prime':
-        ageMultiplier = 0.95 + random.nextDouble() * 0.1; // 全盛期：95-105%
-        break;
-      case 'veteran':
-        ageMultiplier = 0.9 + random.nextDouble() * 0.1; // ベテラン：90-100%
-        break;
-      case 'senior':
-        ageMultiplier = 0.85 + random.nextDouble() * 0.1; // シニア：85-95%
-        break;
-      default:
-        ageMultiplier = 1.0;
-    }
-    
-    // 各ポテンシャルを年齢に基づいて調整
-    for (final entry in basePotentials.entries) {
-      final baseValue = (entry.value * ageMultiplier).round();
-      basePotentials[entry.key] = baseValue + random.nextInt(11) - 5; // ±5の変動
-    }
-    
-    return basePotentials;
+    return PotentialGenerator.generateIndividualPotentials(talent, position);
   }
-  
+
   // プロ野球選手用のポジション適性生成
   static Map<String, int> _generatePositionFit(String position, Random random) {
-    final fit = <String, int>{};
+    final positionFit = <String, int>{};
     
-    // メインポジションは90-100
-    fit[position] = 90 + random.nextInt(11);
-    
-    // 他のポジションは適度に低く
-    final otherPositions = ['投手', '捕手', '一塁手', '二塁手', '三塁手', '遊撃手', '左翼手', '中堅手', '右翼手'];
-    for (final otherPosition in otherPositions) {
-      if (otherPosition != position) {
-        fit[otherPosition] = 20 + random.nextInt(41); // 20-60
-      }
+    // ポジションに応じた適性を設定
+    switch (position) {
+      case '投手':
+        positionFit['投手'] = 90 + random.nextInt(11); // 90-100
+        positionFit['捕手'] = 20 + random.nextInt(21); // 20-40
+        positionFit['一塁手'] = 30 + random.nextInt(21); // 30-50
+        positionFit['二塁手'] = 20 + random.nextInt(21); // 20-40
+        positionFit['三塁手'] = 20 + random.nextInt(21); // 20-40
+        positionFit['遊撃手'] = 20 + random.nextInt(21); // 20-40
+        positionFit['外野手'] = 20 + random.nextInt(21); // 20-40
+        break;
+      case '捕手':
+        positionFit['投手'] = 20 + random.nextInt(21); // 20-40
+        positionFit['捕手'] = 90 + random.nextInt(11); // 90-100
+        positionFit['一塁手'] = 60 + random.nextInt(21); // 60-80
+        positionFit['二塁手'] = 30 + random.nextInt(21); // 30-50
+        positionFit['三塁手'] = 30 + random.nextInt(21); // 30-50
+        positionFit['遊撃手'] = 20 + random.nextInt(21); // 20-40
+        positionFit['外野手'] = 30 + random.nextInt(21); // 30-50
+        break;
+      default:
+        // 野手の場合
+        positionFit['投手'] = 20 + random.nextInt(21); // 20-40
+        positionFit['捕手'] = 20 + random.nextInt(21); // 20-40
+        positionFit['一塁手'] = 70 + random.nextInt(21); // 70-90
+        positionFit['二塁手'] = 60 + random.nextInt(21); // 60-80
+        positionFit['三塁手'] = 60 + random.nextInt(21); // 60-80
+        positionFit['遊撃手'] = 50 + random.nextInt(21); // 50-70
+        positionFit['外野手'] = 70 + random.nextInt(21); // 70-90
+        break;
     }
     
-    return fit;
+    return positionFit;
   }
-  
+
   // プロ野球選手用の成長タイプを決定
   static String _generateProfessionalGrowthType(Random random) {
-    final types = ['early', 'normal', 'late'];
-    final weights = [20, 60, 20]; // early: 20%, normal: 60%, late: 20%
-    
-    final rand = random.nextInt(100);
-    int cumulativeWeight = 0;
-    
-    for (int i = 0; i < types.length; i++) {
-      cumulativeWeight += weights[i];
-      if (rand < cumulativeWeight) {
-        return types[i];
-      }
-    }
-    
-    return 'normal';
+    final growthTypes = ['早熟', '普通', '晩成', '持続'];
+    return growthTypes[random.nextInt(growthTypes.length)];
   }
-  
 
-
-
-  
   // プロ野球選手用の名前生成
   static String _generateProfessionalPlayerName() {
-    return NameGenerator.generateProfessionalPlayerName();
+    final nameGenerator = NameGenerator();
+    return NameGenerator.generatePlayerName();
   }
-  
-
 }

@@ -1,5 +1,4 @@
 import '../models/school/school.dart';
-import '../utils/name_generator.dart';
 
 /// デフォルトの学校データを提供するクラス
 class DefaultSchoolData {
@@ -93,8 +92,6 @@ class DefaultSchoolData {
         prefecture: prefecture,
         rank: schoolData['rank']!,
         players: [], // 選手は後で生成
-        coachTrust: schoolData['coachTrust']!,
-        coachName: schoolData['coachName']!,
       );
       
       schools.add(school);
@@ -114,18 +111,11 @@ class DefaultSchoolData {
     // 場所の生成
     final location = _generateLocation(prefecture, index);
     
-    // 監督の信頼度（ランクに応じて）
-    final coachTrust = _getCoachTrustByRank(rankDistribution['rank']!);
-    
-    // 監督名の生成
-          final coachName = NameGenerator.generateCoachName(prefecture, index);
     
     return {
       'name': name,
       'location': location,
       'rank': rankDistribution['rank']!,
-      'coachTrust': coachTrust,
-      'coachName': coachName,
     };
   }
 
@@ -209,19 +199,6 @@ class DefaultSchoolData {
     }
   }
 
-  /// ランクに応じた監督の信頼度を取得
-  static int _getCoachTrustByRank(SchoolRank rank) {
-    switch (rank) {
-      case SchoolRank.elite:
-        return 85; // 名門校の監督は高信頼度
-      case SchoolRank.strong:
-        return 70; // 強豪校の監督は中高信頼度
-      case SchoolRank.average:
-        return 55; // 中堅校の監督は中信頼度
-      case SchoolRank.weak:
-        return 40; // 弱小校の監督は低信頼度
-    }
-  }
 
   /// 学校名から略称を生成
   static String _generateShortName(String fullName) {

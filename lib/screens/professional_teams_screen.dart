@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/game/game.dart';
 import '../models/professional/professional_team.dart';
+import '../models/professional/enums.dart';
 import '../services/game_manager.dart';
 import 'team_detail_screen.dart';
 

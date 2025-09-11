@@ -1191,8 +1191,6 @@ class HighSchoolTournamentService {
         prefecture: '不明',
         rank: SchoolRank.weak,
         players: [],
-        coachTrust: 50,
-        coachName: '不明',
       );
     }
     
@@ -1207,8 +1205,6 @@ class HighSchoolTournamentService {
         prefecture: '不明',
         rank: SchoolRank.weak,
         players: [],
-        coachTrust: 50,
-        coachName: '不明',
       );
     }
     

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../professional/professional_team.dart';
+import '../professional/enums.dart';
 import '../professional/team_history.dart';
 import '../professional/professional_player.dart';
 import '../professional/player_stats.dart';

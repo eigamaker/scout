@@ -274,8 +274,6 @@ class _TournamentListWidgetState extends State<TournamentListWidget> {
           prefecture: '不明', 
           rank: SchoolRank.weak, 
           players: [],
-          coachTrust: 50,
-          coachName: '不明'
         ),
       );
       return '優勝校：${championSchool.name}';
@@ -297,8 +295,6 @@ class _TournamentListWidgetState extends State<TournamentListWidget> {
               prefecture: '不明', 
               rank: SchoolRank.weak, 
               players: [],
-              coachTrust: 50,
-              coachName: '不明'
             ),
           )
         : null;
@@ -314,8 +310,6 @@ class _TournamentListWidgetState extends State<TournamentListWidget> {
               prefecture: '不明', 
               rank: SchoolRank.weak, 
               players: [],
-              coachTrust: 50,
-              coachName: '不明'
             ),
           )
         : null;

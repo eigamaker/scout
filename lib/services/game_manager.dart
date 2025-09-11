@@ -2,9 +2,10 @@ import 'dart:math';
 
 import '../models/game/game.dart';
 import '../models/player/player.dart';
-
 import '../models/player/player_abilities.dart';
 import '../models/school/school.dart';
+import '../models/professional/team_manager.dart';
+import '../models/professional/enums.dart';
 
 import 'news_service.dart';
 import 'data_service.dart';
@@ -208,8 +209,6 @@ class GameManager {
       // 今週の試合を実行
       final updatedPennantRace = PennantRaceService.executeWeekGames(
         currentPennantRace,
-        month,
-        week,
         _currentGame!.professionalTeams.teams,
       );
       
@@ -616,7 +615,7 @@ class GameManager {
         weeklyActions: [],
         teamRequests: TeamRequestManager(requests: TeamRequestManager.generateDefaultRequests()),
         newsList: [], // 初期ニュースリストは空
-        professionalTeams: ProfessionalTeamManager(teams: ProfessionalTeamManager.generateDefaultTeams()),
+        professionalTeams: TeamManager(teams: TeamManager.generateDefaultTeams()),
       );
       // 全学校に1〜3年生を生成
       final schoolDataStart = Stopwatch()..start();
@@ -1194,7 +1193,7 @@ class GameManager {
     
     return game.copyWith(
       schools: updatedSchools,
-      professionalTeams: ProfessionalTeamManager(teams: updatedTeams),
+      professionalTeams: TeamManager(teams: updatedTeams),
     );
   }
 
@@ -2992,7 +2991,7 @@ class GameManager {
       
       // チームリストを更新
       _currentGame = _currentGame!.copyWith(
-        professionalTeams: ProfessionalTeamManager(teams: updatedTeams),
+        professionalTeams: TeamManager(teams: updatedTeams),
       );
       
       // デバッグ: 更新後のプロ選手の状態を確認
@@ -3522,7 +3521,7 @@ class GameManager {
         
         if (activePlayers.isEmpty) {
           // 在籍選手がいない場合はデフォルト値
-          final updatedSchool = school.copyWith(coachTrust: 70);
+          final updatedSchool = school.copyWith();
           updatedSchools.add(updatedSchool);
           continue;
         }
@@ -3564,7 +3563,7 @@ class GameManager {
           // エラーが発生しても処理を継続
         }
         
-        final updatedSchool = school.copyWith(coachTrust: schoolStrength);
+        final updatedSchool = school.copyWith();
         updatedSchools.add(updatedSchool);
       }
       
@@ -3632,7 +3631,7 @@ class GameManager {
     }
   }
 
-  /// プロ選手をデータベースから読み込んでメモリに設定
+  /// プロ選手をデータベースから読み込んでメモリに設定（最適化版）
   Future<void> _loadProfessionalPlayersFromDatabase(DataService dataService) async {
     try {
       final stopwatch = Stopwatch()..start();
@@ -3647,139 +3646,148 @@ class GameManager {
         return;
       }
       
-      // 各チームのプロ選手を取得
+      // 全プロ選手を一括取得（JOINクエリで最適化）
+      final playerMaps = await db.rawQuery('''
+        SELECT 
+          p.*,
+          per.name as person_name,
+          per.birth_date,
+          per.gender,
+          per.hometown,
+          per.personality
+        FROM Player p
+        JOIN Person per ON p.person_id = per.id
+        WHERE p.school_id IS NULL AND p.school IS NOT NULL
+        ORDER BY p.school, p.position
+      ''');
+      
+      print('GameManager._loadProfessionalPlayersFromDatabase: ${playerMaps.length}件のプロ選手データを取得');
+      
+      // チーム別にプロ選手を分類
+      final teamPlayersMap = <String, List<Map<String, dynamic>>>{};
+      for (final playerMap in playerMaps) {
+        final school = playerMap['school'] as String?;
+        if (school != null) {
+          if (!teamPlayersMap.containsKey(school)) {
+            teamPlayersMap[school] = [];
+          }
+          teamPlayersMap[school]!.add(playerMap);
+        }
+      }
+      
+      // 各チームのプロ選手を処理
       for (final teamMap in teamMaps) {
         final teamId = teamMap['id'] as String;
         final teamName = teamMap['name'] as String;
         final teamShortName = teamMap['short_name'] as String;
         
         // チームのプロ選手を取得
-        final playerMaps = await db.query(
-          'ProfessionalPlayer',
-          where: 'team_id = ? AND is_active = 1',
-          whereArgs: [teamId],
-        );
-        
+        final teamPlayers = teamPlayersMap[teamName] ?? [];
         final professionalPlayers = <ProfessionalPlayer>[];
         
-        for (final playerMap in playerMaps) {
-          final playerId = playerMap['player_id'] as int;
-          
-          // Playerテーブルから選手の詳細情報を取得
-          final playerDetailMaps = await db.query(
-            'Player',
-            where: 'id = ?',
-            whereArgs: [playerId],
-          );
-          
-          if (playerDetailMaps.isNotEmpty) {
-            final playerDetail = playerDetailMaps.first;
-            
-            // Personテーブルから個人情報を取得
-            final personId = playerDetail['person_id'] as int;
-            final personMaps = await db.query(
-              'Person',
-              where: 'id = ?',
-              whereArgs: [personId],
+        for (final playerMap in teamPlayers) {
+          try {
+            // 既にJOINクエリで取得済みのデータを使用
+            final playerId = playerMap['id'] as int;
+            final personName = playerMap['person_name'] as String;
+            final birthDate = playerMap['birth_date'] as String;
+            final gender = playerMap['gender'] as String;
+            final hometown = playerMap['hometown'] as String;
+            final personality = playerMap['personality'] as String;
+              
+            // Playerオブジェクトを作成
+            final player = Player(
+              id: playerId,
+              name: personName,
+                school: teamName,
+              grade: 0,
+              age: playerMap['age'] as int? ?? 25,
+              position: playerMap['position'] as String,
+              positionFit: _generateProfessionalPositionFit(playerMap['position'] as String? ?? '投手'),
+              fame: playerMap['fame'] as int? ?? 60,
+              isPubliclyKnown: (playerMap['is_publicly_known'] as int? ?? 1) == 1,
+              isScoutFavorite: (playerMap['is_scout_favorite'] as int? ?? 0) == 1,
+              isDiscovered: true,
+              isGraduated: true,
+              isRetired: (playerMap['is_retired'] as int? ?? 0) == 1,
+              isDefaultPlayer: false,
+              growthRate: (playerMap['growth_rate'] as double? ?? 1.0),
+              talent: playerMap['talent'] as int? ?? 3,
+              growthType: playerMap['growth_type'] as String? ?? 'normal',
+              mentalGrit: playerMap['mental_grit'] as double? ?? 0.5,
+              peakAbility: playerMap['peak_ability'] as int? ?? 100,
+              personality: personality,
+              technicalAbilities: {
+                TechnicalAbility.contact: playerMap['contact'] as int? ?? 50,
+                TechnicalAbility.power: playerMap['power'] as int? ?? 50,
+                TechnicalAbility.plateDiscipline: playerMap['plate_discipline'] as int? ?? 50,
+                TechnicalAbility.bunt: playerMap['bunt'] as int? ?? 50,
+                TechnicalAbility.oppositeFieldHitting: playerMap['opposite_field_hitting'] as int? ?? 50,
+                TechnicalAbility.pullHitting: playerMap['pull_hitting'] as int? ?? 50,
+                TechnicalAbility.batControl: playerMap['bat_control'] as int? ?? 50,
+                TechnicalAbility.swingSpeed: playerMap['swing_speed'] as int? ?? 50,
+                TechnicalAbility.fielding: playerMap['fielding'] as int? ?? 50,
+                TechnicalAbility.throwing: playerMap['throwing'] as int? ?? 50,
+                TechnicalAbility.catcherAbility: playerMap['catcher_ability'] as int? ?? 50,
+                TechnicalAbility.control: playerMap['control'] as int? ?? 50,
+                TechnicalAbility.fastball: playerMap['fastball'] as int? ?? 50,
+                TechnicalAbility.breakingBall: playerMap['breaking_ball'] as int? ?? 50,
+                TechnicalAbility.pitchMovement: playerMap['pitch_movement'] as int? ?? 50,
+              },
+              mentalAbilities: {
+                MentalAbility.concentration: playerMap['concentration'] as int? ?? 50,
+                MentalAbility.anticipation: playerMap['anticipation'] as int? ?? 50,
+                MentalAbility.vision: playerMap['vision'] as int? ?? 50,
+                MentalAbility.composure: playerMap['composure'] as int? ?? 50,
+                MentalAbility.aggression: playerMap['aggression'] as int? ?? 50,
+                MentalAbility.bravery: playerMap['bravery'] as int? ?? 50,
+                MentalAbility.leadership: playerMap['leadership'] as int? ?? 50,
+                MentalAbility.workRate: playerMap['work_rate'] as int? ?? 50,
+                MentalAbility.selfDiscipline: playerMap['self_discipline'] as int? ?? 50,
+                MentalAbility.ambition: playerMap['ambition'] as int? ?? 50,
+                MentalAbility.teamwork: playerMap['teamwork'] as int? ?? 50,
+                MentalAbility.positioning: playerMap['positioning'] as int? ?? 50,
+                MentalAbility.pressureHandling: playerMap['pressure_handling'] as int? ?? 50,
+                MentalAbility.clutchAbility: playerMap['clutch_ability'] as int? ?? 50,
+              },
+              physicalAbilities: {
+                PhysicalAbility.acceleration: playerMap['acceleration'] as int? ?? 50,
+                PhysicalAbility.agility: playerMap['agility'] as int? ?? 50,
+                PhysicalAbility.balance: playerMap['balance'] as int? ?? 50,
+                PhysicalAbility.pace: playerMap['pace'] as int? ?? 50,
+                PhysicalAbility.stamina: playerMap['stamina'] as int? ?? 50,
+                PhysicalAbility.strength: playerMap['strength'] as int? ?? 50,
+                PhysicalAbility.flexibility: playerMap['flexibility'] as int? ?? 50,
+                PhysicalAbility.jumpingReach: playerMap['jumping_reach'] as int? ?? 50,
+                PhysicalAbility.naturalFitness: playerMap['natural_fitness'] as int? ?? 50,
+                PhysicalAbility.injuryProneness: playerMap['injury_proneness'] as int? ?? 50,
+              },
             );
             
-            if (personMaps.isNotEmpty) {
-              final personDetail = personMaps.first;
-              
-              // Playerオブジェクトを作成
-              final player = Player(
-                id: playerId,
-                name: personDetail['name'] as String,
-                school: 'プロ野球団',
-                grade: 0,
-                age: playerDetail['age'] as int? ?? 25,
-                position: playerDetail['position'] as String,
-                positionFit: _generateProfessionalPositionFit(playerDetail['position'] as String? ?? '投手'),
-                fame: playerDetail['fame'] as int? ?? 60,
-                isPubliclyKnown: (playerDetail['is_publicly_known'] as int? ?? 1) == 1,
-                isScoutFavorite: (playerDetail['is_scout_favorite'] as int? ?? 0) == 1,
-                isDiscovered: true,
-                isGraduated: true,
-                isRetired: (playerDetail['is_retired'] as int? ?? 0) == 1,
-                isDefaultPlayer: false,
-                growthRate: (playerDetail['growth_rate'] as double? ?? 1.0),
-                talent: playerDetail['talent'] as int? ?? 3,
-                growthType: playerDetail['growth_type'] as String? ?? 'normal',
-                mentalGrit: playerDetail['mental_grit'] as double? ?? 0.5,
-                peakAbility: playerDetail['peak_ability'] as int? ?? 100,
-                personality: personDetail['personality'] as String? ?? '普通',
-                technicalAbilities: {
-                  TechnicalAbility.contact: playerDetail['contact'] as int? ?? 50,
-                  TechnicalAbility.power: playerDetail['power'] as int? ?? 50,
-                  TechnicalAbility.plateDiscipline: playerDetail['plate_discipline'] as int? ?? 50,
-                  TechnicalAbility.bunt: playerDetail['bunt'] as int? ?? 50,
-                  TechnicalAbility.oppositeFieldHitting: playerDetail['opposite_field_hitting'] as int? ?? 50,
-                  TechnicalAbility.pullHitting: playerDetail['pull_hitting'] as int? ?? 50,
-                  TechnicalAbility.batControl: playerDetail['bat_control'] as int? ?? 50,
-                  TechnicalAbility.swingSpeed: playerDetail['swing_speed'] as int? ?? 50,
-                  TechnicalAbility.fielding: playerDetail['fielding'] as int? ?? 50,
-                  TechnicalAbility.throwing: playerDetail['throwing'] as int? ?? 50,
-                  TechnicalAbility.catcherAbility: playerDetail['catcher_ability'] as int? ?? 50,
-                  TechnicalAbility.control: playerDetail['control'] as int? ?? 50,
-                  TechnicalAbility.fastball: playerDetail['fastball'] as int? ?? 50,
-                  TechnicalAbility.breakingBall: playerDetail['breaking_ball'] as int? ?? 50,
-                  TechnicalAbility.pitchMovement: playerDetail['pitch_movement'] as int? ?? 50,
-                },
-                mentalAbilities: {
-                  MentalAbility.concentration: playerDetail['concentration'] as int? ?? 50,
-                  MentalAbility.anticipation: playerDetail['anticipation'] as int? ?? 50,
-                  MentalAbility.vision: playerDetail['vision'] as int? ?? 50,
-                  MentalAbility.composure: playerDetail['composure'] as int? ?? 50,
-                  MentalAbility.aggression: playerDetail['aggression'] as int? ?? 50,
-                  MentalAbility.bravery: playerDetail['bravery'] as int? ?? 50,
-                  MentalAbility.leadership: playerDetail['leadership'] as int? ?? 50,
-                  MentalAbility.workRate: playerDetail['work_rate'] as int? ?? 50,
-                  MentalAbility.selfDiscipline: playerDetail['self_discipline'] as int? ?? 50,
-                  MentalAbility.ambition: playerDetail['ambition'] as int? ?? 50,
-                  MentalAbility.teamwork: playerDetail['teamwork'] as int? ?? 50,
-                  MentalAbility.positioning: playerDetail['positioning'] as int? ?? 50,
-                  MentalAbility.pressureHandling: playerDetail['pressure_handling'] as int? ?? 50,
-                  MentalAbility.clutchAbility: playerDetail['clutch_ability'] as int? ?? 50,
-                },
-                physicalAbilities: {
-                  PhysicalAbility.acceleration: playerDetail['acceleration'] as int? ?? 50,
-                  PhysicalAbility.agility: playerDetail['agility'] as int? ?? 50,
-                  PhysicalAbility.balance: playerDetail['balance'] as int? ?? 50,
-                  PhysicalAbility.pace: playerDetail['pace'] as int? ?? 50,
-                  PhysicalAbility.stamina: playerDetail['stamina'] as int? ?? 50,
-                  PhysicalAbility.strength: playerDetail['strength'] as int? ?? 50,
-                  PhysicalAbility.flexibility: playerDetail['flexibility'] as int? ?? 50,
-                  PhysicalAbility.jumpingReach: playerDetail['jumping_reach'] as int? ?? 50,
-                  PhysicalAbility.naturalFitness: playerDetail['natural_fitness'] as int? ?? 50,
-                  PhysicalAbility.injuryProneness: playerDetail['injury_proneness'] as int? ?? 50,
-                },
-              );
-              
-              // ProfessionalPlayerオブジェクトを作成
-              final professionalPlayer = ProfessionalPlayer(
-                playerId: playerId,
-                teamId: teamId,
-                contractYear: playerMap['contract_year'] as int? ?? 1,
-                salary: playerMap['salary'] as int? ?? 1000,
-                contractType: ContractType.values.firstWhere(
-                  (e) => e.toString().split('.').last == (playerMap['contract_type'] as String? ?? 'regular'),
-                  orElse: () => ContractType.regular,
-                ),
-                draftYear: playerMap['draft_year'] as int? ?? DateTime.now().year - 1,
-                draftRound: playerMap['draft_round'] as int? ?? 1,
-                draftPosition: playerMap['draft_position'] as int? ?? 1,
-                isActive: (playerMap['is_active'] as int? ?? 1) == 1,
-                joinedAt: DateTime.parse(playerMap['joined_at'] as String? ?? DateTime.now().toIso8601String()),
-                leftAt: playerMap['left_at'] != null ? DateTime.parse(playerMap['left_at'] as String) : null,
-                createdAt: DateTime.parse(playerMap['created_at'] as String? ?? DateTime.now().toIso8601String()),
-                updatedAt: DateTime.parse(playerMap['updated_at'] as String? ?? DateTime.now().toIso8601String()),
-                player: player,
-                teamName: teamName,
-                teamShortName: teamShortName,
-              );
-              
-              professionalPlayers.add(professionalPlayer);
-            }
+            // ProfessionalPlayerオブジェクトを作成
+            final professionalPlayer = ProfessionalPlayer(
+              playerId: playerId,
+              teamId: teamId,
+              contractYear: 1, // デフォルト値
+              salary: 1000, // デフォルト値
+              contractType: ContractType.regular, // デフォルト値
+              draftYear: DateTime.now().year - 1, // デフォルト値
+              draftRound: 1, // デフォルト値
+              draftPosition: 1, // デフォルト値
+              isActive: true, // デフォルト値
+              joinedAt: DateTime.now(), // デフォルト値
+              leftAt: null, // デフォルト値
+              createdAt: DateTime.now(), // デフォルト値
+              updatedAt: DateTime.now(), // デフォルト値
+              player: player,
+              teamName: teamName,
+              teamShortName: teamShortName,
+            );
+            
+            professionalPlayers.add(professionalPlayer);
+          } catch (e) {
+            print('プロ選手データの処理でエラー: $e');
+            // エラーが発生しても処理を続行
           }
         }
         

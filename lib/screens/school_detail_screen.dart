@@ -5,7 +5,6 @@ import '../models/player/player.dart';
 import '../screens/player_detail_screen.dart';
 
 import '../services/game_manager.dart';
-import '../services/scouting/action_service.dart';
 import '../models/game/game.dart';
 import '../widgets/player_list_card.dart';
 
@@ -161,9 +160,7 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
                   const SizedBox(height: 16),
                   _buildDetailRow('都道府県', widget.school.prefecture),
                   _buildDetailRow('場所', widget.school.location),
-                  _buildDetailRow('監督', widget.school.coachName),
-                  _buildDetailRow('監督信頼度', '${widget.school.coachTrust}'),
-                                     _buildDetailRow('基本能力値', '${widget.school.getDefaultAbilityValue()}'),
+                  _buildDetailRow('基本能力値', '${widget.school.getDefaultAbilityValue()}'),
                 ],
               ),
             ),

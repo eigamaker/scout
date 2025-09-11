@@ -440,8 +440,6 @@ class TournamentBracketWidget extends StatelessWidget {
           prefecture: '不明',
           rank: SchoolRank.weak,
           players: [],
-          coachTrust: 50,
-          coachName: '不明',
         ),
       );
       return school.shortName;

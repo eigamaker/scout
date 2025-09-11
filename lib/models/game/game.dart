@@ -4,6 +4,8 @@ import '../scouting/scout.dart';
 import '../scouting/team_request.dart';
 import '../news/news_item.dart';
 import '../professional/professional_team.dart';
+import '../professional/team_manager.dart';
+import '../professional/enums.dart';
 import '../game/pennant_race.dart';
 import '../game/high_school_tournament.dart';
 
@@ -81,7 +83,7 @@ class Game {
   final List<GameAction> weeklyActions; // 今週の行動計画
   final TeamRequestManager teamRequests; // 球団からの要望
   final List<NewsItem> newsList; // ニュースリスト
-  final ProfessionalTeamManager professionalTeams; // プロ野球団管理
+  final TeamManager professionalTeams; // プロ野球団管理
   final PennantRace? pennantRace; // ペナントレース
   final List<HighSchoolTournament> highSchoolTournaments; // 高校野球大会
   final bool? hasGradeUpProcessedThisYear; // 今年の学年アップ処理が実行済みか
@@ -426,7 +428,7 @@ class Game {
       weeklyActions: (json['weeklyActions'] as List?)?.map((a) => GameAction.fromJson(a)).toList() ?? [],
       teamRequests: TeamRequestManager(),
       newsList: newsList,
-      professionalTeams: ProfessionalTeamManager(teams: ProfessionalTeamManager.generateDefaultTeams()),
+      professionalTeams: TeamManager(teams: TeamManager.generateDefaultTeams()),
       highSchoolTournaments: (json['highSchoolTournaments'] as List?)?.map((t) => HighSchoolTournament.fromJson(t)).toList() ?? [],
       hasGradeUpProcessedThisYear: json['hasGradeUpProcessedThisYear'] as bool? ?? false,
       hasNewYearProcessedThisYear: json['hasNewYearProcessedThisYear'] as bool? ?? false,
@@ -454,7 +456,7 @@ class Game {
     Map<ScoutSkill, int>? scoutSkills,
     TeamRequestManager? teamRequests,
     List<NewsItem>? newsList,
-    ProfessionalTeamManager? professionalTeams,
+    TeamManager? professionalTeams,
     PennantRace? pennantRace,
     List<HighSchoolTournament>? highSchoolTournaments,
     bool? hasGradeUpProcessedThisYear,

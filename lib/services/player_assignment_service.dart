@@ -154,11 +154,19 @@ class PlayerAssignmentService {
       // バッチ挿入実行
       final db = await _dataService.database;
       await db.transaction((txn) async {
-        // Personテーブルにバッチ挿入
-        await _batchInsertPersons(txn, personDataList);
+        // Personテーブルにバッチ挿入（真のバッチ処理）
+        final personIds = <int>[];
+        for (final personData in personDataList) {
+          final personId = await txn.insert('Person', personData);
+          personIds.add(personId);
+        }
         
-        // Playerテーブルにバッチ挿入
-        final personIds = await _batchInsertPlayers(txn, playerDataList, personDataList.length);
+        // Playerテーブルにバッチ挿入（真のバッチ処理）
+        for (int i = 0; i < playerDataList.length; i++) {
+          final playerData = Map<String, dynamic>.from(playerDataList[i]);
+          playerData['person_id'] = personIds[i];
+          await txn.insert('Player', playerData);
+        }
         
         // 学校の選手リストを更新（IDを設定）
         int playerIndex = 0;
@@ -349,10 +357,24 @@ class PlayerAssignmentService {
                 }
               }
               
-              // バッチ挿入実行
-              await _batchInsertPersons(txn, personDataList);
-              final personIds = await _batchInsertPlayers(txn, playerDataList, personDataList.length);
-              await _batchInsertPotentials(txn, potentialDataList, personIds);
+                  // バッチ挿入実行
+                  final personIds = <int>[];
+                  for (final personData in personDataList) {
+                    final personId = await txn.insert('Person', personData);
+                    personIds.add(personId);
+                  }
+                  
+                  for (int i = 0; i < playerDataList.length; i++) {
+                    final playerData = Map<String, dynamic>.from(playerDataList[i]);
+                    playerData['person_id'] = personIds[i];
+                    await txn.insert('Player', playerData);
+                  }
+                  
+                  for (int i = 0; i < potentialDataList.length && i < personIds.length; i++) {
+                    final potentialData = Map<String, dynamic>.from(potentialDataList[i]);
+                    potentialData['player_id'] = personIds[i];
+                    await txn.insert('PlayerPotentials', potentialData);
+                  }
               
               // 学校の選手リストを更新
               for (int j = 0; j < schoolPlayers.length; j++) {
@@ -376,43 +398,6 @@ class PlayerAssignmentService {
     }
   }
 
-  /// Personテーブルにバッチ挿入
-  Future<void> _batchInsertPersons(Transaction txn, List<Map<String, dynamic>> personDataList) async {
-    if (personDataList.isEmpty) return;
-    
-    for (final personData in personDataList) {
-      await txn.insert('Person', personData);
-    }
-  }
-
-  /// Playerテーブルにバッチ挿入
-  Future<List<int>> _batchInsertPlayers(Transaction txn, List<Map<String, dynamic>> playerDataList, int personCount) async {
-    if (playerDataList.isEmpty) return [];
-    
-    final playerIds = <int>[];
-    
-    for (int i = 0; i < playerDataList.length; i++) {
-      final playerData = Map<String, dynamic>.from(playerDataList[i]);
-      playerData['person_id'] = i + 1; // PersonのIDを設定（簡易版）
-      
-      final playerId = await txn.insert('Player', playerData);
-      playerIds.add(playerId);
-    }
-    
-    return playerIds;
-  }
-
-  /// PlayerPotentialsテーブルにバッチ挿入
-  Future<void> _batchInsertPotentials(Transaction txn, List<Map<String, dynamic>> potentialDataList, List<int> playerIds) async {
-    if (potentialDataList.isEmpty || playerIds.isEmpty) return;
-    
-    for (int i = 0; i < potentialDataList.length && i < playerIds.length; i++) {
-      final potentialData = Map<String, dynamic>.from(potentialDataList[i]);
-      potentialData['player_id'] = playerIds[i];
-      
-      await txn.insert('PlayerPotentials', potentialData);
-    }
-  }
 
   /// ポテンシャルデータを準備
   Map<String, dynamic> _preparePotentialData(Player player) {

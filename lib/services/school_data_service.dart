@@ -1,7 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import '../models/school/school.dart';
-import 'dart:io'; // Stopwatchを使用するために追加
+ // Stopwatchを使用するために追加
 
 /// 学校データのデータベース操作を専門に扱うサービス
 class SchoolDataService {
@@ -33,15 +33,24 @@ class SchoolDataService {
       final dataLines = lines.skip(1).where((line) => line.trim().isNotEmpty).toList();
       print('SchoolDataService.insertSchoolsFromCsv: データ行数: ${dataLines.length}');
       
-      // 事前にデータを準備
+      // 事前にデータを準備（最適化版）
       final dataPrepStart = Stopwatch()..start();
       final List<Map<String, dynamic>> allData = [];
+      final now = DateTime.now().toIso8601String(); // 一度だけ生成
+      
+      // ランク変換マップを事前定義
+      final rankMap = {
+        '名門': SchoolRank.elite.name,
+        '強豪': SchoolRank.strong.name,
+        '中堅': SchoolRank.average.name,
+        '弱小': SchoolRank.weak.name,
+      };
       
       for (final line in dataLines) {
         final fields = line.split(',');
         if (fields.length >= 7) {
           try {
-            // CSVの各フィールドを取得
+            // CSVの各フィールドを取得（trimを最小限に）
             final id = fields[0].trim();
             final name = fields[1].trim();
             final type = fields[2].trim();
@@ -50,24 +59,8 @@ class SchoolDataService {
             final rankStr = fields[5].trim();
             final schoolStrength = int.tryParse(fields[6].trim()) ?? 50;
             
-            // ランクの変換
-            SchoolRank rank;
-            switch (rankStr) {
-              case '名門':
-                rank = SchoolRank.elite;
-                break;
-              case '強豪':
-                rank = SchoolRank.strong;
-                break;
-              case '中堅':
-                rank = SchoolRank.average;
-                break;
-              case '弱小':
-                rank = SchoolRank.weak;
-                break;
-              default:
-                rank = SchoolRank.weak; // デフォルトは弱小
-            }
+            // ランクの変換（マップを使用）
+            final rank = rankMap[rankStr] ?? SchoolRank.weak.name;
             
             // データをリストに追加
             allData.add({
@@ -76,10 +69,10 @@ class SchoolDataService {
               'type': type,
               'location': location,
               'prefecture': prefecture,
-              'rank': rank.name,
+              'rank': rank,
               'school_strength': schoolStrength,
-              'created_at': DateTime.now().toIso8601String(),
-              'updated_at': DateTime.now().toIso8601String(),
+              'created_at': now,
+              'updated_at': now,
             });
           } catch (e) {
             print('CSV行の処理でエラー: $line, エラー: $e');
@@ -92,7 +85,7 @@ class SchoolDataService {
       
       // より効率的なバッチ挿入実行（大きなバッチサイズで分割）
       final insertStart = Stopwatch()..start();
-      const int batchSize = 200; // 200件ずつバッチ処理（より大きなバッチサイズ）
+      const int batchSize = 500; // 500件ずつバッチ処理（より大きなバッチサイズ）
       int totalInserted = 0;
       
       for (int i = 0; i < allData.length; i += batchSize) {
@@ -134,8 +127,6 @@ class SchoolDataService {
         prefecture: map['prefecture'] as String,
         rank: SchoolRank.values.firstWhere((r) => r.name == map['rank']),
         players: [], // 選手は別途取得
-        coachTrust: map['coach_trust'] as int? ?? 50,
-        coachName: map['coach_name'] as String? ?? '未設定',
       )).toList();
     } catch (e) {
       print('学校データの取得でエラー: $e');
@@ -160,8 +151,6 @@ class SchoolDataService {
         prefecture: map['prefecture'] as String,
         rank: SchoolRank.values.firstWhere((r) => r.name == map['rank']),
         players: [], // 選手は別途取得
-        coachTrust: map['coach_trust'] as int? ?? 50,
-        coachName: map['coach_name'] as String? ?? '未設定',
       )).toList();
     } catch (e) {
       print('都道府県別学校データの取得でエラー: $e');
@@ -186,8 +175,6 @@ class SchoolDataService {
         prefecture: map['prefecture'] as String,
         rank: SchoolRank.values.firstWhere((r) => r.name == map['rank']),
         players: [], // 選手は別途取得
-        coachTrust: map['coach_trust'] as int? ?? 50,
-        coachName: map['coach_name'] as String? ?? '未設定',
       )).toList();
     } catch (e) {
       print('ランク別学校データの取得でエラー: $e');

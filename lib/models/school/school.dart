@@ -47,8 +47,6 @@ class School {
   final String prefecture; // 都道府県
   final SchoolRank rank; // 学校ランク
   final List<Player> players;
-  final int coachTrust; // 監督の信頼度 0-100
-  final String coachName;
   
   School({
     required this.id,
@@ -58,8 +56,6 @@ class School {
     required this.prefecture,
     required this.rank,
     required this.players,
-    required this.coachTrust,
-    required this.coachName,
   });
   
   School copyWith({
@@ -70,8 +66,6 @@ class School {
     String? prefecture,
     SchoolRank? rank,
     List<Player>? players,
-    int? coachTrust,
-    String? coachName,
   }) {
     return School(
       id: id ?? this.id,
@@ -81,8 +75,6 @@ class School {
       prefecture: prefecture ?? this.prefecture,
       rank: rank ?? this.rank,
       players: players ?? this.players,
-      coachTrust: coachTrust ?? this.coachTrust,
-      coachName: coachName ?? this.coachName,
     );
   }
 
@@ -144,8 +136,6 @@ class School {
     'prefecture': prefecture,
     'rank': rank.name,
     'players': players.map((p) => p.toJson()).toList(),
-    'coachTrust': coachTrust,
-    'coachName': coachName,
   };
 
   factory School.fromJson(Map<String, dynamic> json) => School(
@@ -156,7 +146,5 @@ class School {
     prefecture: json['prefecture'],
     rank: SchoolRank.values.firstWhere((r) => r.name == json['rank']),
     players: (json['players'] as List).map((p) => Player.fromJson(p)).toList(),
-    coachTrust: json['coachTrust'],
-    coachName: json['coachName'],
   );
 } 

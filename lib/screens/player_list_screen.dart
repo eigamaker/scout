@@ -18,7 +18,7 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -27,30 +27,26 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
     super.dispose();
   }
 
-  // 分類別の選手リストを取得（学校リストと同じ方式）
+  // 分類別の選手リストを取得（重複を許可）
   List<Player> _getPlayersByCategory(List<Player> allPlayers, PlayerCategory category) {
     List<Player> result;
     
     switch (category) {
       case PlayerCategory.favorite:
-        // お気に入り: isScoutFavorite = true
+        // お気に入り: isScoutFavorite = true（他のリストとの重複アリ）
         result = allPlayers.where((player) => player.isScoutFavorite).toList();
         break;
       case PlayerCategory.discovered:
-        // 発掘済み: isDiscovered = true かつ isPubliclyKnown = false（スカウトが視察で発掘した選手のみ）
-        result = allPlayers.where((player) => player.isDiscovered && !player.isPubliclyKnown).toList();
+        // 発掘済み: スカウトアクションを一度でも行った選手（isDiscovered = true または isPubliclyKnown = true）
+        result = allPlayers.where((player) => player.isDiscovered || player.isPubliclyKnown).toList();
         break;
       case PlayerCategory.famous:
-        // 注目選手: isPubliclyKnown = true
+        // 注目選手: 注目度fameの高い選手（isPubliclyKnown = true）
         result = allPlayers.where((player) => player.isPubliclyKnown).toList();
         break;
-      case PlayerCategory.graduated:
-        // 卒業生: isGraduated = true
-        result = allPlayers.where((player) => player.isGraduated).toList();
-        break;
       case PlayerCategory.unknown:
-            // 未発掘: isDiscovered = false かつ isPubliclyKnown = false
-    result = allPlayers.where((player) => !player.isDiscovered && !player.isPubliclyKnown).toList();
+        // 未発掘: スカウトアクションを一度も行っていない選手
+        result = allPlayers.where((player) => !player.isDiscovered && !player.isPubliclyKnown).toList();
         break;
     }
     
@@ -167,10 +163,6 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
               icon: Icon(Icons.star, color: Colors.orange),
               text: '注目選手',
             ),
-            Tab(
-              icon: Icon(Icons.school, color: Colors.purple),
-              text: '卒業生',
-            ),
           ],
         ),
         actions: [
@@ -193,19 +185,13 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
           _buildPlayerList(
             _getSortedPlayers(_getPlayersByCategory(allPlayers, PlayerCategory.discovered)),
             '発掘済み選手',
-            '視察で発掘・分析済みの選手です。詳細な能力値を確認できます。',
+            'スカウトアクションを一度でも行った選手です。詳細な能力値を確認できます。',
           ),
           // 注目選手タブ
           _buildPlayerList(
             _getSortedPlayers(_getPlayersByCategory(allPlayers, PlayerCategory.famous)),
             '注目選手',
-            '知名度が高く世間に知られている選手です。視察で発掘できます。',
-          ),
-          // 卒業生タブ
-          _buildPlayerList(
-            _getSortedPlayers(allPlayers.where((p) => p.isGraduated).toList()),
-            '卒業生',
-            '卒業した選手です。彼らの活躍を振り返ってみましょう。',
+            '注目度が高く世間に知られている選手です。視察で発掘できます。',
           ),
         ],
       ),

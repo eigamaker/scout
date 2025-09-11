@@ -7,12 +7,11 @@ import 'player_abilities.dart';
 // 選手の種類
 enum PlayerType { highSchool, college, social }
 
-// 選手の分類（UI表示用）
+  // 選手の分類（UI表示用）
 enum PlayerCategory {
   favorite,      // お気に入り選手（個人的に気に入っている）
-  discovered,    // 発掘済み選手（視察で発掘・分析済み）
-  famous,        // 注目選手（知名度が高く世間に知られている）
-  graduated,     // 卒業生（卒業した選手）
+  discovered,    // 発掘済み選手（スカウトアクションを一度でも行った選手）
+  famous,        // 注目選手（注目度fameの高い選手）
   unknown,       // 未発掘選手（視察していない）
 }
 
@@ -324,19 +323,14 @@ class Player {
       categories.add(PlayerCategory.favorite);
     }
     
-    // 注目選手の場合は必ず含める
-    if (isPubliclyKnown) {
-      categories.add(PlayerCategory.famous);
-    }
-    
-    // 発掘済みの場合は必ず含める（isDiscoveredフラグまたはisPubliclyKnownフラグがtrueの場合）
+    // 発掘済みの場合は必ず含める（スカウトアクションを一度でも行った選手）
     if (isDiscovered || isPubliclyKnown) {
       categories.add(PlayerCategory.discovered);
     }
     
-    // 卒業生の場合は必ず含める
-    if (isGraduated) {
-      categories.add(PlayerCategory.graduated);
+    // 注目選手の場合は必ず含める（注目度fameが高い選手）
+    if (isPubliclyKnown) {
+      categories.add(PlayerCategory.famous);
     }
     
     // どのカテゴリにも属していない場合は未発掘
@@ -368,8 +362,6 @@ class Player {
         return '発掘済み';
       case PlayerCategory.famous:
         return '注目選手';
-      case PlayerCategory.graduated:
-        return '卒業生';
       case PlayerCategory.unknown:
         return '未発掘';
     }
@@ -381,11 +373,9 @@ class Player {
       case PlayerCategory.favorite:
         return '個人的に気に入っている選手';
       case PlayerCategory.discovered:
-        return '視察で発掘・分析済みの選手';
+        return 'スカウトアクションを一度でも行った選手';
       case PlayerCategory.famous:
-        return '知名度が高く世間に知られている選手';
-      case PlayerCategory.graduated:
-        return '卒業した選手';
+        return '注目度が高く世間に知られている選手';
       case PlayerCategory.unknown:
         return '視察していない未発掘選手';
     }
@@ -400,8 +390,6 @@ class Player {
         return Colors.blue;
       case PlayerCategory.famous:
         return Colors.orange;
-      case PlayerCategory.graduated:
-        return Colors.purple;
       case PlayerCategory.unknown:
         return Colors.grey;
     }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/game_manager.dart';
 import '../models/game/pennant_race.dart';
 import '../models/professional/professional_team.dart';
+import '../models/professional/enums.dart';
 
 class PennantRaceScreen extends StatefulWidget {
   const PennantRaceScreen({super.key});

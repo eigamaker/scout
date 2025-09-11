@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import '../models/game/game.dart';
 import '../models/professional/professional_team.dart';
+import '../models/professional/enums.dart';
 import '../models/professional/depth_chart.dart';
 import '../models/professional/player_stats.dart';
 import '../models/professional/professional_player.dart';

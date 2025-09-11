@@ -6,6 +6,7 @@ import '../services/data_service.dart';
 import '../models/game/game.dart';
 import '../models/game/high_school_tournament.dart';
 import '../models/professional/professional_team.dart';
+import '../models/professional/enums.dart';
 import '../models/school/school.dart';
 import '../models/player/player.dart';
 import '../models/news/news_item.dart';
