@@ -9,9 +9,9 @@ enum PlayerType { highSchool, college, social }
 
   // 選手の分類（UI表示用）
 enum PlayerCategory {
-  favorite,      // お気に入り選手（個人的に気に入っている）
-  discovered,    // 発掘済み選手（スカウトアクションを一度でも行った選手）
-  famous,        // 注目選手（注目度fameの高い選手）
+  favorite,      // お気に入り選手（自分が追いかける選手）
+  scouting,      // スカウティング選手（自分が分析した選手）
+  famous,        // 注目選手（世間一般的に注目されている選手）
   unknown,       // 未発掘選手（視察していない）
 }
 
@@ -323,12 +323,12 @@ class Player {
       categories.add(PlayerCategory.favorite);
     }
     
-    // 発掘済みの場合は必ず含める（スカウトアクションを一度でも行った選手）
-    if (isDiscovered || isPubliclyKnown) {
-      categories.add(PlayerCategory.discovered);
+    // スカウティングの場合は必ず含める（自分が分析した選手）
+    if (isDiscovered) {
+      categories.add(PlayerCategory.scouting);
     }
     
-    // 注目選手の場合は必ず含める（注目度fameが高い選手）
+    // 注目選手の場合は必ず含める（世間一般的に注目されている選手）
     if (isPubliclyKnown) {
       categories.add(PlayerCategory.famous);
     }
@@ -347,7 +347,7 @@ class Player {
     } else if (isPubliclyKnown) {
       return PlayerCategory.famous; // isPubliclyKnownフラグを最優先（注目選手として固定）
     } else if (isDiscovered) {
-      return PlayerCategory.discovered;
+      return PlayerCategory.scouting;
     } else {
       return PlayerCategory.unknown;
     }
@@ -358,8 +358,8 @@ class Player {
     switch (category) {
       case PlayerCategory.favorite:
         return 'お気に入り';
-      case PlayerCategory.discovered:
-        return '発掘済み';
+      case PlayerCategory.scouting:
+        return 'スカウティング';
       case PlayerCategory.famous:
         return '注目選手';
       case PlayerCategory.unknown:
@@ -371,11 +371,11 @@ class Player {
   String get categoryDescription {
     switch (category) {
       case PlayerCategory.favorite:
-        return '個人的に気に入っている選手';
-      case PlayerCategory.discovered:
-        return 'スカウトアクションを一度でも行った選手';
+        return '自分が追いかける選手';
+      case PlayerCategory.scouting:
+        return '自分が分析した選手';
       case PlayerCategory.famous:
-        return '注目度が高く世間に知られている選手';
+        return '世間一般的に注目されている選手';
       case PlayerCategory.unknown:
         return '視察していない未発掘選手';
     }
@@ -386,7 +386,7 @@ class Player {
     switch (category) {
       case PlayerCategory.favorite:
         return Colors.red;
-      case PlayerCategory.discovered:
+      case PlayerCategory.scouting:
         return Colors.blue;
       case PlayerCategory.famous:
         return Colors.orange;

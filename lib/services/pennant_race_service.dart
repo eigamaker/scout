@@ -46,6 +46,7 @@ class PennantRaceService {
       standings[team.id] = TeamStanding(
         teamId: team.id,
         teamName: team.name,
+        teamShortName: team.shortName,
         league: team.league,
         division: team.division,
         wins: 0,
@@ -53,10 +54,8 @@ class PennantRaceService {
         ties: 0,
         winningPercentage: 0.0,
         gamesBehind: 0.0,
-        homeRecord: '0-0',
-        awayRecord: '0-0',
-        runsFor: 0,
-        runsAgainst: 0,
+        runsScored: 0,
+        runsAllowed: 0,
         runDifferential: 0,
       );
     }

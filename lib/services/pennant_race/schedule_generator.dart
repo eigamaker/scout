@@ -125,8 +125,8 @@ class ScheduleGenerator {
         month: month,
         week: week,
         dayOfWeek: dayOfWeek,
-        homeTeamGameType: GameType.regular,
-        awayTeamGameType: GameType.regular,
+        homeTeamGameType: GameType.home,
+        awayTeamGameType: GameType.away,
         isCompleted: false,
       );
       
@@ -202,8 +202,8 @@ class ScheduleGenerator {
           month: month,
           week: week,
           dayOfWeek: dayOfWeek,
-          homeTeamGameType: GameType.regular,
-          awayTeamGameType: GameType.regular,
+          homeTeamGameType: GameType.home,
+          awayTeamGameType: GameType.away,
           isCompleted: false,
         );
         

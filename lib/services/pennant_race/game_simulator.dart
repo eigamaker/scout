@@ -9,7 +9,7 @@ import '../depth_chart_service.dart';
 /// ペナントレースの試合シミュレーションを担当するクラス
 class GameSimulator {
   /// 試合をシミュレート
-  static GameResult _simulateGame(GameSchedule game, List<ProfessionalTeam> teams) {
+  static GameResult simulateGame(GameSchedule game, List<ProfessionalTeam> teams) {
     final homeTeam = teams.firstWhere((t) => t.id == game.homeTeamId);
     final awayTeam = teams.firstWhere((t) => t.id == game.awayTeamId);
     
@@ -109,7 +109,7 @@ class GameSimulator {
   }
 
   /// 順位表を更新
-  static void _updateStandings(Map<String, TeamStanding> standings, GameResult result, List<ProfessionalTeam> teams) {
+  static void updateStandings(Map<String, TeamStanding> standings, GameResult result, List<ProfessionalTeam> teams) {
     final homeTeam = teams.firstWhere((t) => t.id == result.homeTeamId);
     final awayTeam = teams.firstWhere((t) => t.id == result.awayTeamId);
     
@@ -117,19 +117,16 @@ class GameSimulator {
     if (!standings.containsKey(result.homeTeamId)) {
       standings[result.homeTeamId] = TeamStanding(
         teamId: result.homeTeamId,
-        teamName: result.homeTeamName,
+        teamName: homeTeam.name,
+        teamShortName: homeTeam.shortName,
         league: homeTeam.league,
         division: homeTeam.division,
         wins: 0,
         losses: 0,
         ties: 0,
         winningPercentage: 0.0,
-        streak: '0',
-        last10: '0-0',
-        homeRecord: '0-0',
-        awayRecord: '0-0',
-        runsFor: 0,
-        runsAgainst: 0,
+        runsScored: 0,
+        runsAllowed: 0,
         runDifferential: 0,
       );
     }
@@ -138,25 +135,22 @@ class GameSimulator {
     if (!standings.containsKey(result.awayTeamId)) {
       standings[result.awayTeamId] = TeamStanding(
         teamId: result.awayTeamId,
-        teamName: result.awayTeamName,
+        teamName: awayTeam.name,
+        teamShortName: awayTeam.shortName,
         league: awayTeam.league,
         division: awayTeam.division,
         wins: 0,
         losses: 0,
         ties: 0,
         winningPercentage: 0.0,
-        streak: '0',
-        last10: '0-0',
-        homeRecord: '0-0',
-        awayRecord: '0-0',
-        runsFor: 0,
-        runsAgainst: 0,
+        runsScored: 0,
+        runsAllowed: 0,
         runDifferential: 0,
       );
     }
     
-    final homeStanding = standings[result.homeTeamId]!;
-    final awayStanding = standings[result.awayTeamId]!;
+    var homeStanding = standings[result.homeTeamId]!;
+    var awayStanding = standings[result.awayTeamId]!;
     
     // 勝敗を更新
     if (result.homeScore > result.awayScore) {
@@ -175,21 +169,25 @@ class GameSimulator {
     
     // 得点を更新
     homeStanding = homeStanding.copyWith(
-      runsFor: homeStanding.runsFor + result.homeScore,
-      runsAgainst: homeStanding.runsAgainst + result.awayScore,
+      runsScored: homeStanding.runsScored + result.homeScore,
+      runsAllowed: homeStanding.runsAllowed + result.awayScore,
     );
     awayStanding = awayStanding.copyWith(
-      runsFor: awayStanding.runsFor + result.awayScore,
-      runsAgainst: awayStanding.runsAgainst + result.homeScore,
+      runsScored: awayStanding.runsScored + result.awayScore,
+      runsAllowed: awayStanding.runsAllowed + result.homeScore,
     );
     
     // 得失点差を更新
     homeStanding = homeStanding.copyWith(
-      runDifferential: homeStanding.runsFor - homeStanding.runsAgainst,
+      runDifferential: homeStanding.runsScored - homeStanding.runsAllowed,
     );
     awayStanding = awayStanding.copyWith(
-      runDifferential: awayStanding.runsFor - awayStanding.runsAgainst,
+      runDifferential: awayStanding.runsScored - awayStanding.runsAllowed,
     );
+    
+    // 順位表を更新
+    standings[homeStanding.teamId] = homeStanding;
+    standings[awayStanding.teamId] = awayStanding;
     
     // 勝率を更新
     _updateWinningPercentage(homeStanding, standings);
@@ -200,9 +198,15 @@ class GameSimulator {
   static void _updateWinningPercentage(TeamStanding standing, Map<String, TeamStanding> standings) {
     final totalGames = standing.wins + standing.losses + standing.ties;
     if (totalGames > 0) {
-      standing = standing.copyWith(winningPercentage: standing.wins / totalGames);
+      final updatedStanding = standing.copyWith(winningPercentage: standing.wins / totalGames);
+      standings[standing.teamId] = updatedStanding;
     } else {
-      standing = standing.copyWith(winningPercentage: 0.0);
+      final updatedStanding = standing.copyWith(winningPercentage: 0.0);
+      standings[standing.teamId] = updatedStanding;
     }
   }
+
+  /// 試合をシミュレート（プライベートメソッド）
+
+  /// 順位表を更新（プライベートメソッド）
 }

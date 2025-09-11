@@ -33,15 +33,15 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
     
     switch (category) {
       case PlayerCategory.favorite:
-        // お気に入り: isScoutFavorite = true（他のリストとの重複アリ）
+        // お気に入り: 自分が追いかける選手（isScoutFavorite = true）
         result = allPlayers.where((player) => player.isScoutFavorite).toList();
         break;
-      case PlayerCategory.discovered:
-        // 発掘済み: スカウトアクションを一度でも行った選手（isDiscovered = true または isPubliclyKnown = true）
-        result = allPlayers.where((player) => player.isDiscovered || player.isPubliclyKnown).toList();
+      case PlayerCategory.scouting:
+        // スカウティング: 自分が分析した選手（isDiscovered = true）
+        result = allPlayers.where((player) => player.isDiscovered).toList();
         break;
       case PlayerCategory.famous:
-        // 注目選手: 注目度fameの高い選手（isPubliclyKnown = true）
+        // 注目選手: 世間一般的に注目されている選手（isPubliclyKnown = true）
         result = allPlayers.where((player) => player.isPubliclyKnown).toList();
         break;
       case PlayerCategory.unknown:
@@ -157,7 +157,7 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
             ),
             Tab(
               icon: Icon(Icons.search, color: Colors.blue),
-              text: '発掘済み',
+              text: 'スカウティング',
             ),
             Tab(
               icon: Icon(Icons.star, color: Colors.orange),
@@ -179,19 +179,19 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
           _buildPlayerList(
             _getSortedPlayers(_getPlayersByCategory(allPlayers, PlayerCategory.favorite)),
             'お気に入り選手',
-            '個人的に気に入っている選手です。成長をモニタリングできます。',
+            '自分が追いかける選手です。成長をモニタリングできます。',
           ),
-          // 発掘済み選手タブ
+          // スカウティング選手タブ
           _buildPlayerList(
-            _getSortedPlayers(_getPlayersByCategory(allPlayers, PlayerCategory.discovered)),
-            '発掘済み選手',
-            'スカウトアクションを一度でも行った選手です。詳細な能力値を確認できます。',
+            _getSortedPlayers(_getPlayersByCategory(allPlayers, PlayerCategory.scouting)),
+            'スカウティング選手',
+            '自分が分析した選手です。詳細な能力値を確認できます。',
           ),
           // 注目選手タブ
           _buildPlayerList(
             _getSortedPlayers(_getPlayersByCategory(allPlayers, PlayerCategory.famous)),
             '注目選手',
-            '注目度が高く世間に知られている選手です。視察で発掘できます。',
+            '世間一般的に注目されている選手です。視察で発掘できます。',
           ),
         ],
       ),
