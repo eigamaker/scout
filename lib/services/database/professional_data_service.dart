@@ -294,10 +294,43 @@ class ProfessionalDataService {
         }
         
         // Playerテーブルにバッチ挿入
+        final playerIds = <int>[];
         for (int i = 0; i < playerDataList.length; i++) {
           final playerData = Map<String, dynamic>.from(playerDataList[i]);
           playerData['person_id'] = personIds[i];
-          await txn.insert('Player', playerData);
+          final playerId = await txn.insert('Player', playerData);
+          playerIds.add(playerId);
+        }
+        
+        // ProfessionalPlayerテーブルにバッチ挿入
+        int playerIndex = 0;
+        for (final teamMap in teamMaps) {
+          final teamId = teamMap['id'] as String;
+          final positionCounts = {
+            '投手': 12, '捕手': 3, '一塁手': 2, '二塁手': 2, '三塁手': 2,
+            '遊撃手': 2, '左翼手': 2, '中堅手': 2, '右翼手': 2,
+          };
+          
+          for (final entry in positionCounts.entries) {
+            final count = entry.value;
+            for (int i = 0; i < count; i++) {
+              final playerId = playerIds[playerIndex];
+              await txn.insert('ProfessionalPlayer', {
+                'player_id': playerId,
+                'team_id': teamId,
+                'contract_year': 1,
+                'salary': 1000 + Random().nextInt(2000), // 1000-3000万円
+                'contract_type': 'regular',
+                'draft_year': DateTime.now().year - 1,
+                'draft_round': 1,
+                'draft_position': 1,
+                'is_active': 1,
+                'joined_at': DateTime.now().subtract(Duration(days: 365)).toIso8601String(),
+                'left_at': null,
+              });
+              playerIndex++;
+            }
+          }
         }
       });
       

@@ -43,7 +43,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       print('MainMenuScreen._startNewGame: gameManager.currentGame = ${gameManager.currentGame != null ? "loaded" : "null"}');
       if (gameManager.currentGame != null) {
         print('MainMenuScreen._startNewGame: 学校数: ${gameManager.currentGame!.schools.length}');
-        print('MainMenuScreen._startNewGame: 発掘選手数: ${gameManager.currentGame!.discoveredPlayerIds.length}');
+        print('MainMenuScreen._startNewGame: 発掘選手数: ${gameManager.currentGame!.discoveredPlayers.length}');
       }
       
       // Providerの状態を強制的に更新

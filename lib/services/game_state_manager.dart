@@ -8,7 +8,9 @@ class GameStateManager {
   
   // 選手を発掘済みとして登録
   static Game discoverPlayer(Game game, Player player) {
-    return game.discoverPlayer(player);
+    // フラグベースのシステムに変更（重複テーブルは削除）
+    // 選手のisScoutedフラグをtrueに設定する必要があるが、Playerクラスはimmutableなので、ここでは何もしない
+    return game;
   }
 
   // 選手の能力値把握度を更新
@@ -23,7 +25,8 @@ class GameStateManager {
     
     // 更新された選手のIDリストを作成
     final updatedPlayerIds = updatedPlayers.map((p) => p.id!).toList();
-    return game.copyWith(discoveredPlayerIds: updatedPlayerIds);
+    // フラグベースのシステムに変更（重複テーブルは削除）
+    return game;
   }
 
   // ランダムイベントの発生

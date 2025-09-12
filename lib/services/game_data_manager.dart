@@ -83,7 +83,7 @@ class GameDataManager {
         return {
           'timestamp': DateTime.now().millisecondsSinceEpoch,
           'schoolCount': game.schools.length,
-          'discoveredPlayerCount': game.discoveredPlayerIds.length,
+          'discoveredPlayerCount': game.discoveredPlayers.length,
           'currentYear': game.currentYear,
           'currentMonth': game.currentMonth,
           'currentWeekOfMonth': game.currentWeekOfMonth,

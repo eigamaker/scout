@@ -76,14 +76,7 @@ class DataService {
       // 学校データを読み込み
       final schools = await _loadSchoolsFromDatabase(db);
       
-              // 発掘選手IDリストを読み込み
-        final discoveredPlayerIds = await _loadDiscoveredPlayerIdsFromDatabase(db);
-        
-        // 注目選手IDリストを読み込み
-        final watchedPlayerIds = await _loadWatchedPlayerIdsFromDatabase(db);
-        
-        // お気に入り選手IDリストを読み込み
-        final favoritePlayerIds = await _loadFavoritePlayerIdsFromDatabase(db);
+              // フラグベースのシステムに変更（重複テーブルは削除）
       
       // プロ野球データを読み込み
       final professionalTeams = await _loadProfessionalTeamsFromDatabase(db);
@@ -102,9 +95,7 @@ class DataService {
         'experience': gameInfo.first['experience'],
         'level': gameInfo.first['level'],
         'schools': schools,
-        'discoveredPlayerIds': discoveredPlayerIds,
-        'watchedPlayerIds': watchedPlayerIds,
-        'favoritePlayerIds': favoritePlayerIds,
+        // フラグベースのシステムに変更（重複テーブルは削除）
         'professionalTeams': professionalTeams,
       };
       
@@ -149,38 +140,6 @@ class DataService {
     }
   }
 
-  // 発掘選手IDリストをデータベースから読み込み
-  Future<List<int>> _loadDiscoveredPlayerIdsFromDatabase(Database db) async {
-    try {
-      final players = await db.query('DiscoveredPlayer');
-      return players.map((p) => p['player_id'] as int).toList();
-    } catch (e) {
-      print('発掘選手IDリスト読み込みエラー: $e');
-      return [];
-    }
-  }
-
-  // 注目選手IDリストをデータベースから読み込み
-  Future<List<int>> _loadWatchedPlayerIdsFromDatabase(Database db) async {
-    try {
-      final players = await db.query('WatchedPlayer');
-      return players.map((p) => p['player_id'] as int).toList();
-    } catch (e) {
-      print('注目選手IDリスト読み込みエラー: $e');
-      return [];
-    }
-  }
-
-  // お気に入り選手IDリストをデータベースから読み込み
-  Future<List<int>> _loadFavoritePlayerIdsFromDatabase(Database db) async {
-    try {
-      final players = await db.query('FavoritePlayer');
-      return players.map((p) => p['player_id'] as int).toList();
-    } catch (e) {
-      print('お気に入り選手IDリスト読み込みエラー: $e');
-      return [];
-    }
-  }
 
   // プロ野球データをデータベースから読み込み
   Future<Map<String, dynamic>> _loadProfessionalTeamsFromDatabase(Database db) async {
@@ -997,35 +956,6 @@ class DataService {
       )
     ''');
     
-    // DiscoveredPlayerテーブル（発掘選手ID）
-    await db.execute('''
-      CREATE TABLE DiscoveredPlayer (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        player_id INTEGER NOT NULL,
-        discovered_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (player_id) REFERENCES Player (id)
-      )
-    ''');
-    
-    // WatchedPlayerテーブル（注目選手ID）
-    await db.execute('''
-      CREATE TABLE WatchedPlayer (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        player_id INTEGER NOT NULL,
-        watched_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (player_id) REFERENCES Player (id)
-      )
-    ''');
-    
-    // FavoritePlayerテーブル（お気に入り選手ID）
-    await db.execute('''
-      CREATE TABLE FavoritePlayer (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        player_id INTEGER NOT NULL,
-        favorited_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (player_id) REFERENCES Player (id)
-      )
-    ''');
     
     // スカウトレポートテーブル（スカウトレポート）
     await db.execute('''
@@ -1055,9 +985,6 @@ class DataService {
 
     // 追加のインデックス
     await db.execute('CREATE INDEX idx_game_info_timestamp ON GameInfo(timestamp)');
-    await db.execute('CREATE INDEX idx_discovered_player_id ON DiscoveredPlayer(player_id)');
-    await db.execute('CREATE INDEX idx_watched_player_id ON WatchedPlayer(player_id)');
-    await db.execute('CREATE INDEX idx_favorite_player_id ON FavoritePlayer(player_id)');
     await db.execute('CREATE INDEX idx_scout_reports_player_id ON scout_reports(player_id)');
     await db.execute('CREATE INDEX idx_scout_reports_scout_id ON scout_reports(scout_id)');
   }
@@ -1436,13 +1363,15 @@ class DataService {
             'team_id': teamId,
             'contract_year': 1,
             'salary': 1000 + (talent * 200) + random.nextInt(500), // 1000-2500万円
-            'contract_type': 'regular',
+            'contract_type': 0, // ContractType.regular
             'draft_year': DateTime.now().year - 1,
             'draft_round': 1,
             'draft_position': 1,
             'is_active': 1,
             'joined_at': DateTime.now().subtract(Duration(days: 365)).toIso8601String(),
             'left_at': null,
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
           });
           
           // 総合能力値指標の計算・更新は不要（高校野球選手と同様）
@@ -2166,20 +2095,7 @@ class DataService {
           await _saveSchoolsInBatches(txn, data['schools'] as List);
         }
         
-        // 発掘選手IDリストを保存
-        if (data['discoveredPlayerIds'] != null) {
-          await _saveDiscoveredPlayerIdsInBatches(txn, (data['discoveredPlayerIds'] as List).cast<int>());
-        }
-
-        // 注目選手IDリストを保存
-        if (data['watchedPlayerIds'] != null) {
-          await _saveWatchedPlayerIdsInBatches(txn, (data['watchedPlayerIds'] as List).cast<int>());
-        }
-
-        // お気に入り選手IDリストを保存
-        if (data['favoritePlayerIds'] != null) {
-          await _saveFavoritePlayerIdsInBatches(txn, (data['favoritePlayerIds'] as List).cast<int>());
-        }
+        // フラグベースのシステムに変更（重複テーブルは削除）
         
         // プロ野球データを保存
         if (data['professionalTeams'] != null) {
@@ -2242,9 +2158,10 @@ class DataService {
     final schoolId = await txn.insert('School', {
       'name': school['name'] ?? '',
       'type': school['type'] ?? 'high_school',
-      'region': school['region'] ?? '',
-      'level': school['level'] ?? 1,
-      'reputation': school['reputation'] ?? 0,
+      'location': school['location'] ?? '',
+      'prefecture': school['prefecture'] ?? '',
+      'rank': school['rank'] ?? 'average',
+      'school_strength': school['school_strength'] ?? 50,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
     
     return schoolId;
@@ -2264,13 +2181,13 @@ class DataService {
         // 必要最小限の情報のみ保存
         await txn.insert('Player', {
           'id': player['id'],
-          'name': player['name'] ?? '',
+          'person_id': player['person_id'],
           'position': player['position'] ?? '',
           'age': player['age'] ?? 0,
           'grade': player['grade'] ?? 1,
-          'isGraduated': player['isGraduated'] ?? false ? 1 : 0,
-          'isRetired': player['isRetired'] ?? false ? 1 : 0,
-          'school': schoolId,
+          'is_graduated': player['isGraduated'] ?? false ? 1 : 0,
+          'is_retired': player['isRetired'] ?? false ? 1 : 0,
+          'school_id': schoolId,
           'fame': player['fame'] ?? 0,
           'growth_rate': player['growth_rate'] ?? 0,
           'talent': player['talent'] ?? 0,
@@ -2282,62 +2199,6 @@ class DataService {
     }
   }
   
-  /// 発掘選手IDリストをバッチ処理で保存（最適化版）
-  Future<void> _saveDiscoveredPlayerIdsInBatches(Transaction txn, List<int> playerIds) async {
-    const batchSize = 5000; // バッチサイズを最適化（100 → 5000）
-    
-    for (int i = 0; i < playerIds.length; i += batchSize) {
-      final end = (i + batchSize < playerIds.length) ? i + batchSize : playerIds.length;
-      final batch = playerIds.sublist(i, end);
-      
-      for (final playerId in batch) {
-        await txn.insert('DiscoveredPlayer', {
-          'player_id': playerId,
-          'discovered_at': DateTime.now().millisecondsSinceEpoch,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
-      }
-      
-      print('発掘選手IDリストバッチ処理完了: ${i + 1}-$end / ${playerIds.length}');
-    }
-  }
-
-  /// 注目選手IDリストをバッチ処理で保存（最適化版）
-  Future<void> _saveWatchedPlayerIdsInBatches(Transaction txn, List<int> playerIds) async {
-    const batchSize = 5000; // バッチサイズを最適化（100 → 5000）
-    
-    for (int i = 0; i < playerIds.length; i += batchSize) {
-      final end = (i + batchSize < playerIds.length) ? i + batchSize : playerIds.length;
-      final batch = playerIds.sublist(i, end);
-      
-      for (final playerId in batch) {
-        await txn.insert('WatchedPlayer', {
-          'player_id': playerId,
-          'watched_at': DateTime.now().millisecondsSinceEpoch,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
-      }
-      
-      print('注目選手IDリストバッチ処理完了: ${i + 1}-$end / ${playerIds.length}');
-    }
-  }
-
-  /// お気に入り選手IDリストをバッチ処理で保存（最適化版）
-  Future<void> _saveFavoritePlayerIdsInBatches(Transaction txn, List<int> playerIds) async {
-    const batchSize = 5000; // バッチサイズを最適化（100 → 5000）
-    
-    for (int i = 0; i < playerIds.length; i += batchSize) {
-      final end = (i + batchSize < playerIds.length) ? i + batchSize : playerIds.length;
-      final batch = playerIds.sublist(i, end);
-      
-      for (final playerId in batch) {
-        await txn.insert('FavoritePlayer', {
-          'player_id': playerId,
-          'favorited_at': DateTime.now().millisecondsSinceEpoch,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
-      }
-      
-      print('お気に入り選手IDリストバッチ処理完了: ${i + 1}-$end / ${playerIds.length}');
-    }
-  }
   
   /// プロ野球データを保存
   Future<void> _saveProfessionalData(Transaction txn, List teams) async {

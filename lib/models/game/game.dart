@@ -71,9 +71,7 @@ class Game {
   final int currentWeekOfMonth; // 現在の月内の週（1-4）
   final GameState state; // ゲーム状態
   final List<School> schools; // 学校リスト
-  final List<int> discoveredPlayerIds; // 発掘した選手IDリスト（重複排除）
-  final List<int> watchedPlayerIds; // 注目選手IDリスト（重複排除）
-  final List<int> favoritePlayerIds; // お気に入り選手IDリスト（重複排除）
+  // フラグベースのシステムに変更（重複テーブルは削除）
   final int ap; // 今週のアクションポイント
   final int budget; // 予算
   final Map<ScoutSkill, int> scoutSkills; // スカウトスキル
@@ -97,9 +95,7 @@ class Game {
     required this.currentWeekOfMonth,
     required this.state,
     required this.schools,
-    required this.discoveredPlayerIds,
-    required this.watchedPlayerIds,
-    required this.favoritePlayerIds,
+    // フラグベースのシステムに変更（重複テーブルは削除）
     required this.ap,
     required this.budget,
     required this.scoutSkills,
@@ -146,60 +142,8 @@ class Game {
     );
   }
   
-  // 選手を発掘
-  Game discoverPlayer(Player player) {
-    if (player.id == null) return this;
-    
-    final newDiscoveredPlayerIds = List<int>.from(discoveredPlayerIds);
-    if (!newDiscoveredPlayerIds.contains(player.id!)) {
-      newDiscoveredPlayerIds.add(player.id!);
-    }
-    
-    return copyWith(
-      discoveredPlayerIds: newDiscoveredPlayerIds,
-      experience: experience + 10, // 発掘で経験値獲得
-    );
-  }
-  
-  // 選手を注目に追加
-  Game addWatchedPlayer(Player player) {
-    if (player.id == null) return this;
-    
-    final newWatchedPlayerIds = List<int>.from(watchedPlayerIds);
-    if (!newWatchedPlayerIds.contains(player.id!)) {
-      newWatchedPlayerIds.add(player.id!);
-    }
-    
-    return copyWith(watchedPlayerIds: newWatchedPlayerIds);
-  }
-  
-  // 選手を注目から削除
-  Game removeWatchedPlayer(Player player) {
-    if (player.id == null) return this;
-    
-    final newWatchedPlayerIds = watchedPlayerIds.where((id) => id != player.id).toList();
-    return copyWith(watchedPlayerIds: newWatchedPlayerIds);
-  }
-  
-  // 選手をお気に入りに追加
-  Game addFavoritePlayer(Player player) {
-    if (player.id == null) return this;
-    
-    final newFavoritePlayerIds = List<int>.from(favoritePlayerIds);
-    if (!newFavoritePlayerIds.contains(player.id!)) {
-      newFavoritePlayerIds.add(player.id!);
-    }
-    
-    return copyWith(favoritePlayerIds: newFavoritePlayerIds);
-  }
-  
-  // 選手をお気に入りから削除
-  Game removeFavoritePlayer(Player player) {
-    if (player.id == null) return this;
-    
-    final newFavoritePlayerIds = favoritePlayerIds.where((id) => id != player.id).toList();
-    return copyWith(favoritePlayerIds: newFavoritePlayerIds);
-  }
+  // フラグベースのシステムに変更（重複テーブルは削除）
+  // 選手のフラグはPlayerクラス内で管理
   
   // 予算を変更
   Game changeBudget(int amount) {
@@ -273,67 +217,38 @@ class Game {
     
     // 未発掘の選手のみを返す
     return allPlayers.where((player) => 
-      player.id != null && !discoveredPlayerIds.contains(player.id)
+      !player.isScouted
     ).toList();
   }
   
-  // 注目選手の更新
-  List<Player> getUpdatedWatchedPlayers() {
-    final updatedPlayers = <Player>[];
-    
-    for (final watchedPlayerId in watchedPlayerIds) {
-      // 学校から最新の選手情報を取得
-      for (final school in schools) {
-        final players = school.players.where((p) => p.id == watchedPlayerId);
-        if (players.isNotEmpty) {
-          updatedPlayers.add(players.first);
-        }
-      }
-    }
-    
-    return updatedPlayers;
-  }
-
-  // 注目選手リストを取得
+  // 注目選手リストを取得（フラグベース）
   List<Player> get watchedPlayers {
-    final players = <Player>[];
-    for (final watchedPlayerId in watchedPlayerIds) {
-      for (final school in schools) {
-        final player = school.players.where((p) => p.id == watchedPlayerId);
-        if (player.isNotEmpty) {
-          players.add(player.first);
-        }
-      }
+    final allPlayers = <Player>[];
+    for (final school in schools) {
+      allPlayers.addAll(school.players);
     }
-    return players;
+    
+    return allPlayers.where((player) => player.isFamous).toList();
   }
 
-  // お気に入り選手リストを取得
+  // お気に入り選手リストを取得（フラグベース）
   List<Player> get favoritePlayers {
-    final players = <Player>[];
-    for (final favoritePlayerId in favoritePlayerIds) {
-      for (final school in schools) {
-        final player = school.players.where((p) => p.id == favoritePlayerId);
-        if (player.isNotEmpty) {
-          players.add(player.first);
-        }
-      }
+    final allPlayers = <Player>[];
+    for (final school in schools) {
+      allPlayers.addAll(school.players);
     }
-    return players;
+    
+    return allPlayers.where((player) => player.isScoutFavorite).toList();
   }
 
-  // 発掘選手リストを取得
+  // 発掘選手リストを取得（フラグベース）
   List<Player> get discoveredPlayers {
-    final players = <Player>[];
-    for (final discoveredPlayerId in discoveredPlayerIds) {
-      for (final school in schools) {
-        final player = school.players.where((p) => p.id == discoveredPlayerId);
-        if (player.isNotEmpty) {
-          players.add(player.first);
-        }
-      }
+    final allPlayers = <Player>[];
+    for (final school in schools) {
+      allPlayers.addAll(school.players);
     }
-    return players;
+    
+    return allPlayers.where((player) => player.isScouted).toList();
   }
 
   // 週初にAP/予算をリセット
@@ -369,9 +284,7 @@ class Game {
     'currentWeekOfMonth': currentWeekOfMonth,
     'state': state.index,
     'schools': schools.map((s) => s.toJson()).toList(),
-    'discoveredPlayerIds': discoveredPlayerIds,
-    'watchedPlayerIds': watchedPlayerIds,
-    'favoritePlayerIds': favoritePlayerIds,
+    // フラグベースのシステムに変更（重複テーブルは削除）
     'budget': budget,
     'reputation': reputation,
     'experience': experience,
@@ -416,9 +329,7 @@ class Game {
       currentWeekOfMonth: json['currentWeekOfMonth'] ?? 1,
       state: GameState.values[(json['state'] ?? 0)],
       schools: (json['schools'] as List?)?.map((s) => School.fromJson(s)).toList() ?? [],
-      discoveredPlayerIds: (json['discoveredPlayerIds'] as List?)?.cast<int>() ?? [],
-      watchedPlayerIds: (json['watchedPlayerIds'] as List?)?.cast<int>() ?? [],
-      favoritePlayerIds: (json['favoritePlayerIds'] as List?)?.cast<int>() ?? [],
+      // フラグベースのシステムに変更（重複テーブルは削除）
       ap: json['ap'] ?? 6,
       budget: json['budget'] ?? 1000000,
       scoutSkills: scoutSkills,
@@ -444,9 +355,7 @@ class Game {
     int? currentWeekOfMonth,
     GameState? state,
     List<School>? schools,
-    List<int>? discoveredPlayerIds,
-    List<int>? watchedPlayerIds,
-    List<int>? favoritePlayerIds,
+    // フラグベースのシステムに変更（重複テーブルは削除）
     int? budget,
     int? reputation,
     int? experience,
@@ -470,9 +379,7 @@ class Game {
       currentWeekOfMonth: currentWeekOfMonth ?? this.currentWeekOfMonth,
       state: state ?? this.state,
       schools: schools ?? this.schools,
-      discoveredPlayerIds: discoveredPlayerIds ?? this.discoveredPlayerIds,
-      watchedPlayerIds: watchedPlayerIds ?? this.watchedPlayerIds,
-      favoritePlayerIds: favoritePlayerIds ?? this.favoritePlayerIds,
+      // フラグベースのシステムに変更（重複テーブルは削除）
       budget: budget ?? this.budget,
       reputation: reputation ?? this.reputation,
       experience: experience ?? this.experience,

@@ -73,10 +73,10 @@ class Player {
   // final int workEthicAbility; // 仕事への取り組み（能力値）
   
   // 総合能力値
-  final int overall; // 総合能力値
-  final int technical; // 技術面総合
-  final int physical; // フィジカル面総合
-  final int mental; // メンタル面総合
+  int overall; // 総合能力値
+  int technical; // 技術面総合
+  int physical; // フィジカル面総合
+  int mental; // メンタル面総合
   
   // スカウト分析データ（UIで表示される能力値）
   final Map<String, int>? scoutAnalysisData; // スカウトが分析した能力値

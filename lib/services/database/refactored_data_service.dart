@@ -313,9 +313,10 @@ class RefactoredDataService {
     final schoolId = await txn.insert('School', {
       'name': school['name'] ?? '',
       'type': school['type'] ?? 'high_school',
-      'region': school['region'] ?? '',
-      'level': school['level'] ?? 1,
-      'reputation': school['reputation'] ?? 0,
+      'location': school['location'] ?? '',
+      'prefecture': school['prefecture'] ?? '',
+      'rank': school['rank'] ?? 'average',
+      'school_strength': school['school_strength'] ?? 50,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
     
     return schoolId;
@@ -334,13 +335,13 @@ class RefactoredDataService {
         
         await txn.insert('Player', {
           'id': player['id'],
-          'name': player['name'] ?? '',
+          'person_id': player['person_id'],
           'position': player['position'] ?? '',
           'age': player['age'] ?? 0,
           'grade': player['grade'] ?? 1,
-          'isGraduated': player['isGraduated'] ?? false ? 1 : 0,
-          'isRetired': player['isRetired'] ?? false ? 1 : 0,
-          'school': schoolId,
+          'is_graduated': player['isGraduated'] ?? false ? 1 : 0,
+          'is_retired': player['isRetired'] ?? false ? 1 : 0,
+          'school_id': schoolId,
           'fame': player['fame'] ?? 0,
           'growth_rate': player['growth_rate'] ?? 0,
           'talent': player['talent'] ?? 0,

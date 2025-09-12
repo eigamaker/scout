@@ -122,10 +122,35 @@ class GrowthService {
       physicalAbilities: updatedPhysicalAbilities,
     );
     
+    // 成長後の総合能力値を再計算
+    _updatePlayerOverallAbilities(grownPlayer);
+    
     return grownPlayer;
   }
 
-
+  /// 選手の総合能力値を更新
+  static void _updatePlayerOverallAbilities(Player player) {
+    // 技術面、メンタル面、フィジカル面の平均を計算
+    final technicalAvg = player.technicalAbilities.values.reduce((a, b) => a + b) / player.technicalAbilities.length;
+    final mentalAvg = player.mentalAbilities.values.reduce((a, b) => a + b) / player.mentalAbilities.length;
+    final physicalAvg = player.physicalAbilities.values.reduce((a, b) => a + b) / player.physicalAbilities.length;
+    
+    // ポジション別の重み付けで総合能力値を計算
+    int overall;
+    if (player.position == '投手') {
+      // 投手: 技術50%、精神30%、身体20%
+      overall = ((technicalAvg * 0.5) + (mentalAvg * 0.3) + (physicalAvg * 0.2)).round();
+    } else {
+      // 野手: 技術40%、精神25%、身体35%
+      overall = ((technicalAvg * 0.4) + (mentalAvg * 0.25) + (physicalAvg * 0.35)).round();
+    }
+    
+    // 選手の総合能力値を更新
+    player.overall = overall;
+    player.technical = technicalAvg.round();
+    player.mental = mentalAvg.round();
+    player.physical = physicalAvg.round();
+  }
 
   // 能力値の成長計算
   static Map<T, int> _growAbilities<T>(

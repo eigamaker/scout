@@ -397,35 +397,6 @@ class DatabaseSchemaService {
         )
       ''');
       
-      // DiscoveredPlayerテーブル（発掘選手ID）
-      await db.execute('''
-        CREATE TABLE DiscoveredPlayer (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          player_id INTEGER NOT NULL,
-          discovered_at TEXT DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (player_id) REFERENCES Player (id)
-        )
-      ''');
-      
-      // WatchedPlayerテーブル（注目選手ID）
-      await db.execute('''
-        CREATE TABLE WatchedPlayer (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          player_id INTEGER NOT NULL,
-          watched_at TEXT DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (player_id) REFERENCES Player (id)
-        )
-      ''');
-      
-      // FavoritePlayerテーブル（お気に入り選手ID）
-      await db.execute('''
-        CREATE TABLE FavoritePlayer (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          player_id INTEGER NOT NULL,
-          favorited_at TEXT DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (player_id) REFERENCES Player (id)
-        )
-      ''');
       
       // スカウトレポートテーブル（スカウトレポート）
       await db.execute('''
@@ -482,9 +453,6 @@ class DatabaseSchemaService {
       
       // 追加のインデックス
       await db.execute('CREATE INDEX idx_game_info_timestamp ON GameInfo(timestamp)');
-      await db.execute('CREATE INDEX idx_discovered_player_id ON DiscoveredPlayer(player_id)');
-      await db.execute('CREATE INDEX idx_watched_player_id ON WatchedPlayer(player_id)');
-      await db.execute('CREATE INDEX idx_favorite_player_id ON FavoritePlayer(player_id)');
       await db.execute('CREATE INDEX idx_scout_reports_player_id ON scout_reports(player_id)');
       await db.execute('CREATE INDEX idx_scout_reports_scout_id ON scout_reports(scout_id)');
       

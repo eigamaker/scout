@@ -737,11 +737,21 @@ class TalentedPlayerGenerator {
     final mentalAvg = player.mentalAbilities.values.reduce((a, b) => a + b) / player.mentalAbilities.length;
     final physicalAvg = player.physicalAbilities.values.reduce((a, b) => a + b) / player.physicalAbilities.length;
     
-    // 総合能力値は3つの平均の平均
-    final overallAvg = (technicalAvg + mentalAvg + physicalAvg) / 3;
+    // ポジション別の重み付けで総合能力値を計算
+    int overall;
+    if (player.position == '投手') {
+      // 投手: 技術50%、精神30%、身体20%
+      overall = ((technicalAvg * 0.5) + (mentalAvg * 0.3) + (physicalAvg * 0.2)).round();
+    } else {
+      // 野手: 技術40%、精神25%、身体35%
+      overall = ((technicalAvg * 0.4) + (mentalAvg * 0.25) + (physicalAvg * 0.35)).round();
+    }
     
-    // 選手の総合能力値を更新（実際の実装ではPlayerクラスにsetterが必要）
-    // print('選手 ${player.name} の総合能力値: ${overallAvg.toStringAsFixed(1)}');
+    // 選手の総合能力値を更新
+    player.overall = overall;
+    player.technical = technicalAvg.round();
+    player.mental = mentalAvg.round();
+    player.physical = physicalAvg.round();
   }
 
   /// 総合ポテンシャル値を計算

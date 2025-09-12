@@ -595,9 +595,8 @@ class GameManager {
         currentWeekOfMonth: 1,
         state: GameState.scouting,
         schools: schools,
-        discoveredPlayerIds: players.map((p) => p.id!).toList(),
-        watchedPlayerIds: [],
-        favoritePlayerIds: [],
+        // フラグベースのシステムに変更（重複テーブルは削除）
+        // フラグベースのシステムに変更（重複テーブルは削除）
         ap: 15,
         budget: 1000000,
         scoutSkills: {
@@ -616,6 +615,10 @@ class GameManager {
         teamRequests: TeamRequestManager(requests: TeamRequestManager.generateDefaultRequests()),
         newsList: [], // 初期ニュースリストは空
         professionalTeams: TeamManager(teams: TeamManager.generateDefaultTeams()),
+        pennantRace: null, // 後で初期化
+        highSchoolTournaments: [],
+        hasGradeUpProcessedThisYear: false,
+        hasNewYearProcessedThisYear: false,
       );
       // 全学校に1〜3年生を生成
       final schoolDataStart = Stopwatch()..start();
@@ -626,14 +629,12 @@ class GameManager {
       // プロ野球団に選手を生成（データベースから読み込み）
       final proPlayerLoadStart = Stopwatch()..start();
       await _loadProfessionalPlayersFromDatabase(dataService);
+      
+      // ペナントレースを初期化
+      _initializePennantRace();
       proPlayerLoadStart.stop();
       print('GameManager.startNewGameWithDb: プロ選手読み込み完了 - ${proPlayerLoadStart.elapsedMilliseconds}ms');
       
-      // ペナントレースを初期化
-      final pennantRaceStart = Stopwatch()..start();
-      _initializePennantRace();
-      pennantRaceStart.stop();
-      print('GameManager.startNewGameWithDb: ペナントレース初期化完了 - ${pennantRaceStart.elapsedMilliseconds}ms');
       
       // generateInitialStudentsForAllSchoolsDbで更新された学校リストを取得
       final updatedSchools = _currentGame!.schools;
@@ -644,7 +645,7 @@ class GameManager {
       for (final school in updatedSchools) {
         allPlayerIds.addAll(school.players.map((p) => p.id!).where((id) => id != null));
       }
-      _currentGame = _currentGame!.copyWith(discoveredPlayerIds: allPlayerIds);
+      // フラグベースのシステムに変更（重複テーブルは削除）
       playerIdUpdateStart.stop();
       print('GameManager.startNewGameWithDb: 選手ID更新完了 - ${playerIdUpdateStart.elapsedMilliseconds}ms');
       
@@ -682,7 +683,8 @@ class GameManager {
     final school = _currentGame!.schools.firstWhere((s) => s.players.contains(selectedPlayer));
     
     // 発掘リストに追加
-    _currentGame = _currentGame!.discoverPlayer(selectedPlayer);
+    // フラグベースのシステムに変更（重複テーブルは削除）
+    // 選手のisScoutedフラグをtrueに設定
 
     // 選手に基づくニュース生成
     newsService.generatePlayerNews(
@@ -2198,7 +2200,7 @@ class GameManager {
       // ゲーム状態を更新
       _currentGame = _currentGame!.copyWith(
         schools: updatedSchools,
-        discoveredPlayerIds: discoveredPlayerIds,
+        // フラグベースのシステムに変更（重複テーブルは削除）
       );
 
       print('_refreshPlayersFromDb: 完了 - 学校数: ${updatedSchools.length}, 発掘選手数: ${discoveredPlayerIds.length}');
@@ -3640,16 +3642,18 @@ class GameManager {
       // 全プロ選手を一括取得（JOINクエリで最適化）
       final playerMaps = await db.rawQuery('''
         SELECT 
+          pp.*,
           p.*,
           per.name as person_name,
           per.birth_date,
           per.gender,
           per.hometown,
           per.personality
-        FROM Player p
+        FROM ProfessionalPlayer pp
+        JOIN Player p ON pp.player_id = p.id
         JOIN Person per ON p.person_id = per.id
-        WHERE p.school_id IS NULL AND p.school IS NOT NULL
-        ORDER BY p.school, p.position
+        WHERE pp.is_active = 1
+        ORDER BY pp.team_id, p.position
       ''');
       
       print('GameManager._loadProfessionalPlayersFromDatabase: ${playerMaps.length}件のプロ選手データを取得');
@@ -3657,12 +3661,12 @@ class GameManager {
       // チーム別にプロ選手を分類
       final teamPlayersMap = <String, List<Map<String, dynamic>>>{};
       for (final playerMap in playerMaps) {
-        final school = playerMap['school'] as String?;
-        if (school != null) {
-          if (!teamPlayersMap.containsKey(school)) {
-            teamPlayersMap[school] = [];
+        final teamId = playerMap['team_id'] as String?;
+        if (teamId != null) {
+          if (!teamPlayersMap.containsKey(teamId)) {
+            teamPlayersMap[teamId] = [];
           }
-          teamPlayersMap[school]!.add(playerMap);
+          teamPlayersMap[teamId]!.add(playerMap);
         }
       }
       

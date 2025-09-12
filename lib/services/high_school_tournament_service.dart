@@ -144,15 +144,15 @@ class HighSchoolTournamentService {
     var allGames = List<TournamentGame>.from(tournament.games);
     
     // 今週の試合を実行
-    for (int j = 0; j < allGames.length; j++) {
-      final g = allGames[j];
+      for (int j = 0; j < allGames.length; j++) {
+        final g = allGames[j];
       if (g.month == month && g.week == week && !g.isCompleted) {
         
-        final r = _simulateGame(g, schools);
+          final r = _simulateGame(g, schools);
         final cg = g.completeTournamentGame(r);
-        allGames[j] = cg;
-        newCompletedGames.add(cg);
-        _updateStandings(newStandings, r, schools);
+          allGames[j] = cg;
+          newCompletedGames.add(cg);
+          _updateStandings(newStandings, r, schools);
         newEliminatedSchools.add(r.loserSchoolId);
       }
     }
@@ -462,20 +462,20 @@ class HighSchoolTournamentService {
     
     // 1回戦の組み合わせ（16試合）
     for (int i = 0; i < 32; i += 2) {
-      final game = TournamentGame(
+            final game = TournamentGame(
         id: 'game_${month}_${week}_firstRound_${i ~/ 2}',
         homeSchoolId: shuffledSchools[i].id,
         awaySchoolId: shuffledSchools[i + 1].id,
         round: GameRound.firstRound,
-        month: month,
-        week: week,
-        dayOfWeek: (i ~/ 2) % 7 + 1,
-        isCompleted: false,
-        result: null,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      games.add(game);
+              month: month,
+              week: week,
+              dayOfWeek: (i ~/ 2) % 7 + 1,
+              isCompleted: false,
+              result: null,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+            games.add(game);
     }
     
     return games;
@@ -493,22 +493,22 @@ class HighSchoolTournamentService {
     // 2回戦の組み合わせ（8試合）
     // 1回戦の勝者16校をプレースホルダーIDで組み合わせ
     for (int i = 0; i < 16; i += 2) {
-      final game = TournamentGame(
+          final game = TournamentGame(
         id: 'game_${month}_${week}_secondRound_${i ~/ 2}',
         homeSchoolId: 'winner_${i}_first',
         awaySchoolId: 'winner_${i + 1}_first',
         round: GameRound.secondRound,
-        month: month,
-        week: week,
+            month: month,
+            week: week,
         dayOfWeek: (i ~/ 2) % 7 + 1,
-        isCompleted: false,
-        result: null,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      games.add(game);
-    }
-    
+            isCompleted: false,
+            result: null,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          games.add(game);
+        }
+        
     return games;
   }
 
@@ -524,21 +524,21 @@ class HighSchoolTournamentService {
     // 3回戦の組み合わせ（8試合）
     // 2回戦の勝者16校をプレースホルダーIDで組み合わせ
     for (int i = 0; i < 16; i += 2) {
-      final game = TournamentGame(
+          final game = TournamentGame(
         id: 'game_${month}_${week}_thirdRound_${i ~/ 2}',
         homeSchoolId: 'winner_${i}_second',
         awaySchoolId: 'winner_${i + 1}_second',
         round: GameRound.thirdRound,
-        month: month,
-        week: week,
+            month: month,
+            week: week,
         dayOfWeek: (i ~/ 2) % 7 + 1,
-        isCompleted: false,
-        result: null,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      games.add(game);
-    }
+            isCompleted: false,
+            result: null,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          games.add(game);
+        }
     
     return games;
   }
@@ -555,21 +555,21 @@ class HighSchoolTournamentService {
     // 準々決勝の組み合わせ（4試合）
     // 前ラウンドの勝者8校をプレースホルダーIDで組み合わせ
     for (int i = 0; i < 8; i += 2) {
-      final game = TournamentGame(
+          final game = TournamentGame(
         id: 'game_${month}_${week}_quarterFinal_${i ~/ 2}',
         homeSchoolId: 'winner_${i}_previous',
         awaySchoolId: 'winner_${i + 1}_previous',
         round: GameRound.quarterFinal,
-        month: month,
-        week: week,
+            month: month,
+            week: week,
         dayOfWeek: (i ~/ 2) % 7 + 1,
-        isCompleted: false,
-        result: null,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      games.add(game);
-    }
+            isCompleted: false,
+            result: null,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          games.add(game);
+        }
     
     return games;
   }
@@ -586,20 +586,20 @@ class HighSchoolTournamentService {
     // 準決勝の組み合わせ（2試合）
     // 準々決勝の勝者4校をプレースホルダーIDで組み合わせ
     for (int i = 0; i < 4; i += 2) {
-      final game = TournamentGame(
+        final game = TournamentGame(
         id: 'game_${month}_${week}_semiFinal_${i ~/ 2}',
         homeSchoolId: 'winner_${i}_quarter',
         awaySchoolId: 'winner_${i + 1}_quarter',
         round: GameRound.semiFinal,
-        month: month,
-        week: week,
+          month: month,
+          week: week,
         dayOfWeek: (i ~/ 2) % 7 + 1,
-        isCompleted: false,
-        result: null,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      games.add(game);
+          isCompleted: false,
+          result: null,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        games.add(game);
     }
     
     return games;
@@ -621,13 +621,13 @@ class HighSchoolTournamentService {
       homeSchoolId: 'winner_0_semi',
       awaySchoolId: 'winner_1_semi',
       round: GameRound.championship,
-      month: month,
-      week: week,
+          month: month,
+          week: week,
       dayOfWeek: 1,
-      isCompleted: false,
-      result: null,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+          isCompleted: false,
+          result: null,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
     );
     games.add(game);
     
@@ -722,7 +722,7 @@ class HighSchoolTournamentService {
       createdAt: DateTime.now(),
     );
   }
-  
+
   /// チーム強度を計算（学校ランクベース + 生成選手のボーナス）
   static double _calculateTeamStrength(School school) {
     // 学校ランクに基づく基本強度
@@ -820,9 +820,9 @@ class HighSchoolTournamentService {
       runsScored: homeStanding.runsScored + result.homeScore,
       runsAllowed: homeStanding.runsAllowed + result.awayScore,
       runDifferential: (homeStanding.runsScored + result.homeScore) - (homeStanding.runsAllowed + result.awayScore),
-      updatedAt: DateTime.now(),
-    );
-    
+        updatedAt: DateTime.now(),
+      );
+      
     // アウェイ校の更新
     final awayStanding = standings[awaySchool.id]!;
     standings[awaySchool.id] = awayStanding.copyWith(
@@ -882,7 +882,7 @@ class HighSchoolTournamentService {
     } else if (progressRate >= 0.5) {
       efficiencyLevel = '普通';
       recommendations = ['ペースを維持してください'];
-    } else {
+        } else {
       efficiencyLevel = '遅延';
       recommendations = ['進行を加速する必要があります'];
     }
