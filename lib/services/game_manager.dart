@@ -312,8 +312,8 @@ class GameManager {
     
     final tournaments = <high_school_tournament.HighSchoolTournament>[];
     
-    // 春の県大会（4月2週〜4週）
-    if (month == 4 && week >= 2 && week <= 4) {
+    // 春の県大会（4月2週〜5月2週）
+    if ((month == 4 && week >= 2) || (month == 5 && week <= 2)) {
       print('GameManager._initializeHighSchoolTournaments: 春の県大会初期化条件を満たしています');
       if (!_currentGame!.highSchoolTournaments.any((t) => t.type == high_school_tournament.TournamentType.spring)) {
         print('GameManager._initializeHighSchoolTournaments: 春の県大会が存在しないため、初期化を開始します');
@@ -341,8 +341,8 @@ class GameManager {
       print('GameManager._initializeHighSchoolTournaments: 春の県大会初期化条件を満たしていません - 月: $month, 週: $week');
     }
     
-    // 夏の県大会（7月2週〜4週）
-    if (month == 7 && week >= 2 && week <= 4) {
+    // 夏の県大会（6月2週〜7月2週）
+    if ((month == 6 && week >= 2) || (month == 7 && week <= 2)) {
       print('GameManager._initializeHighSchoolTournaments: 夏の県大会初期化条件を満たしています');
       print('GameManager._initializeHighSchoolTournaments: 現在の月: $month, 週: $week');
       
@@ -374,8 +374,8 @@ class GameManager {
       print('GameManager._initializeHighSchoolTournaments: 夏の県大会初期化条件を満たしていません - 月: $month, 週: $week');
     }
     
-    // 夏の全国大会（8月1週〜3週）- 夏の県大会完了後に作成
-    if (month == 8 && week >= 1 && week <= 3) {
+    // 夏の全国大会（7月3週〜8月4週）- 夏の県大会完了後に作成
+    if ((month == 7 && week >= 3) || (month == 8 && week >= 1 && week <= 4)) {
       print('GameManager._initializeHighSchoolTournaments: 夏の全国大会初期化条件を満たしています');
       print('GameManager._initializeHighSchoolTournaments: 現在の月: $month, 週: $week');
       
@@ -421,8 +421,8 @@ class GameManager {
       print('GameManager._initializeHighSchoolTournaments: 夏の全国大会初期化条件を満たしていません - 月: $month, 週: $week');
     }
     
-    // 秋の大会（10月1週〜3週）- 春の全国大会予選
-    if (month == 10 && week >= 1 && week <= 3) {
+    // 秋の大会（9月2週〜10月2週）- 春の全国大会予選
+    if ((month == 9 && week >= 2) || (month == 10 && week <= 2)) {
       print('GameManager._initializeHighSchoolTournaments: 秋の大会初期化条件を満たしています');
       
       if (!_currentGame!.highSchoolTournaments.any((t) => t.type == high_school_tournament.TournamentType.autumn)) {
@@ -453,8 +453,8 @@ class GameManager {
       print('GameManager._initializeHighSchoolTournaments: 秋の大会初期化条件を満たしていません - 月: $month, 週: $week');
     }
     
-    // 春の全国大会（3月1週〜3週）
-    if (month == 3 && week >= 1 && week <= 3) {
+    // 春の全国大会（2月3週〜3月4週）
+    if ((month == 2 && week >= 3) || (month == 3 && week >= 1 && week <= 4)) {
       print('GameManager._initializeHighSchoolTournaments: 春の全国大会初期化条件を満たしています');
       if (!_currentGame!.highSchoolTournaments.any((t) => t.type == high_school_tournament.TournamentType.springNational)) {
         print('GameManager._initializeHighSchoolTournaments: 春の全国大会が存在しないため、初期化を開始します');
@@ -671,7 +671,7 @@ class GameManager {
     final undiscoveredPlayers = <Player>[];
     for (final school in _currentGame!.schools) {
       undiscoveredPlayers.addAll(
-        school.players.where((p) => !p.isScouted && !p.isDefaultPlayer)
+        school.players.where((p) => !p.isScouted)
       );
     }
     
@@ -758,8 +758,8 @@ class GameManager {
       
       for (final school in _currentGame!.schools) {
         // デフォルト選手以外の3年生のみ卒業処理
-        final remaining = school.players.where((p) => p.grade < 3 || p.isDefaultPlayer).toList();
-        final graduating = school.players.where((p) => p.grade == 3 && !p.isDefaultPlayer).toList();
+        final remaining = school.players.where((p) => p.grade < 3).toList();
+        final graduating = school.players.where((p) => p.grade == 3).toList();
         
         print('GameManager.graduateThirdYearStudents: ${school.name} - 引退対象: ${graduating.length}人（デフォルト選手除く）');
         
@@ -824,11 +824,7 @@ class GameManager {
         final promoted = <Player>[];
         
         for (final p in school.players) {
-          // デフォルト選手は学年アップしない（固定で2年生）
-          if (p.isDefaultPlayer) {
-            promoted.add(p);
-            continue;
-          }
+          // デフォルト選手の処理は削除（デフォルト選手は存在しない）
           
           // 卒業した選手は学年アップしない
           if (p.isGraduated) {
@@ -1134,7 +1130,7 @@ class GameManager {
     // 全選手を統一して成長処理
     final updatedPlayers = allPlayers.map((player) {
       // 引退選手とデフォルト選手は成長処理をスキップ
-      if (player.isRetired || player.isDefaultPlayer) {
+      if (player.isRetired) {
         return player;
       }
       
@@ -1260,8 +1256,6 @@ class GameManager {
 
   // 年齢による能力値減退を適用
   Player _applyAgeBasedDecline(Player player) {
-    if (player.isDefaultPlayer) return player;
-    
     final age = player.age;
     final growthType = player.growthType;
     
@@ -1365,10 +1359,10 @@ class GameManager {
           
           // 最初の3件のみ詳細ログを出力
           if (highSchoolPlayerCount <= 3) {
-            print('GameManager._saveAllGrownPlayersToDatabase: 高校生選手チェック - 名前: ${player.name}, ID: ${player.id}, isRetired: ${player.isRetired}, isDefaultPlayer: ${player.isDefaultPlayer}');
+            print('GameManager._saveAllGrownPlayersToDatabase: 高校生選手チェック - 名前: ${player.name}, ID: ${player.id}, isRetired: ${player.isRetired}');
           }
           
-          if (!player.isRetired && !player.isDefaultPlayer && player.id != null) {
+          if (!player.isRetired && player.id != null) {
             highSchoolPlayerWithIdCount++;
             
             // 最初の選手のみ詳細ログを出力
@@ -1572,7 +1566,7 @@ class GameManager {
       Player? firstPlayer;
       for (final school in _currentGame!.schools) {
         for (final player in school.players) {
-          if (!player.isRetired && !player.isDefaultPlayer && player.id != null) {
+          if (!player.isRetired && player.id != null) {
             firstPlayer = player;
             break;
           }
@@ -1918,7 +1912,7 @@ class GameManager {
         for (final key in player.keys) {
           if (key != 'id' && key != 'name' && key != 'position' && key != 'personality' && 
               key != 'school_id' && key != 'graduated_at' && key != 'growthType' &&
-              key != 'is_retired' && key != 'is_default_player' && key != 'is_famous' && 
+              key != 'is_retired' && key != 'is_famous' && 
               key != 'is_scout_favorite' && key != 'is_graduated') {
             final value = player[key];
             if (value is String && value.isNotEmpty) {
@@ -2141,7 +2135,6 @@ class GameManager {
           final isScoutFavoriteFromDb = (p['is_scout_favorite'] as int?) == 1;
           final isGraduatedFromDb = (p['is_graduated'] as int?) == 1;
           final graduatedAtFromDb = p['graduated_at'] as String?;
-          final isDefaultPlayerFromDb = (p['is_default_player'] as int?) == 1; // デフォルト選手フラグを読み込み
 
           // overall能力値を計算
           final overall = _calculateOverallAbility(technicalAbilities, mentalAbilities, physicalAbilities, p['position'] as String? ?? '投手');
@@ -2186,7 +2179,6 @@ class GameManager {
               scoutAnalysisData: scoutAnalysisData,
               yearsAfterGraduation: _safeIntCast(p['years_after_graduation']),
               isRetired: (p['is_retired'] as int?) == 1,
-              isDefaultPlayer: isDefaultPlayerFromDb,
             );
           } catch (e) {
             print('_refreshPlayersFromDb: Player作成でエラー: $e');
@@ -2948,7 +2940,6 @@ class GameManager {
             growthType: (playerMap['growthType'] is String) ? playerMap['growthType'] as String : (playerMap['growthType']?.toString() ?? 'normal'),
             individualPotentials: null,
             scoutAnalysisData: null,
-            isDefaultPlayer: false,
             achievements: [],
             retiredAt: playerMap['retired_at'] != null ? DateTime.tryParse(playerMap['retired_at'] as String) : null,
             isRetired: (playerMap['is_retired'] as int?) == 1,
@@ -3710,7 +3701,6 @@ class GameManager {
               isScouted: true,
               isGraduated: true,
               isRetired: (playerMap['is_retired'] as int? ?? 0) == 1,
-              isDefaultPlayer: false,
               growthRate: (playerMap['growth_rate'] as double? ?? 1.0),
               talent: playerMap['talent'] as int? ?? 3,
               growthType: playerMap['growth_type'] as String? ?? 'normal',
@@ -3905,7 +3895,7 @@ class GameManager {
       // 高校生と卒業後の選手を取得（isRetired OFF, isDefaultPlayer OFF）
       final players = await db.query(
         'Player',
-        where: 'is_retired = 0 AND is_default_player = 0',
+        where: 'is_retired = 0',
         whereArgs: [],
       );
       

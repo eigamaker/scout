@@ -59,7 +59,6 @@ class DatabaseSchemaService {
           graduated_at TEXT,
           is_retired INTEGER DEFAULT 0,
           retired_at TEXT,
-          is_default_player INTEGER DEFAULT 0,
           status TEXT DEFAULT 'active',
           growth_rate REAL DEFAULT 1.0,
           talent INTEGER DEFAULT 3,

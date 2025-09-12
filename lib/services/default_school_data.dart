@@ -65,7 +65,7 @@ class DefaultSchoolData {
 
 
 
-  /// 47都道府県×50校のデフォルト学校データを取得
+  /// 47都道府県×32校のデフォルト学校データを取得
   static List<School> getAllSchools() {
     final schools = <School>[];
     
@@ -81,8 +81,8 @@ class DefaultSchoolData {
   static List<School> _getSchoolsForPrefecture(String prefecture) {
     final schools = <School>[];
     
-    // 各都道府県の50校を生成
-    for (int i = 0; i < 50; i++) {
+    // 各都道府県の32校を生成
+    for (int i = 0; i < 32; i++) {
       final schoolData = _getSchoolData(prefecture, i);
       final school = School(
         id: '${prefecture}_$i',

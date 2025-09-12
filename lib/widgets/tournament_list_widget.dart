@@ -241,8 +241,6 @@ class _TournamentListWidgetState extends State<TournamentListWidget> {
         return '$year年秋の大会';
       case TournamentType.springNational:
         return '$year年春の全国大会';
-      default:
-        return '$year年大会';
     }
   }
 
@@ -251,15 +249,57 @@ class _TournamentListWidgetState extends State<TournamentListWidget> {
       return '大会終了';
     }
 
-    final totalGames = tournament.games.length;
-    final completedGames = tournament.completedGames.length;
+    // 完了した試合から現在のラウンドを正確に判定
+    final completedGames = tournament.completedGames;
     
-    if (completedGames == 0) return '1回戦';
-    if (completedGames < totalGames * 0.25) return '1回戦';
-    if (completedGames < totalGames * 0.5) return '2回戦';
-    if (completedGames < totalGames * 0.75) return '準々決勝';
-    if (completedGames < totalGames) return '準決勝';
+    if (completedGames.isEmpty) {
+      return '1回戦';
+    }
+
+    
+    // ラウンドの順序
+    final roundOrder = [
+      GameRound.firstRound,
+      GameRound.secondRound,
+      GameRound.thirdRound,
+      GameRound.quarterFinal,
+      GameRound.semiFinal,
+      GameRound.championship,
+    ];
+
+    // 現在進行中のラウンドを特定
+    for (int i = 0; i < roundOrder.length; i++) {
+      final round = roundOrder[i];
+      
+      // このラウンドの試合数を取得
+      final roundGames = tournament.games.where((game) => game.round == round).toList();
+      final completedRoundGames = completedGames.where((game) => game.round == round).toList();
+      
+      // このラウンドが完了していない場合、これが現在のラウンド
+      if (completedRoundGames.length < roundGames.length) {
+        return _getRoundName(round);
+      }
+    }
+
+    // すべてのラウンドが完了している場合
     return '決勝';
+  }
+
+  String _getRoundName(GameRound round) {
+    switch (round) {
+      case GameRound.firstRound:
+        return '1回戦';
+      case GameRound.secondRound:
+        return '2回戦';
+      case GameRound.thirdRound:
+        return '3回戦';
+      case GameRound.quarterFinal:
+        return '準々決勝';
+      case GameRound.semiFinal:
+        return '準決勝';
+      case GameRound.championship:
+        return '決勝';
+    }
   }
 
   String _getChampionInfo(HighSchoolTournament tournament) {

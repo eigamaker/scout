@@ -24,6 +24,51 @@ enum GameRound {
   championship,    // 決勝
 }
 
+// トーナメント試合結果
+class TournamentGameResult {
+  final int homeScore;
+  final int awayScore;
+  final String homeSchoolId;
+  final String awaySchoolId;
+  final String winnerSchoolId;
+  final String loserSchoolId;
+  final DateTime createdAt;
+
+  const TournamentGameResult({
+    required this.homeScore,
+    required this.awayScore,
+    required this.homeSchoolId,
+    required this.awaySchoolId,
+    required this.winnerSchoolId,
+    required this.loserSchoolId,
+    required this.createdAt,
+  });
+
+  // JSON変換
+  Map<String, dynamic> toJson() => {
+    'homeScore': homeScore,
+    'awayScore': awayScore,
+    'homeSchoolId': homeSchoolId,
+    'awaySchoolId': awaySchoolId,
+    'winnerSchoolId': winnerSchoolId,
+    'loserSchoolId': loserSchoolId,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  // JSONから復元
+  factory TournamentGameResult.fromJson(Map<String, dynamic> json) {
+    return TournamentGameResult(
+      homeScore: json['homeScore'] as int,
+      awayScore: json['awayScore'] as int,
+      homeSchoolId: json['homeSchoolId'] as String,
+      awaySchoolId: json['awaySchoolId'] as String,
+      winnerSchoolId: json['winnerSchoolId'] as String,
+      loserSchoolId: json['loserSchoolId'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+  }
+}
+
 // 高校野球大会クラス
 class HighSchoolTournament {
   final String id;
@@ -184,7 +229,7 @@ class TournamentGame {
   final int week;
   final int dayOfWeek;
   final bool isCompleted;
-  final GameResult? result;
+  final dynamic result; // GameResult or TournamentGameResult
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -212,7 +257,7 @@ class TournamentGame {
     int? week,
     int? dayOfWeek,
     bool? isCompleted,
-    GameResult? result,
+    dynamic result,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -240,16 +285,35 @@ class TournamentGame {
     );
   }
 
+  // トーナメント試合を完了させる
+  TournamentGame completeTournamentGame(TournamentGameResult result) {
+    return copyWith(
+      isCompleted: true,
+      result: result,
+      updatedAt: DateTime.now(),
+    );
+  }
+
   // 勝者校IDを取得
   String? get winnerSchoolId {
     if (result == null) return null;
-    return result!.isHomeWin ? homeSchoolId : awaySchoolId;
+    if (result is TournamentGameResult) {
+      return (result as TournamentGameResult).winnerSchoolId;
+    } else if (result is GameResult) {
+      return (result as GameResult).isHomeWin ? homeSchoolId : awaySchoolId;
+    }
+    return null;
   }
 
   // 敗者校IDを取得
   String? get loserSchoolId {
     if (result == null) return null;
-    return result!.isHomeWin ? awaySchoolId : homeSchoolId;
+    if (result is TournamentGameResult) {
+      return (result as TournamentGameResult).loserSchoolId;
+    } else if (result is GameResult) {
+      return (result as GameResult).isHomeWin ? awaySchoolId : homeSchoolId;
+    }
+    return null;
   }
 
   // JSON変換メソッド
@@ -268,6 +332,16 @@ class TournamentGame {
   };
 
   factory TournamentGame.fromJson(Map<String, dynamic> json) {
+    dynamic result;
+    if (json['result'] != null) {
+      // TournamentGameResultかGameResultかを判定して適切に復元
+      if (json['result'].containsKey('winnerSchoolId')) {
+        result = TournamentGameResult.fromJson(json['result']);
+      } else {
+        result = GameResult.fromJson(json['result']);
+      }
+    }
+    
     return TournamentGame(
       id: json['id'],
       homeSchoolId: json['homeSchoolId'],
@@ -277,7 +351,7 @@ class TournamentGame {
       week: json['week'],
       dayOfWeek: json['dayOfWeek'],
       isCompleted: json['isCompleted'],
-      result: json['result'] != null ? GameResult.fromJson(json['result']) : null,
+      result: result,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );

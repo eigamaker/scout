@@ -102,7 +102,6 @@ class DataRepairService {
           FROM Player pl 
           JOIN PlayerPotentials pp ON pl.id = pp.player_id 
           WHERE pl.$ability > pp.$potentialColumn 
-          AND pl.is_default_player = 0
         ''');
         
         if (lowPotentialPlayers.isNotEmpty) {
@@ -149,7 +148,6 @@ class DataRepairService {
         FROM Player pl 
         LEFT JOIN ProfessionalPlayer pp ON pl.id = pp.player_id 
         WHERE pp.player_id IS NULL 
-        AND pl.is_default_player = 0
         AND pl.grade IS NOT NULL
       ''');
       

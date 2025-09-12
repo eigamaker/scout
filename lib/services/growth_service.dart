@@ -88,10 +88,7 @@ class GrowthService {
 
   // 選手の成長処理
   static Player growPlayer(Player player) {
-    // デフォルト選手は成長しない
-    if (player.isDefaultPlayer) {
-      return player;
-    }
+    // デフォルト選手の処理は削除（デフォルト選手は存在しない）
     
     // 成長処理の実行確認は削除（個別ログ禁止）
     

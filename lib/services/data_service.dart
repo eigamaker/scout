@@ -5,13 +5,14 @@ import 'dart:io';
 import 'dart:math';
 import '../utils/name_generator.dart';
 import '../models/game/game.dart';
+import 'database/migration_remove_is_default_player.dart';
 
 class DataService {
   // スロット機能は廃止、単一データベースファイルを使用
 
   static Database? _db;
 
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
 
   // スロット機能は廃止、単一データベースファイルを使用
 
@@ -47,9 +48,12 @@ class DataService {
         await _createAllTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // ゲーム未リリースのため、最新スキーマで再作成
-        print('データベーススキーマを最新版で再作成中...');
-        await _createAllTables(db);
+        print('DataService: データベースアップグレード開始 - バージョン $oldVersion -> $newVersion');
+        
+        if (oldVersion < 3) {
+          // is_default_playerカラムを削除するマイグレーション
+          await _migrateRemoveIsDefaultPlayer(db);
+        }
       },
     );
   }
@@ -409,7 +413,6 @@ class DataService {
           FROM Player pl 
           JOIN PlayerPotentials pp ON pl.id = pp.player_id 
           WHERE pl.$ability > pp.$potentialColumn 
-          AND pl.is_default_player = 0
         ''');
         
         if (lowPotentialPlayers.isNotEmpty) {
@@ -458,7 +461,6 @@ class DataService {
         FROM Player pl 
         LEFT JOIN ProfessionalPlayer pp ON pl.id = pp.player_id 
         WHERE pp.player_id IS NULL 
-        AND pl.is_default_player = 0
         AND pl.grade IS NOT NULL
       ''');
       
@@ -627,7 +629,6 @@ class DataService {
         graduated_at TEXT,
         is_retired INTEGER DEFAULT 0,
         retired_at TEXT,
-        is_default_player INTEGER DEFAULT 0, -- デフォルト選手フラグ
         status TEXT DEFAULT 'active', -- active, graduated, retired, professional
         growth_rate REAL DEFAULT 1.0,
         talent INTEGER DEFAULT 3,
@@ -2370,6 +2371,9 @@ class DataService {
     }
   }
 
-
+  /// is_default_playerカラムを削除するマイグレーション
+  Future<void> _migrateRemoveIsDefaultPlayer(Database db) async {
+    await RemoveIsDefaultPlayerMigration.migrate(db);
+  }
 
 } 

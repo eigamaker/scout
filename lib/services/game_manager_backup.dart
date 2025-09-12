@@ -1929,7 +1929,7 @@ class GameManager {
         for (final key in player.keys) {
           if (key != 'id' && key != 'name' && key != 'position' && key != 'personality' && 
               key != 'school_id' && key != 'graduated_at' && key != 'growthType' &&
-              key != 'is_retired' && key != 'is_default_player' && key != 'is_famous' && 
+              key != 'is_retired' && key != 'is_famous' && 
               key != 'is_scout_favorite' && key != 'is_graduated') {
             final value = player[key];
             if (value is String && value.isNotEmpty) {
@@ -2152,7 +2152,6 @@ class GameManager {
           final isScoutFavoriteFromDb = (p['is_scout_favorite'] as int?) == 1;
           final isGraduatedFromDb = (p['is_graduated'] as int?) == 1;
           final graduatedAtFromDb = p['graduated_at'] as String?;
-          final isDefaultPlayerFromDb = (p['is_default_player'] as int?) == 1; // デフォルト選手フラグを読み込み
 
           // overall能力値を計算
           final overall = _calculateOverallAbility(technicalAbilities, mentalAbilities, physicalAbilities, p['position'] as String? ?? '投手');
@@ -3907,7 +3906,7 @@ class GameManager {
       // 高校生と卒業後の選手を取得（isRetired OFF, isDefaultPlayer OFF）
       final players = await db.query(
         'Player',
-        where: 'is_retired = 0 AND is_default_player = 0',
+        where: 'is_retired = 0',
         whereArgs: [],
       );
       

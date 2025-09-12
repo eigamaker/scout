@@ -542,11 +542,11 @@ class NewsService {
     for (final school in schools) {
       for (final player in school.players) {
         totalPlayers++;
-        if (player.trueTotalAbility >= 70 && !player.isDefaultPlayer) highAbilityPlayers++;
+        if (player.trueTotalAbility >= 70) highAbilityPlayers++;
         if (player.fame >= 60) highFamePlayers++;
         
         // 高能力選手（70以上）または高知名度選手（fame >= 60）のニュース生成
-        if ((player.trueTotalAbility >= 70 && !player.isDefaultPlayer) || player.fame >= 60) {
+        if (player.trueTotalAbility >= 70 || player.fame >= 60) {
           // 重複チェック：同じ選手IDが既に処理済みの場合はスキップ
           final playerKey = '${player.id}_${player.name}_${school.id}';
           if (processedPlayerIds.contains(playerKey)) {
@@ -612,7 +612,7 @@ class NewsService {
     
     for (final school in schools) {
       for (final player in school.players) {
-        if (player.trueTotalAbility >= 70 && !player.isDefaultPlayer) {
+        if (player.trueTotalAbility >= 70) {
           // 重複チェック：同じ選手IDが既に処理済みの場合はスキップ
           final playerKey = '${player.id}_${player.name}_${school.id}';
           if (processedPlayerIds.contains(playerKey)) {

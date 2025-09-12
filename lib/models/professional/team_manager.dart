@@ -204,7 +204,6 @@ class TeamManager {
       isScouted: false,
       isGraduated: false,
       isRetired: false,
-      isDefaultPlayer: false,
       growthRate: 0.3 + random.nextDouble() * 0.7, // 0.3-1.0
       talent: talent,
       growthType: _generateGrowthType(random),

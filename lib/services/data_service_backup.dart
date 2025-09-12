@@ -627,7 +627,6 @@ class DataService {
         graduated_at TEXT,
         is_retired INTEGER DEFAULT 0,
         retired_at TEXT,
-        is_default_player INTEGER DEFAULT 0, -- デフォルト選手フラグ
         status TEXT DEFAULT 'active', -- active, graduated, retired, professional
         growth_rate REAL DEFAULT 1.0,
         talent INTEGER DEFAULT 3,

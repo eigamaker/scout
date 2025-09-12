@@ -76,7 +76,6 @@ class ProfessionalPlayerGenerator {
       isScouted: true,
       isGraduated: true,
       isRetired: false,
-      isDefaultPlayer: false,
       growthRate: 0.5 + _random.nextDouble() * 0.5, // 0.5-1.0
       talent: talent,
       growthType: _generateProfessionalGrowthType(),

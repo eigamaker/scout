@@ -69,15 +69,32 @@ class TournamentBracketWidget extends StatelessWidget {
     );
   }
 
+  /// 大会種別に応じたラウンドを取得
+  List<GameRound> _getRoundsForTournament() {
+    if (tournament.stage == TournamentStage.national) {
+      // 全国大会は6ラウンド
+      return [
+        GameRound.firstRound,
+        GameRound.secondRound,
+        GameRound.thirdRound,
+        GameRound.quarterFinal,
+        GameRound.semiFinal,
+        GameRound.championship,
+      ];
+    } else {
+      // 県大会は5ラウンド
+      return [
+        GameRound.firstRound,
+        GameRound.secondRound,
+        GameRound.quarterFinal,
+        GameRound.semiFinal,
+        GameRound.championship,
+      ];
+    }
+  }
+
   Widget _buildTournamentBracket() {
-    final rounds = [
-      GameRound.firstRound,
-      GameRound.secondRound,
-      GameRound.thirdRound,
-      GameRound.quarterFinal,
-      GameRound.semiFinal,
-      GameRound.championship,
-    ];
+    final rounds = _getRoundsForTournament();
 
     return SingleChildScrollView(
       child: SingleChildScrollView(
@@ -85,19 +102,11 @@ class TournamentBracketWidget extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: rounds.asMap().entries.map((entry) {
-            final index = entry.key;
-            final round = entry.value;
-            final isLastRound = index == rounds.length - 1;
+          children: rounds.map((round) {
             
-            return Row(
-              children: [
-                SizedBox(
-                  width: 160,
-                  child: _buildRoundColumn(round),
-                ),
-                // 勝ち上がり線は削除（シンプルな表示にする）
-              ],
+            return SizedBox(
+              width: 160,
+              child: _buildRoundColumn(round),
             );
           }).toList(),
         ),
@@ -107,27 +116,13 @@ class TournamentBracketWidget extends StatelessWidget {
 
 
 
-  /// 次のラウンドを取得
-  GameRound? _getNextRound(GameRound round) {
-    final rounds = [
-      GameRound.firstRound,
-      GameRound.secondRound,
-      GameRound.thirdRound,
-      GameRound.quarterFinal,
-      GameRound.semiFinal,
-      GameRound.championship,
-    ];
-    
-    final currentIndex = rounds.indexOf(round);
-    if (currentIndex < rounds.length - 1) {
-      return rounds[currentIndex + 1];
-    }
-    return null;
-  }
 
   Widget _buildRoundColumn(GameRound round) {
     final roundGames = _getRoundGames(round);
     final roundName = _getRoundName(round);
+    
+    // 前のラウンドが完了しているかチェック
+    final isRoundAvailable = _isRoundAvailable(round);
     
     return Column(
       children: [
@@ -136,157 +131,101 @@ class TournamentBracketWidget extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 6.0),
           decoration: BoxDecoration(
-            color: Colors.red[100],
-            border: Border.all(color: Colors.red[300]!),
+            color: isRoundAvailable ? Colors.red[100] : Colors.grey[200],
+            border: Border.all(color: isRoundAvailable ? Colors.red[300]! : Colors.grey[400]!),
           ),
           child: Text(
             roundName,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: Colors.red,
+              color: isRoundAvailable ? Colors.red : Colors.grey[600],
               fontSize: 12,
             ),
           ),
         ),
         const SizedBox(height: 4),
         // 試合
-        ...roundGames.map((game) => _buildGameTile(game)),
+        if (isRoundAvailable)
+          ...roundGames.map((game) => _buildGameTile(game))
+        else
+          _buildUndecidedCard(),
       ],
     );
   }
 
-  /// 各ラウンドの試合を取得（勝ち上がり構造に基づいて）
+  /// ラウンドが利用可能かチェック（前のラウンドが完了しているか）
+  bool _isRoundAvailable(GameRound round) {
+    final rounds = _getRoundsForTournament();
+    final currentIndex = rounds.indexOf(round);
+    
+    // 1回戦は常に利用可能
+    if (currentIndex == 0) return true;
+    
+    // 前のラウンドが完了しているかチェック
+    final previousRound = rounds[currentIndex - 1];
+    final previousRoundGames = tournament.games.where((game) => game.round == previousRound).toList();
+    final completedPreviousGames = previousRoundGames.where((game) => game.isCompleted).toList();
+    
+    return completedPreviousGames.length == previousRoundGames.length;
+  }
+  
+  /// 未定カードを表示
+  Widget _buildUndecidedCard() {
+    return Container(
+      width: double.infinity,
+      height: 60,
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Center(
+        child: Text(
+          '未定',
+          style: TextStyle(
+            color: Colors.grey,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// ホームスコアを取得（型安全）
+  int _getHomeScore(dynamic result) {
+    if (result is GameResult) {
+      return result.homeScore;
+    } else if (result is TournamentGameResult) {
+      return result.homeScore;
+    }
+    return 0;
+  }
+
+  /// アウェイスコアを取得（型安全）
+  int _getAwayScore(dynamic result) {
+    if (result is GameResult) {
+      return result.awayScore;
+    } else if (result is TournamentGameResult) {
+      return result.awayScore;
+    }
+    return 0;
+  }
+
+  /// 各ラウンドの試合を取得（シンプルな実装）
   List<TournamentGame?> _getRoundGames(GameRound round) {
-    switch (round) {
-      case GameRound.firstRound:
-        // 1回戦は25枚のカードを配置（50校 ÷ 2 = 25試合）
-        return _buildFirstRoundGames();
-        
-      case GameRound.secondRound:
-        // 2回戦は1回戦の勝者数に基づいて試合数を決定
-        final firstRoundWinners = _getWinnersFromRound(GameRound.firstRound);
-        final secondRoundGames = tournament.games
-            .where((game) => game.round == GameRound.secondRound)
-            .toList();
-        
-        // 2回戦の試合数が不足している場合は空のカードを追加
-        final neededGames = (firstRoundWinners.length / 2).ceil();
-        return _fillRoundGames(secondRoundGames, neededGames);
-        
-      case GameRound.thirdRound:
-        // 3回戦は2回戦の勝者数に基づいて試合数を決定
-        final secondRoundWinners = _getWinnersFromRound(GameRound.secondRound);
-        final thirdRoundGames = tournament.games
-            .where((game) => game.round == GameRound.thirdRound)
-            .toList();
-        
-        final neededGames = (secondRoundWinners.length / 2).ceil();
-        return _fillRoundGames(thirdRoundGames, neededGames);
-        
-      case GameRound.quarterFinal:
-        // 準々決勝は3回戦の勝者数に基づいて試合数を決定
-        final thirdRoundWinners = _getWinnersFromRound(GameRound.thirdRound);
-        final quarterFinalGames = tournament.games
-            .where((game) => game.round == GameRound.quarterFinal)
-            .toList();
-        
-        final neededGames = (thirdRoundWinners.length / 2).ceil();
-        return _fillRoundGames(quarterFinalGames, neededGames);
-        
-      case GameRound.semiFinal:
-        // 準決勝は準々決勝の勝者数に基づいて試合数を決定
-        final quarterFinalWinners = _getWinnersFromRound(GameRound.quarterFinal);
-        final semiFinalGames = tournament.games
-            .where((game) => game.round == GameRound.semiFinal)
-            .toList();
-        
-        final neededGames = (quarterFinalWinners.length / 2).ceil();
-        return _fillRoundGames(semiFinalGames, neededGames);
-        
-      case GameRound.championship:
-        // 決勝は準決勝の勝者数に基づいて試合数を決定
-        final semiFinalWinners = _getWinnersFromRound(GameRound.semiFinal);
-        final championshipGames = tournament.games
-            .where((game) => game.round == GameRound.championship)
-            .toList();
-        
-        final neededGames = (semiFinalWinners.length / 2).ceil();
-        return _fillRoundGames(championshipGames, neededGames);
-    }
+    // 指定されたラウンドの試合を取得
+    final roundGames = tournament.games
+        .where((game) => game.round == round)
+        .toList();
+
+    // ゲームをID順にソート
+    roundGames.sort((a, b) => a.id.compareTo(b.id));
+
+    return roundGames;
   }
 
-  /// 1回戦の25枚のカードを構築
-  List<TournamentGame?> _buildFirstRoundGames() {
-    final result = <TournamentGame?>[];
-    
-    // 1回戦の試合を取得
-    final firstRoundGames = tournament.games
-        .where((game) => game.round == GameRound.firstRound)
-        .toList();
-    
-    // 通常の対戦（2校対戦）を追加
-    final regularGames = firstRoundGames
-        .where((game) => game.awaySchoolId != null && 
-                         game.awaySchoolId.isNotEmpty && 
-                         game.awaySchoolId != '未定')
-        .toList();
-    
-    // シード校の試合（1校のみ）を追加
-    final seedGames = firstRoundGames
-        .where((game) => game.awaySchoolId == '未定')
-        .toList();
-    
-    // 通常の対戦を先に配置（18試合）
-    result.addAll(regularGames);
-    
-    // シード校の試合を配置（7試合）
-    result.addAll(seedGames);
-    
-    // 25枚のカードになるまで空のカードを追加
-    while (result.length < 25) {
-      result.add(null);
-    }
-    
-    return result;
-  }
-
-  /// 指定ラウンドの勝者を取得
-  List<String> _getWinnersFromRound(GameRound round) {
-    final roundGames = tournament.games.where((game) => game.round == round).toList();
-    final winners = <String>[];
-    
-    for (final game in roundGames) {
-      if (game.isCompleted && game.result != null) {
-        final winnerId = game.winnerSchoolId;
-        if (winnerId != null) {
-          winners.add(winnerId);
-        }
-      }
-    }
-    
-    return winners;
-  }
-
-  /// ラウンドの試合数を必要な数に合わせて調整（不足分は空のカードで埋める）
-  List<TournamentGame?> _fillRoundGames(List<TournamentGame> games, int neededGames) {
-    final result = <TournamentGame?>[];
-    
-    // 既存の試合を追加（対戦相手が決まっている試合のみ）
-    for (final game in games) {
-      // 対戦相手が決まっている試合のみ追加
-      if (game.awaySchoolId != null && game.awaySchoolId.isNotEmpty) {
-        result.add(game);
-      }
-    }
-    
-    // 不足分を空のカードで埋める
-    while (result.length < neededGames) {
-      result.add(null);
-    }
-    
-    return result;
-  }
 
   Widget _buildGameTile(TournamentGame? game) {
     if (game == null) {
@@ -381,7 +320,7 @@ class TournamentBracketWidget extends StatelessWidget {
                 ),
                 if (isCompleted && game.result != null)
                   Text(
-                    '${game.result!.homeScore}',
+                    '${_getHomeScore(game.result)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 11,
@@ -409,7 +348,7 @@ class TournamentBracketWidget extends StatelessWidget {
                 ),
                 if (isCompleted && game.result != null)
                   Text(
-                    '${game.result!.awayScore}',
+                    '${_getAwayScore(game.result)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 11,

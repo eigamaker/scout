@@ -97,8 +97,6 @@ class Player {
   String? scoutEvaluation; // スカウトの個人評価
   String? scoutNotes; // スカウトのメモ
   
-  // デフォルト選手フラグ
-  final bool isDefaultPlayer; // デフォルト選手かどうか（成長・卒業処理をスキップ）
   
   // 実績システム
   final List<Achievement> achievements; // 実績リスト
@@ -148,7 +146,6 @@ class Player {
     Map<String, int>? abilityKnowledge,
     List<Achievement>? achievements,
     this.scoutAnalysisData,
-    this.isDefaultPlayer = false,
     // 以下のフィールドは重複のため削除
     // this.motivationAbility = 50,
     // this.pressureAbility = 50,
@@ -674,7 +671,6 @@ class Player {
   
   // 選手の成長
   void grow() {
-    if (isDefaultPlayer) return; // デフォルト選手は成長しない
 
     final growthChance = (mentalGrit + 0.15) * growthRate * 0.1;
     
@@ -862,7 +858,6 @@ class Player {
     'scoutEvaluation': scoutEvaluation,
     'scoutNotes': scoutNotes,
     'scoutAnalysisData': scoutAnalysisData,
-    'isDefaultPlayer': isDefaultPlayer,
   };
 
   factory Player.fromJson(Map<String, dynamic> json) => Player(
@@ -932,7 +927,6 @@ class Player {
     scoutAnalysisData: json['scoutAnalysisData'] != null
       ? Map<String, int>.from(json['scoutAnalysisData'])
       : null,
-    isDefaultPlayer: json['isDefaultPlayer'] ?? false,
   );
 
   Player copyWith({
@@ -974,7 +968,6 @@ class Player {
     DateTime? retiredAt,
     bool? isDrafted,
     String? professionalTeamId,
-    bool? isDefaultPlayer,
   }) {
     return Player(
       id: id ?? this.id,
@@ -1019,7 +1012,6 @@ class Player {
       scoutEvaluation: scoutEvaluation ?? this.scoutEvaluation,
       scoutNotes: scoutNotes ?? this.scoutNotes,
       scoutAnalysisData: scoutAnalysisData ?? this.scoutAnalysisData,
-      isDefaultPlayer: isDefaultPlayer ?? this.isDefaultPlayer,
     );
   }
 } 
