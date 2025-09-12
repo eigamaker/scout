@@ -66,20 +66,63 @@ class DepthChartService {
     );
   }
 
+  // チームのポジション強さを計算（1番手90% + 2番手10%）
+  static Map<String, int> calculateTeamPositionStrength(TeamDepthChart depthChart, List<ProfessionalPlayer> players) {
+    final positionStrengths = <String, int>{};
+    
+    for (final entry in depthChart.positionCharts.entries) {
+      final position = entry.key;
+      final chart = entry.value;
+      
+      if (chart.playerIds.isEmpty) {
+        positionStrengths[position] = 50; // デフォルト値
+        continue;
+      }
+      
+      // 1番手と2番手の選手を取得
+      final firstPlayerId = chart.playerIds.isNotEmpty ? chart.playerIds[0] : null;
+      final secondPlayerId = chart.playerIds.length > 1 ? chart.playerIds[1] : null;
+      
+      // 選手の能力値を取得
+      int firstPlayerAbility = 50; // デフォルト値
+      int secondPlayerAbility = 50; // デフォルト値
+      
+      if (firstPlayerId != null) {
+        final firstPlayer = players.firstWhere(
+          (p) => 'player_${p.playerId}' == firstPlayerId,
+          orElse: () => players.first,
+        );
+        firstPlayerAbility = firstPlayer.player?.trueTotalAbility ?? 50;
+      }
+      
+      if (secondPlayerId != null) {
+        final secondPlayer = players.firstWhere(
+          (p) => 'player_${p.playerId}' == secondPlayerId,
+          orElse: () => players.first,
+        );
+        secondPlayerAbility = secondPlayer.player?.trueTotalAbility ?? 50;
+      }
+      
+      // 1番手90% + 2番手10%で計算
+      final positionStrength = (firstPlayerAbility * 0.9 + secondPlayerAbility * 0.1).round();
+      positionStrengths[position] = positionStrength;
+    }
+    
+    return positionStrengths;
+  }
+
   // 基本出場時間割合を計算
   static double _calculateBasePlayingTime(int rank, int totalPlayers) {
     if (totalPlayers == 1) return 100.0;
     
-    // 1番手: 60-80%, 2番手: 20-30%, 3番手: 10-20%, 4番手以降: 5-10%
+    // 1番手: 90%, 2番手: 10%, 3番手以降: 0%
     switch (rank) {
       case 0: // 1番手
-        return 70.0;
+        return 90.0;
       case 1: // 2番手
-        return 25.0;
-      case 2: // 3番手
-        return 15.0;
-      default: // 4番手以降
-        return 7.5;
+        return 10.0;
+      default: // 3番手以降
+        return 0.0;
     }
   }
 

@@ -6,6 +6,7 @@ import '../models/professional/depth_chart.dart';
 import '../models/professional/player_stats.dart';
 import '../models/professional/enums.dart';
 import 'depth_chart_service.dart';
+import 'stats_calculation_service.dart';
 import 'pennant_race/schedule_generator.dart';
 import 'pennant_race/game_simulator.dart';
 
@@ -99,6 +100,15 @@ class PennantRaceService {
   ) {
     final updatedStandings = Map<String, TeamStanding>.from(pennantRace.standings);
     final updatedGames = <GameSchedule>[];
+    final updatedPlayerStats = Map<String, PlayerSeasonStats>.from(pennantRace.playerStats);
+    
+    // チーム別選手リストを作成
+    final teamPlayers = <String, List<ProfessionalPlayer>>{};
+    for (final team in teams) {
+      if (team.professionalPlayers != null) {
+        teamPlayers[team.id] = team.professionalPlayers!;
+      }
+    }
     
     for (final game in weekGames) {
       // 試合をシミュレート
@@ -106,6 +116,16 @@ class PennantRaceService {
       
       // 順位表を更新
       _updateStandings(updatedStandings, result, teams);
+      
+      // 選手の成績を計算・更新
+      final gamePlayerStats = StatsCalculationService.calculateGameStats(
+        gameResult: result,
+        teamPlayers: teamPlayers,
+        teamDepthCharts: pennantRace.teamDepthCharts,
+        currentPlayerStats: updatedPlayerStats,
+        season: pennantRace.year,
+      );
+      updatedPlayerStats.addAll(gamePlayerStats);
       
       // 試合結果を記録
       final updatedGame = GameSchedule(
@@ -118,6 +138,7 @@ class PennantRaceService {
         homeTeamGameType: game.homeTeamGameType,
         awayTeamGameType: game.awayTeamGameType,
         isCompleted: true,
+        result: result,
       );
       
       updatedGames.add(updatedGame);
@@ -134,6 +155,7 @@ class PennantRaceService {
     return pennantRace.copyWith(
       schedule: updatedSchedule,
       standings: updatedStandings,
+      playerStats: updatedPlayerStats,
     );
   }
 

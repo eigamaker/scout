@@ -884,7 +884,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
               scrollDirection: Axis.horizontal,
               child: DataTable(
                 columns: const [
-                  DataColumn(label: Text('選手ID')),
+                  DataColumn(label: Text('選手名')),
                   DataColumn(label: Text('試合')),
                   DataColumn(label: Text('打率')),
                   DataColumn(label: Text('安打')),
@@ -894,9 +894,23 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
                 ],
                 rows: batters.map((stats) {
                   final batterStats = stats.batterStats!;
+                  
+                  // 選手名を取得
+                  String playerName = '不明な選手';
+                  if (widget.team.professionalPlayers != null) {
+                    final playerIdNum = int.tryParse(stats.playerId.replaceFirst('player_', ''));
+                    if (playerIdNum != null) {
+                      final professionalPlayer = widget.team.professionalPlayers!.firstWhere(
+                        (p) => p.playerId == playerIdNum,
+                        orElse: () => widget.team.professionalPlayers!.first,
+                      );
+                      playerName = professionalPlayer.player?.name ?? '不明な選手';
+                    }
+                  }
+                  
                   return DataRow(
                     cells: [
-                      DataCell(Text(stats.playerId)),
+                      DataCell(Text(playerName)),
                       DataCell(Text('${batterStats.games}')),
                       DataCell(Text('${(batterStats.battingAverage ?? 0.0).toStringAsFixed(3)}')),
                       DataCell(Text('${batterStats.hits}')),
@@ -948,7 +962,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
               scrollDirection: Axis.horizontal,
               child: DataTable(
                 columns: const [
-                  DataColumn(label: Text('選手ID')),
+                  DataColumn(label: Text('選手名')),
                   DataColumn(label: Text('試合')),
                   DataColumn(label: Text('先発')),
                   DataColumn(label: Text('勝利')),
@@ -958,9 +972,23 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
                 ],
                 rows: pitchers.map((stats) {
                   final pitcherStats = stats.pitcherStats!;
+                  
+                  // 選手名を取得
+                  String playerName = '不明な選手';
+                  if (widget.team.professionalPlayers != null) {
+                    final playerIdNum = int.tryParse(stats.playerId.replaceFirst('player_', ''));
+                    if (playerIdNum != null) {
+                      final professionalPlayer = widget.team.professionalPlayers!.firstWhere(
+                        (p) => p.playerId == playerIdNum,
+                        orElse: () => widget.team.professionalPlayers!.first,
+                      );
+                      playerName = professionalPlayer.player?.name ?? '不明な選手';
+                    }
+                  }
+                  
                   return DataRow(
                     cells: [
-                      DataCell(Text(stats.playerId)),
+                      DataCell(Text(playerName)),
                       DataCell(Text('${pitcherStats.games}')),
                       DataCell(Text('${pitcherStats.gamesStarted}')),
                       DataCell(Text('${pitcherStats.wins}')),

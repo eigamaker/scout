@@ -339,6 +339,17 @@ class TeamManager {
       teams[index] = updatedTeam;
     }
   }
+
+  // チームのポジション強さを更新
+  void updateTeamPositionStrength(String teamId, Map<String, int> positionStrengths) {
+    final teamIndex = teams.indexWhere((team) => team.id == teamId);
+    if (teamIndex != -1) {
+      final team = teams[teamIndex];
+      final updatedProperties = team.properties.copyWith(teamStrength: positionStrengths);
+      final updatedTeam = team.copyWith(properties: updatedProperties);
+      teams[teamIndex] = updatedTeam;
+    }
+  }
   
   // 全チームに選手を生成
   void generatePlayersForAllTeams() {
@@ -353,8 +364,14 @@ class TeamManager {
       // チームの戦略に基づいて選手を生成
       final players = _generatePlayersForTeam(team, globalPlayerId);
       
+      // ProfessionalPlayerオブジェクトを生成
+      final professionalPlayers = _generateProfessionalPlayers(team, players);
+      
       // チームの選手リストを更新
-      final updatedTeam = team.copyWith(players: players);
+      final updatedTeam = team.copyWith(
+        players: players,
+        professionalPlayers: professionalPlayers,
+      );
       updateTeam(updatedTeam);
       
       globalPlayerId += players.length;
@@ -363,6 +380,36 @@ class TeamManager {
     }
     
     print('TeamManager.generatePlayersForAllTeams: 全体完了 - ${teams.length}チーム');
+  }
+
+  // ProfessionalPlayerオブジェクトを生成
+  List<ProfessionalPlayer> _generateProfessionalPlayers(ProfessionalTeam team, List<Player> players) {
+    final professionalPlayers = <ProfessionalPlayer>[];
+    final random = Random();
+    
+    for (final player in players) {
+      final professionalPlayer = ProfessionalPlayer(
+        playerId: player.id ?? 0,
+        teamId: team.id,
+        contractYear: 1,
+        salary: 1000 + random.nextInt(2000), // 1000-3000万円
+        contractType: ContractType.regular,
+        draftYear: DateTime.now().year - 1,
+        draftRound: 1,
+        draftPosition: 1,
+        isActive: true,
+        joinedAt: DateTime.now().subtract(Duration(days: 365)),
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        player: player,
+        teamName: team.name,
+        teamShortName: team.shortName,
+      );
+      
+      professionalPlayers.add(professionalPlayer);
+    }
+    
+    return professionalPlayers;
   }
 
   // 特定チームの選手を生成

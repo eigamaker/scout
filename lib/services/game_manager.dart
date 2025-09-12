@@ -9,6 +9,9 @@ import '../models/professional/enums.dart';
 
 import 'news_service.dart';
 import 'data_service.dart';
+import 'depth_chart_service.dart';
+import 'professional_player_service.dart';
+import '../models/professional/depth_chart.dart';
 
 import 'scouting/action_service.dart' as scouting;
 import 'game_data_manager.dart';
@@ -68,17 +71,91 @@ class GameManager {
   }
 
   /// ペナントレースを初期化
-  void _initializePennantRace() {
+  Future<void> _initializePennantRace() async {
     if (_currentGame != null && _currentGame!.pennantRace == null) {
       final stopwatch = Stopwatch()..start();
+      
+      // プロ野球選手を非同期で生成・保存
+      _generateProfessionalPlayersAsync();
+      
       final pennantRace = PennantRaceService.createInitialPennantRace(
         _currentGame!.currentYear,
         _currentGame!.professionalTeams.teams,
       );
       
-      _currentGame = _currentGame!.copyWith(pennantRace: pennantRace);
+      // Depth Chartを初期化（空のDepth Chartで開始）
+      final teamDepthCharts = <String, TeamDepthChart>{};
+      
+      // Depth Chartを含むペナントレースを作成
+      final pennantRaceWithDepthCharts = pennantRace.copyWith(
+        teamDepthCharts: teamDepthCharts,
+      );
+      
+      _currentGame = _currentGame!.copyWith(pennantRace: pennantRaceWithDepthCharts);
       stopwatch.stop();
-      print('GameManager: ペナントレースを初期化しました - ${stopwatch.elapsedMilliseconds}ms');
+      print('GameManager: ペナントレースを初期化しました（選手生成はバックグラウンドで実行中） - ${stopwatch.elapsedMilliseconds}ms');
+    }
+  }
+
+  /// プロ野球選手を非同期で生成・保存
+  void _generateProfessionalPlayersAsync() {
+    // バックグラウンドで実行
+    Future.microtask(() async {
+      try {
+        print('GameManager: プロ野球選手生成開始（バックグラウンド）');
+        final stopwatch = Stopwatch()..start();
+        
+        // プロ野球選手を生成
+        _currentGame!.professionalTeams.generatePlayersForAllTeams();
+        
+        // プロ野球選手をデータベースに保存
+        await _saveProfessionalPlayersToDatabase();
+        
+        // Depth Chartを初期化
+        final teamDepthCharts = <String, TeamDepthChart>{};
+        for (final team in _currentGame!.professionalTeams.teams) {
+          if (team.professionalPlayers?.isNotEmpty == true) {
+            final depthChart = DepthChartService.initializeTeamDepthChart(
+              team.id,
+              team.professionalPlayers!,
+            );
+            teamDepthCharts[team.id] = depthChart;
+            
+            // ポジション強さを計算して更新
+            final positionStrengths = DepthChartService.calculateTeamPositionStrength(
+              depthChart,
+              team.professionalPlayers!,
+            );
+            _currentGame!.professionalTeams.updateTeamPositionStrength(team.id, positionStrengths);
+          }
+        }
+        
+        // ペナントレースのDepth Chartを更新
+        if (_currentGame!.pennantRace != null) {
+          final updatedPennantRace = _currentGame!.pennantRace!.copyWith(
+            teamDepthCharts: teamDepthCharts,
+          );
+          _currentGame = _currentGame!.copyWith(pennantRace: updatedPennantRace);
+        }
+        
+        stopwatch.stop();
+        print('GameManager: プロ野球選手生成完了（バックグラウンド） - ${stopwatch.elapsedMilliseconds}ms');
+      } catch (e) {
+        print('GameManager: プロ野球選手生成エラー（バックグラウンド） - $e');
+      }
+    });
+  }
+
+  /// プロ野球選手をデータベースに保存
+  Future<void> _saveProfessionalPlayersToDatabase() async {
+    if (_dataService == null) return;
+    
+    try {
+      final professionalPlayerService = ProfessionalPlayerService(_dataService!);
+      await professionalPlayerService.saveProfessionalPlayers(_currentGame!.professionalTeams.teams);
+      print('GameManager: プロ野球選手をデータベースに保存しました');
+    } catch (e) {
+      print('GameManager: プロ野球選手の保存でエラー - $e');
     }
   }
 
@@ -631,7 +708,7 @@ class GameManager {
       await _loadProfessionalPlayersFromDatabase(dataService);
       
       // ペナントレースを初期化
-      _initializePennantRace();
+      await _initializePennantRace();
       proPlayerLoadStart.stop();
       print('GameManager.startNewGameWithDb: プロ選手読み込み完了 - ${proPlayerLoadStart.elapsedMilliseconds}ms');
       
