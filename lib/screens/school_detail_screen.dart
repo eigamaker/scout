@@ -172,15 +172,15 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
 
   /// 所属選手タブを構築
   Widget _buildPlayersTab() {
-            // 注目選手（isPubliclyKnown）と発掘済み選手（isDiscovered = true）を表示
+            // 注目選手（isFamous）とスカウト済み選手（isScouted = true）を表示
         final visiblePlayers = widget.school.players.where((player) =>
-          player.isPubliclyKnown || player.isDiscovered
+          player.isFamous || player.isScouted
         ).toList();
     
     // デバッグ情報を表示
     final totalPlayers = widget.school.players.length;
-    final publiclyKnownPlayers = widget.school.players.where((p) => p.isPubliclyKnown).length;
-          final discoveredPlayers = widget.school.players.where((p) => p.isDiscovered).length;
+    final famousPlayers = widget.school.players.where((p) => p.isFamous).length;
+          final scoutedPlayers = widget.school.players.where((p) => p.isScouted).length;
     
     return Column(
       children: [
@@ -189,7 +189,7 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
           padding: const EdgeInsets.all(8),
           color: Colors.grey[100],
           child: Text(
-            'デバッグ: 総選手数: $totalPlayers, 注目選手: $publiclyKnownPlayers, 発掘済み: $discoveredPlayers, 表示対象: ${visiblePlayers.length}',
+            'デバッグ: 総選手数: $totalPlayers, 注目選手: $famousPlayers, スカウト済み: $scoutedPlayers, 表示対象: ${visiblePlayers.length}',
             style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ),

@@ -198,7 +198,7 @@ class ProfessionalPlayerCard extends StatelessWidget {
                       style: const TextStyle(fontSize: 12),
                     ),
                     const Spacer(),
-                    if (player.isPubliclyKnown)
+                    if (player.isFamous)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(

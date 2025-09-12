@@ -418,7 +418,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
   /// スカウト完了度を計算
   double _getScoutCompletionRate() {
-    if (!widget.player.isDiscovered) {
+    if (!widget.player.isScouted) {
       return 0.0;
     }
     
@@ -701,13 +701,13 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 const SizedBox(height: 16),
                 
                 // 能力値システム
-                if (widget.player.isDiscovered || widget.player.fame >= 65) ...[
+                if (widget.player.isScouted || widget.player.fame >= 65) ...[
                   _buildNewAbilityCard(context, textColor, cardBg, primaryColor),
                   const SizedBox(height: 16),
                 ],
                 
                 // 球種情報
-                if ((widget.player.isDiscovered || widget.player.fame >= 80) && 
+                if ((widget.player.isScouted || widget.player.fame >= 80) && 
                     widget.player.isPitcher && widget.player.pitches != null && 
                     widget.player.pitches!.isNotEmpty) ...[
                   _buildPitchesCard(context, textColor, cardBg),
@@ -715,19 +715,19 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                 ],
                 
                 // ポジション適性
-                if (widget.player.isDiscovered || widget.player.fame >= 80) ...[
+                if (widget.player.isScouted || widget.player.fame >= 80) ...[
                   _buildPositionFitCard(context, textColor, cardBg, primaryColor),
                   const SizedBox(height: 16),
                 ],
                 
                 // スカウト評価・メモ
-                if (widget.player.isDiscovered) ...[
+                if (widget.player.isScouted) ...[
                   _buildScoutNotesCard(context, textColor, cardBg),
                   const SizedBox(height: 16),
                 ],
                 
                 // 情報が表示されない場合のメッセージ
-                if (!widget.player.isDiscovered && widget.player.fame < 65) ...[
+                if (!widget.player.isScouted && widget.player.fame < 65) ...[
                   _buildInfoInsufficientCard(context, textColor),
                 ],
               ],

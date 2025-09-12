@@ -671,7 +671,7 @@ class GameManager {
     final undiscoveredPlayers = <Player>[];
     for (final school in _currentGame!.schools) {
       undiscoveredPlayers.addAll(
-        school.players.where((p) => !p.isDiscovered && !p.isDefaultPlayer)
+        school.players.where((p) => !p.isScouted && !p.isDefaultPlayer)
       );
     }
     
@@ -1804,12 +1804,12 @@ class GameManager {
 
   // 選手のお気に入り状態を更新
   Future<void> togglePlayerFavorite(Player player, DataService dataService) async {
-    final newFavoriteState = !player.isPubliclyKnown;
+    final newFavoriteState = !player.isFamous;
     
     // discoveredPlayersリスト内の選手を更新
     final index = _currentGame!.discoveredPlayers.indexWhere((p) => p.id == player.id);
     if (index != -1) {
-      final updatedPlayer = player.copyWith(isPubliclyKnown: newFavoriteState);
+      final updatedPlayer = player.copyWith(isFamous: newFavoriteState);
       _currentGame!.discoveredPlayers[index] = updatedPlayer;
     }
     
@@ -1817,7 +1817,7 @@ class GameManager {
     for (final school in _currentGame!.schools) {
       final playerIndex = school.players.indexWhere((p) => p.id == player.id);
       if (playerIndex != -1) {
-        final updatedPlayer = player.copyWith(isPubliclyKnown: newFavoriteState);
+        final updatedPlayer = player.copyWith(isFamous: newFavoriteState);
         school.players[playerIndex] = updatedPlayer;
       }
     }
@@ -1827,7 +1827,7 @@ class GameManager {
       final db = await dataService.database;
       await db.update(
         'Player',
-        {'is_publicly_known': newFavoriteState ? 1 : 0},
+        {'is_famous': newFavoriteState ? 1 : 0},
         where: 'id = ?',
         whereArgs: [player.id],
       );
@@ -1918,7 +1918,7 @@ class GameManager {
         for (final key in player.keys) {
           if (key != 'id' && key != 'name' && key != 'position' && key != 'personality' && 
               key != 'school_id' && key != 'graduated_at' && key != 'growthType' &&
-              key != 'is_retired' && key != 'is_default_player' && key != 'is_publicly_known' && 
+              key != 'is_retired' && key != 'is_default_player' && key != 'is_famous' && 
               key != 'is_scout_favorite' && key != 'is_graduated') {
             final value = player[key];
             if (value is String && value.isNotEmpty) {
@@ -2112,8 +2112,8 @@ class GameManager {
               position: p['position'] as String? ?? '',
               personality: person['personality'] as String? ?? '',
               fame: _safeIntCast(p['fame']),
-              isDiscovered: false,
-              isPubliclyKnown: (p['is_publicly_known'] as int?) == 1, // データベースから読み込み
+              isScouted: false,
+              isFamous: (p['is_famous'] as int?) == 1, // データベースから読み込み
               isScoutFavorite: false,
               isGraduated: (p['is_graduated'] as int?) == 1, // 卒業フラグを読み込み
               graduatedAt: p['graduated_at'] != null ? DateTime.tryParse(p['graduated_at'] as String) : null, // 卒業日を読み込み
@@ -2137,7 +2137,7 @@ class GameManager {
             ),
           );
 
-          final isPubliclyKnownFromDb = (p['is_publicly_known'] as int?) == 1;
+          final isFamousFromDb = (p['is_famous'] as int?) == 1;
           final isScoutFavoriteFromDb = (p['is_scout_favorite'] as int?) == 1;
           final isGraduatedFromDb = (p['is_graduated'] as int?) == 1;
           final graduatedAtFromDb = p['graduated_at'] as String?;
@@ -2160,8 +2160,8 @@ class GameManager {
               personality: person['personality'] as String? ?? '',
               fame: _safeIntCast(p['fame']), // fameフィールドを追加
               isWatched: existingPlayer.isWatched,
-              isDiscovered: existingPlayer.isDiscovered,
-              isPubliclyKnown: isPubliclyKnownFromDb, // データベースから読み込み
+              isScouted: existingPlayer.isScouted,
+              isFamous: isFamousFromDb, // データベースから読み込み
               isScoutFavorite: isScoutFavoriteFromDb, // データベースから読み込み
               isGraduated: isGraduatedFromDb, // 卒業フラグを読み込み
               graduatedAt: graduatedAtFromDb != null ? DateTime.tryParse(graduatedAtFromDb) : null, // 卒業日を読み込み
@@ -2201,7 +2201,7 @@ class GameManager {
       }).toList();
 
       // 発掘選手リストを更新
-      final discoveredPlayerIds = updatedSchools.expand((school) => school.players.where((p) => p.isDiscovered).map((p) => p.id!)).toList();
+      final discoveredPlayerIds = updatedSchools.expand((school) => school.players.where((p) => p.isScouted).map((p) => p.id!)).toList();
 
       // ゲーム状態を更新
       _currentGame = _currentGame!.copyWith(
@@ -2926,8 +2926,8 @@ class GameManager {
             personality: personMap['personality'] as String? ?? '',
             fame: _safeIntCast(playerMap['fame']),
             isWatched: false,
-            isDiscovered: true,
-            isPubliclyKnown: (playerMap['is_publicly_known'] as int?) == 1,
+            isScouted: true,
+            isFamous: (playerMap['is_famous'] as int?) == 1,
             isScoutFavorite: false,
             isGraduated: (playerMap['is_graduated'] as int?) == 1,
             graduatedAt: playerMap['graduated_at'] != null ? DateTime.tryParse(playerMap['graduated_at'] as String) : null,
@@ -3118,7 +3118,7 @@ class GameManager {
           // 既に発掘済みの場合もフィジカル面の分析を行う
           if (result.discoveredPlayers.isEmpty && result.improvedPlayer == null) {
             // 発掘済み選手からランダムで1人選んでフィジカル面分析
-            final discoveredPlayers = school.players.where((p) => p.isDiscovered).toList();
+            final discoveredPlayers = school.players.where((p) => p.isScouted).toList();
             if (discoveredPlayers.isNotEmpty) {
               final random = Random();
               final targetPlayer = discoveredPlayers[random.nextInt(discoveredPlayers.length)];
@@ -3413,14 +3413,14 @@ class GameManager {
     final updatedSchools = _currentGame!.schools.map((school) {
       final updatedPlayers = school.players.map((player) {
         // 既に注目選手の場合は変更なし（削除されない）
-        if (player.isPubliclyKnown) {
+        if (player.isFamous) {
           return player;
         }
         
         // 成長により新たに注目選手の条件を満たした場合
         final shouldBeKnown = _shouldBecomePubliclyKnownAfterGrowth(player);
         if (shouldBeKnown) {
-          return player.copyWith(isPubliclyKnown: true);
+          return player.copyWith(isFamous: true);
         }
         
         return player;
@@ -3705,9 +3705,9 @@ class GameManager {
               position: playerMap['position'] as String,
               positionFit: _generateProfessionalPositionFit(playerMap['position'] as String? ?? '投手'),
               fame: playerMap['fame'] as int? ?? 60,
-              isPubliclyKnown: (playerMap['is_publicly_known'] as int? ?? 1) == 1,
+              isFamous: (playerMap['is_famous'] as int? ?? 1) == 1,
               isScoutFavorite: (playerMap['is_scout_favorite'] as int? ?? 0) == 1,
-              isDiscovered: true,
+              isScouted: true,
               isGraduated: true,
               isRetired: (playerMap['is_retired'] as int? ?? 0) == 1,
               isDefaultPlayer: false,

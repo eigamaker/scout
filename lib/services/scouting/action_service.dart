@@ -96,11 +96,11 @@ class ActionService {
     required int currentWeek,
   }) async {
     // 未発掘選手リスト（デフォルト選手は除外）
-    final undiscovered = school.players.where((p) => !p.isDiscovered && p.talent >= 3).toList();
+    final undiscovered = school.players.where((p) => !p.isScouted && p.talent >= 3).toList();
     if (undiscovered.isNotEmpty) {
       // 未発掘選手がいればランダムで1人発掘
       final player = undiscovered[Random().nextInt(undiscovered.length)];
-      player.isDiscovered = true;
+      player.isScouted = true;
       player.scoutedDates.add(DateTime.now());
       // 知名度に基づく初期情報把握度を設定（性格・精神面は除外）
       final baseKnowledge = _getInitialKnowledgeByFame(player.fameLevel);
@@ -124,7 +124,7 @@ class ActionService {
       );
     } else {
       // すでに全員発掘済み→ランダムで1人の把握度アップ
-      final discovered = school.players.where((p) => p.isDiscovered).toList();
+      final discovered = school.players.where((p) => p.isScouted).toList();
       if (discovered.isEmpty) {
         return SchoolScoutResult(
           discoveredPlayer: null,
@@ -160,7 +160,7 @@ class ActionService {
     required int currentWeek,
   }) {
     // 未発掘選手リスト（デフォルト選手は除外）
-    final undiscovered = school.players.where((p) => !p.isDiscovered && p.talent >= 3).toList();
+    final undiscovered = school.players.where((p) => !p.isScouted && p.talent >= 3).toList();
     final discoveredPlayers = <Player>[];
     
     if (undiscovered.isNotEmpty) {
@@ -216,7 +216,7 @@ class ActionService {
       }
       
       for (final player in selectedPlayers) {
-        player.isDiscovered = true;
+        player.isScouted = true;
         player.scoutedDates.add(DateTime.now());
         
         // 練習視察では基本情報のみ取得（詳細な能力値判定はしない）
@@ -272,7 +272,7 @@ class ActionService {
       );
     } else {
       // 学校全体の練習視察でポテンシャル基準での発掘（デフォルト選手は除外）
-      final undiscovered = school.players.where((p) => !p.isDiscovered && p.talent >= 3).toList();
+      final undiscovered = school.players.where((p) => !p.isScouted && p.talent >= 3).toList();
       if (undiscovered.isNotEmpty) {
         // 探索スキルに基づいて発掘可能性を計算
         final explorationSkill = scoutSkills[ScoutSkill.exploration] ?? 1;
@@ -311,7 +311,7 @@ class ActionService {
         
         if (potentialPlayers.isNotEmpty) {
           final player = potentialPlayers[Random().nextInt(potentialPlayers.length)];
-          player.isDiscovered = true;
+          player.isScouted = true;
           player.scoutedDates.add(DateTime.now());
           
           // フィジカル面の能力値のみ把握度を設定
@@ -399,7 +399,7 @@ class ActionService {
       );
     } else {
       // 学校全体の試合観戦で高能力値選手を発掘（デフォルト選手は除外）
-      final undiscovered = school.players.where((p) => !p.isDiscovered && p.talent >= 3).toList();
+      final undiscovered = school.players.where((p) => !p.isScouted && p.talent >= 3).toList();
       
       // 高能力値選手（レギュラークラス）のみを対象とする
       final regularPlayers = undiscovered.where((p) => p.trueTotalAbility >= 70).toList();
@@ -407,7 +407,7 @@ class ActionService {
       if (regularPlayers.isNotEmpty) {
         // 高能力値選手から発掘
         final player = regularPlayers[Random().nextInt(regularPlayers.length)];
-        player.isDiscovered = true;
+        player.isScouted = true;
         player.scoutedDates.add(DateTime.now());
         
         // 試合観戦では発掘のみ行い、詳細分析はスカウト分析システムで処理する
@@ -420,7 +420,7 @@ class ActionService {
         );
       } else {
         // 既に発掘済みの選手から情報を更新
-        final allPlayers = school.players.where((p) => p.isDiscovered).toList();
+        final allPlayers = school.players.where((p) => p.isScouted).toList();
         if (allPlayers.isNotEmpty) {
           final player = allPlayers[Random().nextInt(allPlayers.length)];
           // 技術面とフィジカル面の能力値のみ把握度を設定
@@ -468,8 +468,8 @@ class ActionService {
     // 才能、成長タイプとポテンシャルのみ把握度を設定
     
     // 選手を発掘状態にする（まだ発掘されていない場合）
-    if (!targetPlayer.isDiscovered) {
-      targetPlayer.isDiscovered = true;
+    if (!targetPlayer.isScouted) {
+      targetPlayer.isScouted = true;
       targetPlayer.scoutedDates.add(DateTime.now());
     } else {
       // 既に発掘済みの場合は視察履歴を追加
@@ -632,7 +632,7 @@ class ActionService {
       );
     } else {
       // 学校全体の練習試合観戦で高能力値選手を発掘（デフォルト選手は除外）
-      final undiscovered = school.players.where((p) => !p.isDiscovered && p.talent >= 3).toList();
+      final undiscovered = school.players.where((p) => !p.isScouted && p.talent >= 3).toList();
       
       // 高能力値選手（レギュラークラス）のみを対象とする
       final regularPlayers = undiscovered.where((p) => p.trueTotalAbility >= 70).toList();
@@ -640,7 +640,7 @@ class ActionService {
       if (regularPlayers.isNotEmpty) {
         // 高能力値選手から発掘
         final player = regularPlayers[Random().nextInt(regularPlayers.length)];
-        player.isDiscovered = true;
+        player.isScouted = true;
         player.scoutedDates.add(DateTime.now());
         
         // 練習試合観戦では発掘のみ行い、詳細分析はスカウト分析システムで処理する
@@ -653,7 +653,7 @@ class ActionService {
         );
       } else {
         // 既に発掘済みの選手すべての情報を更新
-        final allPlayers = school.players.where((p) => p.isDiscovered).toList();
+        final allPlayers = school.players.where((p) => p.isScouted).toList();
         if (allPlayers.isNotEmpty) {
           // 発掘済みの選手すべての技術面能力値の把握度を向上
           for (final player in allPlayers) {
@@ -698,8 +698,8 @@ class ActionService {
     // 性格と精神力とメンタル面の能力値のみ把握度を設定
     
     // 選手を発掘状態にする（まだ発掘されていない場合）
-    if (!targetPlayer.isDiscovered) {
-      targetPlayer.isDiscovered = true;
+    if (!targetPlayer.isScouted) {
+      targetPlayer.isScouted = true;
       targetPlayer.scoutedDates.add(DateTime.now());
     } else {
       // 既に発掘済みの場合は視察履歴を追加
@@ -789,8 +789,8 @@ class ActionService {
       }
       
       // 選手を発掘済み状態にする
-      if (!targetPlayer.isDiscovered) {
-        targetPlayer.isDiscovered = true;
+      if (!targetPlayer.isScouted) {
+        targetPlayer.isScouted = true;
         print('選手を発掘済み状態に設定: ${targetPlayer.name}');
       }
       
@@ -801,7 +801,7 @@ class ActionService {
       await db.update(
         'Player',
         {
-          'is_discovered': targetPlayer.isDiscovered ? 1 : 0,
+          'is_scouted': targetPlayer.isScouted ? 1 : 0,
         },
         where: 'id = ?',
         whereArgs: [actualPlayerId],
@@ -997,8 +997,8 @@ class ActionService {
       }
       
       // 選手を発掘済み状態にする
-      if (!targetPlayer.isDiscovered) {
-        targetPlayer.isDiscovered = true;
+      if (!targetPlayer.isScouted) {
+        targetPlayer.isScouted = true;
         print('選手を発掘済み状態に設定: ${targetPlayer.name}');
       }
       
@@ -1009,7 +1009,7 @@ class ActionService {
       await db.update(
         'Player',
         {
-          'is_discovered': targetPlayer.isDiscovered ? 1 : 0,
+          'is_scouted': targetPlayer.isScouted ? 1 : 0,
         },
         where: 'id = ?',
         whereArgs: [actualPlayerId],
@@ -1168,7 +1168,7 @@ class ActionService {
       await db.update(
         'Player',
         {
-          'is_discovered': targetPlayer.isDiscovered ? 1 : 0,
+          'is_scouted': targetPlayer.isScouted ? 1 : 0,
         },
         where: 'id = ?',
         whereArgs: [actualPlayerId],
@@ -1610,8 +1610,8 @@ class ActionService {
       }
       
       // 選手を発掘済み状態にする
-      if (!targetPlayer.isDiscovered) {
-        targetPlayer.isDiscovered = true;
+      if (!targetPlayer.isScouted) {
+        targetPlayer.isScouted = true;
         print('選手を発掘済み状態に設定: ${targetPlayer.name}');
       }
       
@@ -1622,7 +1622,7 @@ class ActionService {
       await db.update(
         'Player',
         {
-          'is_discovered': targetPlayer.isDiscovered ? 1 : 0,
+          'is_scouted': targetPlayer.isScouted ? 1 : 0,
         },
         where: 'id = ?',
         whereArgs: [actualPlayerId],

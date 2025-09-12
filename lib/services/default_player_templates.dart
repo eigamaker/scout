@@ -15,7 +15,7 @@ class DefaultPlayerTemplate {
     position: '投手', // ポジションは何でもOK
     personality: '真面目',
     fame: 0,
-    isPubliclyKnown: false,
+    isFamous: false,
     isScoutFavorite: false,
     isGraduated: false,
     discoveredBy: null,

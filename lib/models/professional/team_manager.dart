@@ -199,9 +199,9 @@ class TeamManager {
       position: position,
       positionFit: _generatePositionFit(position, random),
       fame: 30 + random.nextInt(40), // 30-69
-      isPubliclyKnown: random.nextBool(),
+      isFamous: random.nextBool(),
       isScoutFavorite: random.nextBool(),
-      isDiscovered: false,
+      isScouted: false,
       isGraduated: false,
       isRetired: false,
       isDefaultPlayer: false,

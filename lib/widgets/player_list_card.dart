@@ -85,7 +85,7 @@ class _PlayerListCardState extends State<PlayerListCard> {
                     const SizedBox(width: 8),
                   ],
                   // 注目マーク（★）
-                  if (_player.isPubliclyKnown)
+                  if (_player.isFamous)
                     const Icon(
                       Icons.star,
                       color: Colors.amber,

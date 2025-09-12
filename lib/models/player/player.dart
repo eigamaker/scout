@@ -31,8 +31,8 @@ class Player {
   bool isWatched; // スカウトが注目しているかどうか
   
   // 発掘状態管理
-  bool isDiscovered; // 発掘済みかどうか
-  bool isPubliclyKnown; // 世間から注目されているかどうか
+  bool isScouted; // スカウトが分析した選手かどうか
+  bool isFamous; // 世間一般に注目されている選手かどうか
   bool isScoutFavorite; // 自分が気に入っている選手かどうか
   String? discoveredBy; // 発掘したスカウト（将来的に複数スカウト対応）
   List<DateTime> scoutedDates; // 視察履歴
@@ -116,8 +116,8 @@ class Player {
     this.mentalStrength = 0,
     this.fame = 0,
     this.isWatched = false,
-    this.isDiscovered = false,
-    this.isPubliclyKnown = false,
+    this.isScouted = false,
+    this.isFamous = false,
     this.isScoutFavorite = false,
     this.discoveredBy,
     List<DateTime>? scoutedDates,
@@ -324,12 +324,12 @@ class Player {
     }
     
     // スカウティングの場合は必ず含める（自分が分析した選手）
-    if (isDiscovered) {
+    if (isScouted) {
       categories.add(PlayerCategory.scouting);
     }
     
     // 注目選手の場合は必ず含める（世間一般的に注目されている選手）
-    if (isPubliclyKnown) {
+    if (isFamous) {
       categories.add(PlayerCategory.famous);
     }
     
@@ -344,9 +344,9 @@ class Player {
   PlayerCategory _calculateCategory() {
     if (isScoutFavorite) {
       return PlayerCategory.favorite;
-    } else if (isPubliclyKnown) {
-      return PlayerCategory.famous; // isPubliclyKnownフラグを最優先（注目選手として固定）
-    } else if (isDiscovered) {
+    } else if (isFamous) {
+      return PlayerCategory.famous; // isFamousフラグを最優先（注目選手として固定）
+    } else if (isScouted) {
       return PlayerCategory.scouting;
     } else {
       return PlayerCategory.unknown;
@@ -830,8 +830,8 @@ class Player {
     'trustLevel': trustLevel,
     'fame': fame,
     'isWatched': isWatched,
-    'isDiscovered': isDiscovered,
-    'isPubliclyKnown': isPubliclyKnown,
+    'isScouted': isScouted,
+    'isFamous': isFamous,
     'isScoutFavorite': isScoutFavorite,
     'discoveredBy': discoveredBy,
     'scoutedDates': scoutedDates.map((d) => d.toIso8601String()).toList(),
@@ -876,8 +876,8 @@ class Player {
     trustLevel: json['trustLevel'] ?? 0,
     fame: json['fame'] ?? 0,
     isWatched: json['isWatched'] ?? false,
-    isDiscovered: json['isDiscovered'] ?? false,
-    isPubliclyKnown: json['isPubliclyKnown'] ?? false,
+    isScouted: json['isScouted'] ?? false,
+    isFamous: json['isFamous'] ?? false,
     isScoutFavorite: json['isScoutFavorite'] ?? false,
     discoveredBy: json['discoveredBy'],
     scoutedDates: json['scoutedDates'] != null 
@@ -946,8 +946,8 @@ class Player {
     int? trustLevel,
     int? fame,
     bool? isWatched,
-    bool? isDiscovered,
-    bool? isPubliclyKnown,
+    bool? isScouted,
+    bool? isFamous,
     bool? isScoutFavorite,
     String? discoveredBy,
     List<DateTime>? scoutedDates,
@@ -987,8 +987,8 @@ class Player {
       trustLevel: trustLevel ?? this.trustLevel,
       fame: fame ?? this.fame,
       isWatched: isWatched ?? this.isWatched,
-      isDiscovered: isDiscovered ?? this.isDiscovered,
-      isPubliclyKnown: isPubliclyKnown ?? this.isPubliclyKnown,
+      isScouted: isScouted ?? this.isScouted,
+      isFamous: isFamous ?? this.isFamous,
       isScoutFavorite: isScoutFavorite ?? this.isScoutFavorite,
           discoveredBy: discoveredBy ?? this.discoveredBy,
     scoutedDates: scoutedDates ?? this.scoutedDates,

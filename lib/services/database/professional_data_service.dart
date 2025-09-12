@@ -335,7 +335,7 @@ class ProfessionalDataService {
       'age': 20 + random.nextInt(10), // 20-29歳
       'position': position,
       'fame': 70 + random.nextInt(30), // 70-99
-      'is_publicly_known': 1, // プロ選手は常に注目選手
+      'is_famous': 1, // プロ選手は常に注目選手
       'is_scout_favorite': random.nextBool() ? 1 : 0,
       'is_default_player': 0, // プロ選手はデフォルト選手ではない
       'growth_rate': 0.5 + random.nextDouble() * 0.5, // 0.5-1.0

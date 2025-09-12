@@ -120,7 +120,7 @@ class NewsDetailScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 
                 // アクションボタン（発掘済みまたは注目選手の場合）
-                if (relatedPlayer.isDiscovered || relatedPlayer.fameLevel >= 3) ...[
+                if (relatedPlayer.isScouted || relatedPlayer.fameLevel >= 3) ...[
                   Text(
                     'スカウトアクション',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(

@@ -251,7 +251,7 @@ class DataRepairService {
         // 注目選手フラグを更新（注目選手でない場合も明示的に0を設定）
         await _db.update(
           'Player',
-          {'is_publicly_known': shouldBePubliclyKnown ? 1 : 0},
+          {'is_famous': shouldBePubliclyKnown ? 1 : 0},
           where: 'id = ?',
           whereArgs: [player['id']],
         );

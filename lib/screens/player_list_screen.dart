@@ -37,22 +37,22 @@ class _PlayerListScreenState extends State<PlayerListScreen> with SingleTickerPr
         result = allPlayers.where((player) => player.isScoutFavorite).toList();
         break;
       case PlayerCategory.scouting:
-        // スカウティング: 自分が分析した選手（isDiscovered = true）
-        result = allPlayers.where((player) => player.isDiscovered).toList();
+        // スカウティング: 自分が分析した選手（isScouted = true）
+        result = allPlayers.where((player) => player.isScouted).toList();
         break;
       case PlayerCategory.famous:
-        // 注目選手: 世間一般的に注目されている選手（isPubliclyKnown = true）
-        result = allPlayers.where((player) => player.isPubliclyKnown).toList();
+        // 注目選手: 世間一般的に注目されている選手（isFamous = true）
+        result = allPlayers.where((player) => player.isFamous).toList();
         break;
       case PlayerCategory.unknown:
         // 未発掘: スカウトアクションを一度も行っていない選手
-        result = allPlayers.where((player) => !player.isDiscovered && !player.isPubliclyKnown).toList();
+        result = allPlayers.where((player) => !player.isScouted && !player.isFamous).toList();
         break;
     }
     
     print('カテゴリ ${category.name} の選手数: ${result.length}名');
     if (result.isNotEmpty) {
-      print('最初の選手: ${result.first.name}, isPubliclyKnown: ${result.first.isPubliclyKnown}, isDiscovered: ${result.first.isDiscovered}');
+      print('最初の選手: ${result.first.name}, isFamous: ${result.first.isFamous}, isScouted: ${result.first.isScouted}');
     }
     return result;
   }

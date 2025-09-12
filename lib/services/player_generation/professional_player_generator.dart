@@ -71,9 +71,9 @@ class ProfessionalPlayerGenerator {
       position: position,
       positionFit: _generatePositionFit(position),
       fame: 70 + _random.nextInt(30), // 70-99
-      isPubliclyKnown: true, // プロ選手は常に注目選手
+      isFamous: true, // プロ選手は常に注目選手
       isScoutFavorite: _random.nextBool(),
-      isDiscovered: true,
+      isScouted: true,
       isGraduated: true,
       isRetired: false,
       isDefaultPlayer: false,

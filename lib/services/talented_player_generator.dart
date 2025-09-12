@@ -130,7 +130,7 @@ class TalentedPlayerGenerator {
     final hometown = prefecture;
     final personality = _generatePersonality();
     final fame = _generateFame(talentRank);
-    final isPubliclyKnown = _shouldBePubliclyKnown(talentRank);
+    final isFamous = _shouldBePubliclyKnown(talentRank);
     
     // ピーク能力をタレントランクに基づいて生成
     final peakAbility = _calculatePeakAbilityByTalent(talentRank);
@@ -149,9 +149,9 @@ class TalentedPlayerGenerator {
       position: position,
       personality: personality,
       fame: fame,
-      isPubliclyKnown: isPubliclyKnown,
+      isFamous: isFamous,
       isScoutFavorite: false,
-      isDiscovered: false, // 注目選手でも初期状態では未発掘
+      isScouted: false, // 注目選手でも初期状態では未スカウト
       isGraduated: false,
       discoveredBy: null,
       scoutedDates: [], // 初期状態では視察履歴なし
@@ -224,7 +224,7 @@ class TalentedPlayerGenerator {
     final hometown = prefecture;
     final personality = _generatePersonality();
     final fame = _generateFame(talentRank);
-    final isPubliclyKnown = _shouldBePubliclyKnown(talentRank);
+    final isFamous = _shouldBePubliclyKnown(talentRank);
     
     // ピーク能力をタレントランクに基づいて生成
     final peakAbility = _calculatePeakAbilityByTalent(talentRank);
@@ -243,9 +243,9 @@ class TalentedPlayerGenerator {
       position: position,
       personality: personality,
       fame: fame,
-      isPubliclyKnown: isPubliclyKnown,
+      isFamous: isFamous,
       isScoutFavorite: false,
-      isDiscovered: false, // 注目選手でも初期状態では未発掘
+      isScouted: false, // 注目選手でも初期状態では未スカウト
       isGraduated: false,
       discoveredBy: null,
       scoutedDates: [], // 初期状態では視察履歴なし

@@ -620,9 +620,9 @@ class DataService {
         age INTEGER DEFAULT 15,
         position TEXT NOT NULL,
         fame INTEGER DEFAULT 0,
-        is_publicly_known INTEGER DEFAULT 0,
+        is_famous INTEGER DEFAULT 0,
         is_scout_favorite INTEGER DEFAULT 0,
-        is_discovered INTEGER DEFAULT 0,
+        is_scouted INTEGER DEFAULT 0,
         is_graduated INTEGER DEFAULT 0,
         graduated_at TEXT,
         is_retired INTEGER DEFAULT 0,
@@ -1323,7 +1323,7 @@ class DataService {
             'age': age,
             'position': position,
             'fame': 60 + random.nextInt(41), // 60-100
-            'is_publicly_known': 1,
+            'is_famous': 1,
             'is_scout_favorite': 0,
             'is_graduated': 1, // プロ選手は高校卒業済み
             'is_retired': 0, // プロ選手は引退していない
@@ -1948,7 +1948,7 @@ class DataService {
         // 注目選手フラグを更新（注目選手でない場合も明示的に0を設定）
         await db.update(
           'Player',
-          {'is_publicly_known': shouldBePubliclyKnown ? 1 : 0},
+          {'is_famous': shouldBePubliclyKnown ? 1 : 0},
           where: 'id = ?',
           whereArgs: [player['id']],
         );
