@@ -208,14 +208,7 @@ class DatabaseSchemaService {
           short_name TEXT NOT NULL,
           league TEXT NOT NULL,
           division TEXT NOT NULL,
-          home_stadium TEXT NOT NULL,
-          city TEXT NOT NULL,
-          budget INTEGER NOT NULL,
           strategy TEXT NOT NULL,
-          strengths TEXT,
-          weaknesses TEXT,
-          popularity INTEGER DEFAULT 50,
-          success INTEGER DEFAULT 50,
           created_at TEXT DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )

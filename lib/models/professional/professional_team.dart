@@ -2,7 +2,6 @@ import '../player/player.dart';
 import 'team_properties.dart';
 import 'enums.dart';
 import 'professional_player.dart';
-import 'team_manager.dart';
 
 /// プロ野球団クラス
 class ProfessionalTeam {
@@ -22,23 +21,16 @@ class ProfessionalTeam {
   String get shortName => properties.shortName;
   League get league => properties.league;
   Division get division => properties.division;
-  String get homeStadium => properties.homeStadium;
-  String get city => properties.city;
-  int get budget => properties.budget;
   List<String> get needs => properties.needs;
   Map<String, int> get scoutRelations => properties.scoutRelations;
   int get draftOrder => properties.draftOrder;
   Map<String, int> get teamStrength => properties.teamStrength;
   String get strategy => properties.strategy;
-  List<String> get strengths => properties.strengths;
-  List<String> get weaknesses => properties.weaknesses;
-  int get popularity => properties.popularity;
-  int get success => properties.success;
 
   // 計算プロパティへの委譲
   int get totalStrength => properties.totalStrength;
-  String get budgetLevel => properties.budgetLevel;
   String get strengthLevel => properties.strengthLevel;
+  String get strengthGrade => properties.strengthGrade;
   String get characteristics => properties.characteristics;
   Map<String, String> get detailedInfo => properties.detailedInfo;
 
@@ -93,19 +85,11 @@ class ProfessionalTeam {
     return copyWith(properties: newProperties);
   }
 
-  // 球団予算を更新
-  ProfessionalTeam updateBudget(int newBudget) {
-    final newProperties = properties.copyWith(
-      budget: newBudget.clamp(1000, 1000000),
-    );
-    return copyWith(properties: newProperties);
-  }
 
-  // 球団の成功度を更新
-  ProfessionalTeam updateSuccess(int newSuccess) {
-    final newProperties = properties.copyWith(
-      success: newSuccess.clamp(0, 100),
-    );
+  // プロ選手のoverall平均値を設定
+  ProfessionalTeam setProPlayerOverallAverage(int average) {
+    final newProperties = properties.copyWith();
+    newProperties.setProPlayerOverallAverage(average);
     return copyWith(properties: newProperties);
   }
 }

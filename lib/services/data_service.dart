@@ -751,14 +751,7 @@ class DataService {
         short_name TEXT NOT NULL,
         league TEXT NOT NULL, -- 'central' or 'pacific'
         division TEXT NOT NULL, -- 'east', 'west', 'central'
-        home_stadium TEXT NOT NULL,
-        city TEXT NOT NULL,
-        budget INTEGER NOT NULL, -- 球団予算（万円）
         strategy TEXT NOT NULL,
-        strengths TEXT, -- JSON形式で保存
-        weaknesses TEXT, -- JSON形式で保存
-        popularity INTEGER DEFAULT 50,
-        success INTEGER DEFAULT 50,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       )

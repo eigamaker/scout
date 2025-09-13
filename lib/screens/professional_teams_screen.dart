@@ -108,14 +108,6 @@ class _ProfessionalTeamsScreenState extends State<ProfessionalTeamsScreen>
             teams = teams.where((team) => team.league == league).toList()
               ..sort((a, b) => b.totalStrength.compareTo(a.totalStrength));
             break;
-          case 'budget':
-            teams = teams.where((team) => team.league == league).toList()
-              ..sort((a, b) => b.budget.compareTo(a.budget));
-            break;
-          case 'popularity':
-            teams = teams.where((team) => team.league == league).toList()
-              ..sort((a, b) => b.popularity.compareTo(a.popularity));
-            break;
         }
 
         return ListView.builder(

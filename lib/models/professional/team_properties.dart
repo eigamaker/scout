@@ -7,9 +7,6 @@ class TeamProperties {
   final String shortName; // 略称（例：巨人、阪神）
   final League league;
   final Division division;
-  final String homeStadium; // 本拠地
-  final String city; // 所在都市
-  final int budget; // 球団予算（単位：万円）
   final List<String> needs; // 球団ニーズ
   final Map<String, int> scoutRelations; // スカウトとの関係性（0-100）
   
@@ -21,37 +18,34 @@ class TeamProperties {
   
   // 球団の特徴・戦略
   final String strategy; // 戦略（例：投手重視、打撃重視）
-  final List<String> strengths; // 強み
-  final List<String> weaknesses; // 弱み
-  
-  // 球団の評判・人気度
-  final int popularity; // 人気度（0-100）
-  final int success; // 成功度（0-100）
 
-  const TeamProperties({
+  TeamProperties({
     required this.id,
     required this.name,
     required this.shortName,
     required this.league,
     required this.division,
-    required this.homeStadium,
-    required this.city,
-    required this.budget,
     required this.needs,
     required this.scoutRelations,
     required this.draftOrder,
     required this.teamStrength,
     required this.strategy,
-    required this.strengths,
-    required this.weaknesses,
-    required this.popularity,
-    required this.success,
   });
 
-  // 球団の総合戦力を計算
+  // 球団の総合戦力を計算（従来のポジション別戦力の平均）
   int get totalStrength {
     if (teamStrength.isEmpty) return 0;
     return teamStrength.values.reduce((a, b) => a + b) ~/ teamStrength.length;
+  }
+
+  // プロ選手のoverall数値の平均を基にした戦力計算
+  // このメソッドは外部から呼び出されて、プロ選手のoverall平均値を設定する
+  int _proPlayerOverallAverage = 0;
+  
+  int get proPlayerOverallAverage => _proPlayerOverallAverage;
+  
+  void setProPlayerOverallAverage(int average) {
+    _proPlayerOverallAverage = average;
   }
 
   // 特定ポジションの戦力レベルを取得
@@ -64,14 +58,8 @@ class TeamProperties {
     return scoutRelations[scoutId] ?? 30; // デフォルトは30
   }
 
-  // 球団の予算レベルを取得
-  String get budgetLevel {
-    if (budget >= 100000) return '高予算';
-    if (budget >= 50000) return '中予算';
-    return '低予算';
-  }
 
-  // 球団の戦力レベルを取得
+  // 球団の戦力レベルを取得（従来の数値ベース）
   String get strengthLevel {
     final strength = totalStrength;
     if (strength >= 80) return '強豪';
@@ -80,13 +68,23 @@ class TeamProperties {
     return '最下位';
   }
 
+  // 球団の戦力グレードを取得（overall数値ベース）
+  String get strengthGrade {
+    // プロ選手のoverall平均値が設定されている場合はそれを使用、そうでなければ従来の計算
+    final strength = _proPlayerOverallAverage > 0 ? _proPlayerOverallAverage : totalStrength;
+    if (strength >= 120) return 'S';
+    if (strength >= 115) return 'A';
+    if (strength >= 110) return 'B';
+    if (strength >= 105) return 'C';
+    return 'D';
+  }
+
   // 球団の特徴を文字列で取得
   String get characteristics {
     final chars = <String>[];
     chars.add('${league.name == 'central' ? 'セ・リーグ' : 'パ・リーグ'}');
     chars.add('${division.name == 'east' ? '東地区' : division.name == 'west' ? '西地区' : '中地区'}');
     chars.add(strategy);
-    chars.add(budgetLevel);
     chars.add(strengthLevel);
     return chars.join(' / ');
   }
@@ -94,14 +92,9 @@ class TeamProperties {
   // 球団の詳細情報を取得
   Map<String, String> get detailedInfo {
     return {
-      '本拠地': homeStadium,
-      '所在都市': city,
-      '球団予算': '${budget}万円',
       '戦略': strategy,
-      '強み': strengths.join(', '),
-      '弱み': weaknesses.join(', '),
-      '人気度': '$popularity%',
-      '成功度': '$success%',
+      '戦力レベル': strengthLevel,
+      '戦力グレード': strengthGrade,
     };
   }
 
@@ -112,18 +105,11 @@ class TeamProperties {
     'shortName': shortName,
     'league': league.index,
     'division': division.index,
-    'homeStadium': homeStadium,
-    'city': city,
-    'budget': budget,
     'needs': needs,
     'scoutRelations': scoutRelations,
     'draftOrder': draftOrder,
     'teamStrength': teamStrength,
     'strategy': strategy,
-    'strengths': strengths,
-    'weaknesses': weaknesses,
-    'popularity': popularity,
-    'success': success,
   };
 
   factory TeamProperties.fromJson(Map<String, dynamic> json) {
@@ -133,18 +119,11 @@ class TeamProperties {
       shortName: json['shortName'] as String,
       league: League.values[json['league'] as int],
       division: Division.values[json['division'] as int],
-      homeStadium: json['homeStadium'] as String,
-      city: json['city'] as String,
-      budget: json['budget'] as int,
       needs: List<String>.from(json['needs']),
       scoutRelations: Map<String, int>.from(json['scoutRelations']),
       draftOrder: json['draftOrder'] as int,
       teamStrength: Map<String, int>.from(json['teamStrength']),
       strategy: json['strategy'] as String,
-      strengths: List<String>.from(json['strengths']),
-      weaknesses: List<String>.from(json['weaknesses']),
-      popularity: json['popularity'] as int,
-      success: json['success'] as int,
     );
   }
 
@@ -155,18 +134,11 @@ class TeamProperties {
     String? shortName,
     League? league,
     Division? division,
-    String? homeStadium,
-    String? city,
-    int? budget,
     List<String>? needs,
     Map<String, int>? scoutRelations,
     int? draftOrder,
     Map<String, int>? teamStrength,
     String? strategy,
-    List<String>? strengths,
-    List<String>? weaknesses,
-    int? popularity,
-    int? success,
   }) {
     return TeamProperties(
       id: id ?? this.id,
@@ -174,18 +146,11 @@ class TeamProperties {
       shortName: shortName ?? this.shortName,
       league: league ?? this.league,
       division: division ?? this.division,
-      homeStadium: homeStadium ?? this.homeStadium,
-      city: city ?? this.city,
-      budget: budget ?? this.budget,
       needs: needs ?? this.needs,
       scoutRelations: scoutRelations ?? this.scoutRelations,
       draftOrder: draftOrder ?? this.draftOrder,
       teamStrength: teamStrength ?? this.teamStrength,
       strategy: strategy ?? this.strategy,
-      strengths: strengths ?? this.strengths,
-      weaknesses: weaknesses ?? this.weaknesses,
-      popularity: popularity ?? this.popularity,
-      success: success ?? this.success,
     );
   }
 }
